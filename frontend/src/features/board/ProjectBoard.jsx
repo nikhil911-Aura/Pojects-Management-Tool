@@ -491,7 +491,7 @@ function ProjectBoard() {
             </DragDropContext>
           </div>
         ) : (
-          <ProjectListView lists={lists} onTaskClick={openTask} />
+          <ProjectListView lists={lists} boardId={currentProject?.board?.id} onTaskClick={openTask} />
         )}
       </div>
 

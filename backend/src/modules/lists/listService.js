@@ -110,11 +110,22 @@ export const listService = {
       orderBy: { position: 'asc' },
       include: {
         tasks: {
+          where: { parentId: null }, // only top-level tasks
           orderBy: { position: 'asc' },
           include: {
             assignees: {
               include: {
                 user: { select: { id: true, name: true, avatar: true } }
+              }
+            },
+            subtasks: {
+              orderBy: { position: 'asc' },
+              include: {
+                assignees: {
+                  include: {
+                    user: { select: { id: true, name: true, avatar: true } }
+                  }
+                }
               }
             }
           }
