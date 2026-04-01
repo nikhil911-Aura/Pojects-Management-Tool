@@ -3,17 +3,20 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../store/hooks';
 import { useRole } from '../hooks/useRole';
 import CreateProjectWizard from '../features/projects/CreateProjectWizard';
+import InviteModal from '../features/workspace/InviteModal';
 
 function Sidebar({ isOpen }) {
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
   const { currentWorkspace } = useAppSelector((state) => state.workspace);
-  const { projects } = useAppSelector((state) => state.project);
+  const { projects, loading: projectsLoading, projectsLoaded } = useAppSelector((state) => state.project);
 
-  const { canCreateProject } = useRole();
+  const { canCreateProject, canManageWorkspace } = useRole();
 
   const [showProjects, setShowProjects] = useState(true);
+  const [showTeams, setShowTeams] = useState(true);
   const [showCreateWizard, setShowCreateWizard] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   const navItems = [
     {
@@ -102,25 +105,37 @@ function Sidebar({ isOpen }) {
 
             {showProjects && (
               <div className="mt-1 space-y-0.5 animate-fade-in">
-                {projects.map((project) => (
-                  <NavLink
-                    key={project.id}
-                    to={`/project/${project.id}`}
-                    className={({ isActive }) =>
-                      `flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                        isActive
-                          ? 'bg-white/10 text-white font-medium'
-                          : 'text-[var(--asana-sidebar-text)] hover:bg-white/5 hover:text-white'
-                      }`
-                    }
-                  >
-                    <div
-                      className="w-2 h-2 rounded-sm flex-shrink-0"
-                      style={{ backgroundColor: project.color || '#4573D2' }}
-                    />
-                    <span className="truncate">{project.name}</span>
-                  </NavLink>
-                ))}
+                {/* Skeleton while loading */}
+                {(projectsLoading || !projectsLoaded) ? (
+                  <div className="space-y-1 px-3 animate-pulse">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="flex items-center space-x-2.5 py-1.5">
+                        <div className="w-2 h-2 rounded-sm bg-white/10 flex-shrink-0" />
+                        <div className="h-3 rounded bg-white/10" style={{ width: `${50 + i * 10}%` }} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  projects.map((project) => (
+                    <NavLink
+                      key={project.id}
+                      to={`/project/${project.id}`}
+                      className={({ isActive }) =>
+                        `flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                          isActive
+                            ? 'bg-white/10 text-white font-medium'
+                            : 'text-[var(--asana-sidebar-text)] hover:bg-white/5 hover:text-white'
+                        }`
+                      }
+                    >
+                      <div
+                        className="w-2 h-2 rounded-sm flex-shrink-0"
+                        style={{ backgroundColor: project.color || '#4573D2' }}
+                      />
+                      <span className="truncate">{project.name}</span>
+                    </NavLink>
+                  ))
+                )}
 
                 {/* Create project button */}
                 {canCreateProject && (
@@ -136,32 +151,61 @@ function Sidebar({ isOpen }) {
                 )}
               </div>
             )}
+          {/* ── Teams section ── */}
+          <div className="pt-5">
+            <button
+              className="w-full flex items-center justify-between px-3 py-1 group"
+              onClick={() => setShowTeams(!showTeams)}
+            >
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--asana-sidebar-text-muted)]">
+                Teams
+              </span>
+              <svg
+                className={`w-3 h-3 text-[var(--asana-sidebar-text-muted)] transition-transform duration-150 ${showTeams ? '' : '-rotate-90'}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {showTeams && currentWorkspace && (
+              <div className="mt-1 space-y-0.5 animate-fade-in">
+                <NavLink
+                  to={`/workspace/${currentWorkspace.id}`}
+                  className={({ isActive }) =>
+                    `flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                      isActive
+                        ? 'bg-white/10 text-white font-medium'
+                        : 'text-[var(--asana-sidebar-text)] hover:bg-white/5 hover:text-white'
+                    }`
+                  }
+                >
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="truncate">{currentWorkspace.name}</span>
+                  <svg className="w-3 h-3 text-[var(--asana-sidebar-text-muted)] ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </NavLink>
+              </div>
+            )}
+          </div>
           </div>
         </nav>
 
-        {/* ── Bottom: Workspace settings ── */}
-        <div
-          className="px-3 py-3 border-t border-white/5 cursor-pointer hover:bg-white/5 transition-colors"
-          onClick={() => currentWorkspace && navigate(`/workspace/${currentWorkspace.id}`)}
-        >
-          <div className="flex items-center space-x-3">
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-              style={{ backgroundColor: '#4573D2' }}
-            >
-              {user?.name?.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-[var(--asana-sidebar-text)] truncate">{user?.name}</p>
-              <p className="text-[10px] text-[var(--asana-sidebar-text-muted)] truncate">
-                {currentWorkspace?.name}
-              </p>
-            </div>
-            <svg className="w-3.5 h-3.5 text-[var(--asana-sidebar-text-muted)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        {/* ── Bottom: Invite + User ── */}
+        <div className="border-t border-white/5">
+          {/* Invite teammates */}
+          <button
+            onClick={() => setShowInviteModal(true)}
+            className="w-full flex items-center space-x-3 px-4 py-2.5 text-[var(--asana-sidebar-text-muted)] hover:bg-white/5 hover:text-white transition-colors"
+          >
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-          </div>
+            <span className="text-xs font-medium">Invite teammates</span>
+          </button>
         </div>
       </aside>
 
@@ -170,6 +214,11 @@ function Sidebar({ isOpen }) {
         isOpen={showCreateWizard}
         onClose={() => setShowCreateWizard(false)}
       />
+
+      {/* ── Invite Modal ── */}
+      {showInviteModal && currentWorkspace && (
+        <InviteModal workspaceId={currentWorkspace.id} onClose={() => setShowInviteModal(false)} />
+      )}
     </>
   );
 }

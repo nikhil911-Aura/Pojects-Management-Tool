@@ -87,6 +87,76 @@ const boardSlice = createSlice({
     },
     clearLists: (state) => {
       state.lists = [];
+    },
+    // Optimistic: instantly add a task to a list
+    optimisticAddTask: (state, action) => {
+      const { listId, task } = action.payload;
+      const list = state.lists.find(l => l.id === listId);
+      if (list) {
+        if (!list.tasks) list.tasks = [];
+        list.tasks.push(task);
+      }
+    },
+    // Optimistic: instantly add a subtask under a parent
+    optimisticAddSubtask: (state, action) => {
+      const { listId, taskId, subtask } = action.payload;
+      const list = state.lists.find(l => l.id === listId);
+      if (list) {
+        const parent = list.tasks?.find(t => t.id === taskId);
+        if (parent) {
+          if (!parent.subtasks) parent.subtasks = [];
+          parent.subtasks.push(subtask);
+        }
+      }
+    },
+    // Optimistic: instantly add a section
+    optimisticAddSection: (state, action) => {
+      const { section } = action.payload;
+      state.lists.push(section);
+    },
+    // Optimistic: update a task field in-place
+    optimisticUpdateTask: (state, action) => {
+      const { taskId, data } = action.payload;
+      for (const list of state.lists) {
+        // Check top-level tasks
+        const task = list.tasks?.find(t => t.id === taskId);
+        if (task) { Object.assign(task, data); return; }
+        // Check subtasks
+        for (const t of (list.tasks || [])) {
+          const sub = t.subtasks?.find(s => s.id === taskId);
+          if (sub) { Object.assign(sub, data); return; }
+        }
+      }
+    },
+    // Optimistic: remove a task
+    optimisticDeleteTask: (state, action) => {
+      const taskId = action.payload;
+      for (const list of state.lists) {
+        const idx = list.tasks?.findIndex(t => t.id === taskId);
+        if (idx !== undefined && idx !== -1) { list.tasks.splice(idx, 1); return; }
+        for (const t of (list.tasks || [])) {
+          const subIdx = t.subtasks?.findIndex(s => s.id === taskId);
+          if (subIdx !== undefined && subIdx !== -1) { t.subtasks.splice(subIdx, 1); return; }
+        }
+      }
+    },
+    // Optimistic: rename a section
+    optimisticRenameSection: (state, action) => {
+      const { listId, name } = action.payload;
+      const list = state.lists.find(l => l.id === listId);
+      if (list) list.name = name;
+    },
+    // Optimistic: set assignee on a task
+    optimisticAssignUser: (state, action) => {
+      const { taskId, user } = action.payload;
+      for (const list of state.lists) {
+        const task = list.tasks?.find(t => t.id === taskId);
+        if (task) { task.assignees = [{ user }]; return; }
+        for (const t of (list.tasks || [])) {
+          const sub = t.subtasks?.find(s => s.id === taskId);
+          if (sub) { sub.assignees = [{ user }]; return; }
+        }
+      }
     }
   },
   extraReducers: (builder) => {
@@ -122,5 +192,5 @@ const boardSlice = createSlice({
   }
 });
 
-export const { moveTask, clearLists } = boardSlice.actions;
+export const { moveTask, clearLists, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticRenameSection } = boardSlice.actions;
 export default boardSlice.reducer;

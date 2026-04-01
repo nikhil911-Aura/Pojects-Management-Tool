@@ -29,6 +29,13 @@ export const initSocket = (server) => {
       socket.leave(`project_${projectId}`);
     });
 
+    // Broadcast pending items to other users in the same project
+    socket.on('pending_item', (data) => {
+      if (data?.projectId) {
+        socket.to(`project_${data.projectId}`).emit('pending_item', data);
+      }
+    });
+
     socket.on('disconnect', () => {
       logger.info(`Socket disconnected: ${socket.id}`);
     });

@@ -73,3 +73,59 @@ body {
 .asana-modal {
   @apply bg-white dark:bg-gray-800 rounded-asana-lg shadow-2xl w-full max-w-md border border-asana-border dark:border-gray-700;
 }
+
+/* ═══════════════════════════════════════════
+   Responsive overrides — mobile-first fixes
+   ═══════════════════════════════════════════ */
+
+/* Sidebar overlay on mobile */
+@media (max-width: 768px) {
+  .sidebar-mobile-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  .sidebar-mobile-open {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 51;
+    width: 280px !important;
+    overflow: hidden !important;
+  }
+}
+
+/* Task detail full-width on mobile */
+@media (max-width: 640px) {
+  .task-detail-panel {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}
+
+/* Prevent body scroll when modal open on mobile */
+.body-no-scroll { overflow: hidden !important; }
+
+/* Touch-friendly tap targets */
+@media (max-width: 768px) {
+  button, a, select, input[type="date"] {
+    min-height: 36px;
+  }
+}
+
+/* Hide scrollbar utility */
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Mobile-friendly modals */
+@media (max-width: 640px) {
+  .asana-modal-overlay { padding: 0.5rem; }
+  .asana-modal { max-width: 100%; border-radius: 12px; }
+}
+
+/* Responsive table cells on mobile */
+@media (max-width: 640px) {
+  .responsive-hide-sm { display: none !important; }
+}

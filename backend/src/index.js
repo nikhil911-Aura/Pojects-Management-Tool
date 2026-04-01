@@ -15,6 +15,7 @@ import taskRoutes from './modules/tasks/taskRoutes.js';
 import commentRoutes from './modules/comments/commentRoutes.js';
 import activityRoutes from './modules/activity/activityRoutes.js';
 import inviteRoutes from './modules/invites/inviteRoutes.js';
+import customFieldRoutes from './modules/customFields/customFieldRoutes.js';
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/api/v1/tasks', taskRoutes);
 app.use('/api/v1/comments', commentRoutes);
 app.use('/api/v1/activities', activityRoutes);
 app.use('/api/v1/invites', inviteRoutes);
+app.use('/api/v1/custom-fields', customFieldRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

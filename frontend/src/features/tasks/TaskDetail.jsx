@@ -1,88 +1,240 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchTask, updateTask, createSubtask, deleteTask, addAttachment, removeAttachment } from '../../store/slices/taskSlice';
+import { fetchTask, updateTask, createSubtask, deleteTask, assignUser, addAttachment, removeAttachment } from '../../store/slices/taskSlice';
+import { optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser } from '../../store/slices/boardSlice';
 import api from '../../services/api';
 import { useRole } from '../../hooks/useRole';
 
 const STATUS_OPTIONS = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'];
+const STATUS_LABELS = { TODO: 'To do', IN_PROGRESS: 'In progress', REVIEW: 'Review', DONE: 'Completed' };
 const STATUS_COLORS = {
-  TODO: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
-  IN_PROGRESS: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  REVIEW: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-  DONE: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  TODO: 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200',
+  IN_PROGRESS: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  REVIEW: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+  DONE: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+};
+const PRIORITY_COLORS = {
+  HIGH: 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400',
+  MEDIUM: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400',
+  LOW: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400',
 };
 
-function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose }) {
+function formatTime(minutes) {
+  if (minutes == null) return null;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h 00m`;
+  return `${h}h ${String(m).padStart(2, '0')}m`;
+}
+
+function parseTime(input) {
+  if (!input || !input.trim()) return null;
+  const str = input.trim().toLowerCase();
+  const hm = str.match(/^(\d+)\s*h\s*(\d+)\s*m?$/);
+  if (hm) return parseInt(hm[1]) * 60 + parseInt(hm[2]);
+  const hOnly = str.match(/^(\d+)\s*h$/);
+  if (hOnly) return parseInt(hOnly[1]) * 60;
+  const mOnly = str.match(/^(\d+)\s*m$/);
+  if (mOnly) return parseInt(mOnly[1]);
+  const num = parseInt(str);
+  if (!isNaN(num)) return num;
+  return null;
+}
+
+/* ── Assignee Picker for task detail ── */
+function DetailAssigneePicker({ taskId, members, onClose, onDone, onOptimisticAssign }) {
+  const dispatch = useAppDispatch();
+  const ref = useRef(null);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const filtered = (members || []).filter(m =>
+    (m.user?.name || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleAssign = (userId) => {
+    const user = (members || []).map(m => m.user || m).find(u => u.id === userId);
+    if (user) {
+      onOptimisticAssign?.(user);
+      dispatch(optimisticAssignUser({ taskId, user }));
+    }
+    onClose();
+    dispatch(assignUser({ taskId, userId })).then(() => onDone());
+  };
+
+  return (
+    <div ref={ref} className="absolute z-50 top-full left-0 mt-1 w-60 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl animate-fade-in">
+      <div className="p-2">
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search people..."
+          autoFocus className="w-full px-2.5 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 rounded-md border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400" />
+      </div>
+      <div className="max-h-44 overflow-y-auto">
+        {/* Unassign option */}
+        <button onClick={() => handleAssign(null)} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-xs text-[var(--asana-text-secondary)]">
+          <div className="w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center mr-2.5">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </div>
+          No assignee
+        </button>
+        {filtered.map((m) => {
+          const u = m.user || m;
+          return (
+            <button key={u.id} onClick={() => handleAssign(u.id)}
+              className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold mr-2.5"
+                style={{ backgroundColor: `hsl(${u.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                {u.name?.charAt(0).toUpperCase()}
+              </div>
+              <span className="text-xs text-[var(--asana-text-primary)] truncate">{u.name}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ── Editable Time Field ── */
+function TimeField({ label, taskId, field, value, canEdit, onUpdate, onOptimistic }) {
+  const dispatch = useAppDispatch();
+  const [editing, setEditing] = useState(false);
+  const [input, setInput] = useState('');
+
+  const startEdit = () => { if (!canEdit) return; setInput(value != null ? formatTime(value) : ''); setEditing(true); };
+  const save = () => {
+    const mins = parseTime(input);
+    onOptimistic?.(field, mins);
+    dispatch(optimisticUpdateTask({ taskId, data: { [field]: mins } }));
+    setEditing(false);
+    dispatch(updateTask({ taskId, data: { [field]: mins } })).then(() => onUpdate());
+  };
+
+  return (
+    <div className="flex items-center">
+      <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">{label}</span>
+      {editing ? (
+        <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="e.g. 1h 30m" autoFocus
+          className="bg-transparent border-b border-asana-blue/40 py-1 px-1.5 text-sm text-[var(--asana-text-primary)] outline-none flex-1"
+          onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }} />
+      ) : (
+        <span onClick={startEdit}
+          className={`text-sm p-1.5 rounded transition-colors flex-1 ${canEdit ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : ''} ${value != null ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)]'}`}>
+          {value != null ? formatTime(value) : 'No time set'}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   TaskDetail Component
+   ═══════════════════════════════════════════ */
+function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTask = null }) {
   const { taskId: paramTaskId } = useParams();
   const taskId = propTaskId || paramTaskId;
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { currentTask, loading } = useAppSelector((state) => state.task);
+  const { currentTask } = useAppSelector((state) => state.task);
+  const { currentProject } = useAppSelector((state) => state.project);
   const { user } = useAppSelector((state) => state.auth);
   const { canEdit, canComment } = useRole();
+  const members = currentProject?.members || [];
+
+  const baseTask = (currentTask?.id === taskId ? currentTask : null) || previewTask;
+  const isFullyLoaded = currentTask?.id === taskId;
+
+  // Local optimistic overlay — merges over fetched data for instant UI
+  const [optimistic, setOptimistic] = useState({});
+  const task = baseTask ? { ...baseTask, ...optimistic } : null;
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [title, setTitle] = useState(task?.title || '');
+  const [description, setDescription] = useState(task?.description || '');
   const [newSubtask, setNewSubtask] = useState('');
   const [newComment, setNewComment] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [showAssigneePicker, setShowAssigneePicker] = useState(false);
+  const [activeTab, setActiveTab] = useState('comments');
+  const [localComments, setLocalComments] = useState(null); // optimistic comments
+  const [localSubtasks, setLocalSubtasks] = useState(null); // optimistic subtasks
 
   useEffect(() => {
     if (taskId) dispatch(fetchTask(taskId));
+    setOptimistic({});
+    setLocalComments(null);
+    setLocalSubtasks(null);
   }, [taskId, dispatch]);
 
   useEffect(() => {
-    if (currentTask) {
+    if (currentTask?.id === taskId) {
       setTitle(currentTask.title);
       setDescription(currentTask.description || '');
+      setOptimistic({});
+      setLocalComments(null);
+      setLocalSubtasks(null);
     }
-  }, [currentTask]);
+  }, [currentTask, taskId]);
 
+  // Optimistic update — instant UI + background API + board sync
   const handleUpdate = (field, value) => {
+    setOptimistic(prev => ({ ...prev, [field]: value }));
+    dispatch(optimisticUpdateTask({ taskId, data: { [field]: value } }));
     dispatch(updateTask({ taskId, data: { [field]: value } }));
   };
+
+  const refetchTask = () => dispatch(fetchTask(taskId));
 
   const handleAddSubtask = (e) => {
     e.preventDefault();
     if (!newSubtask.trim()) return;
-    dispatch(createSubtask({ listId: currentTask.listId, taskId, subtaskData: { title: newSubtask } }))
-      .then(() => setNewSubtask(''));
+    const tempSubtask = { id: `temp-${Date.now()}`, title: newSubtask.trim(), status: 'TODO', assignees: [], subtasks: [] };
+    setLocalSubtasks(prev => [...(prev || task?.subtasks || []), tempSubtask]);
+    setNewSubtask('');
+    dispatch(createSubtask({ listId: task.listId || task.list?.id, taskId, subtaskData: { title: tempSubtask.title } }))
+      .then(() => refetchTask());
   };
 
   const handleAddComment = (e) => {
     e.preventDefault();
     if (!newComment.trim()) return;
-    api.post(`/api/v1/comments/task/${taskId}`, { content: newComment }).then(() => {
-      setNewComment('');
-      dispatch(fetchTask(taskId));
-    });
+    const tempComment = { id: `temp-${Date.now()}`, content: newComment.trim(), user: { id: user?.id, name: user?.name }, createdAt: new Date().toISOString(), userId: user?.id };
+    setLocalComments(prev => [tempComment, ...(prev || task?.comments || [])]);
+    const content = newComment.trim();
+    setNewComment('');
+    api.post(`/api/v1/comments/task/${taskId}`, { content }).then(() => refetchTask());
+  };
+
+  const handleDeleteComment = (commentId) => {
+    setLocalComments(prev => (prev || task?.comments || []).filter(c => c.id !== commentId));
+    api.delete(`/api/v1/comments/${commentId}`).then(() => refetchTask());
   };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setIsUploading(true);
-    try {
-      await dispatch(addAttachment({ taskId, file })).unwrap();
-    } catch (err) {
-      console.error('Upload failed:', err);
-    } finally {
-      setIsUploading(false);
-    }
+    try { await dispatch(addAttachment({ taskId, file })).unwrap(); refetchTask(); }
+    catch (err) { console.error('Upload failed:', err); }
+    finally { setIsUploading(false); }
   };
 
   const handleDeleteTask = () => {
     if (window.confirm('Delete this task?')) {
-      dispatch(deleteTask(taskId)).then(() => {
-        if (isEmbedded) onClose();
-        else navigate(-1);
-      });
+      dispatch(optimisticDeleteTask(taskId));
+      if (isEmbedded) onClose();
+      else navigate(-1);
+      dispatch(deleteTask(taskId));
     }
   };
 
-  if (loading || !currentTask) {
+  if (!task) {
     return (
       <div className="flex items-center justify-center h-full p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-asana-blue" />
@@ -90,37 +242,40 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose }) {
     );
   }
 
+  const projectName = task.list?.board?.project?.name || currentProject?.name || '';
+
   return (
     <div className={`flex flex-col h-full bg-[var(--asana-surface)] ${!isEmbedded ? 'max-w-3xl mx-auto my-8 shadow-2xl rounded-asana-lg border border-[var(--asana-border)]' : ''}`}>
       {/* ── Header ── */}
-      <div className="px-6 py-4 border-b border-[var(--asana-border)] flex items-center justify-between sticky top-0 bg-[var(--asana-surface)] z-10">
-        <div className="flex items-center space-x-2">
+      <div className="px-6 py-3 border-b border-[var(--asana-border)] flex items-center justify-between sticky top-0 bg-[var(--asana-surface)] z-10">
+        <div className="flex items-center space-x-3">
+          {/* Breadcrumb */}
+          <span className="text-[11px] text-[var(--asana-text-secondary)] truncate max-w-[200px]">
+            {projectName} {task.list?.name ? `› ${task.list.name}` : ''}
+          </span>
+        </div>
+        <div className="flex items-center space-x-1">
           <button
-            onClick={() => canEdit && handleUpdate('status', currentTask.status === 'DONE' ? 'TODO' : 'DONE')}
+            onClick={() => canEdit && handleUpdate('status', task.status === 'DONE' ? 'TODO' : 'DONE')}
             disabled={!canEdit}
-            className={`flex items-center px-3 py-1.5 rounded-asana border text-sm font-medium transition-all ${
-              currentTask.status === 'DONE'
-                ? 'bg-green-500 text-white border-green-500'
-                : 'text-[var(--asana-text-secondary)] border-[var(--asana-border)]'
-            } ${canEdit && currentTask.status !== 'DONE' ? 'hover:border-green-400 hover:text-green-600 dark:hover:text-green-400' : ''} ${!canEdit ? 'cursor-default' : ''}`}
+            className={`flex items-center px-3 py-1.5 rounded-md border text-xs font-semibold transition-all ${
+              task.status === 'DONE' ? 'bg-green-500 text-white border-green-500' : 'text-[var(--asana-text-secondary)] border-[var(--asana-border)] hover:border-green-400 hover:text-green-500'
+            } ${!canEdit ? 'cursor-default opacity-70' : ''}`}
           >
-            <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
             </svg>
-            {currentTask.status === 'DONE' ? 'Completed' : 'Mark Complete'}
+            {task.status === 'DONE' ? 'Completed' : 'Mark complete'}
           </button>
-        </div>
-
-        <div className="flex items-center space-x-1">
           {canEdit && (
-            <button onClick={handleDeleteTask} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full text-[var(--asana-text-secondary)] hover:text-red-500 transition-colors" title="Delete task">
+            <button onClick={handleDeleteTask} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-[var(--asana-text-secondary)] hover:text-red-500 transition-colors" title="Delete">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
           )}
           {isEmbedded && (
-            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-[var(--asana-text-secondary)] transition-colors">
+            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-[var(--asana-text-secondary)] transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -129,253 +284,295 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* ── Title ── */}
-        <div>
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-6 space-y-5">
+          {/* ── Title ── */}
           {canEdit && isEditingTitle ? (
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onBlur={() => {
-                setIsEditingTitle(false);
-                if (title !== currentTask.title) handleUpdate('title', title);
-              }}
-              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { setTitle(currentTask.title); setIsEditingTitle(false); } }}
-              className="text-xl font-bold w-full bg-transparent border-none p-0 focus:ring-0 text-[var(--asana-text-primary)] outline-none"
-              autoFocus
-            />
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+              onBlur={() => { setIsEditingTitle(false); if (title !== task.title) handleUpdate('title', title); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { setTitle(task.title); setIsEditingTitle(false); } }}
+              className="text-xl font-bold w-full bg-transparent border-none p-0 focus:ring-0 text-[var(--asana-text-primary)] outline-none" autoFocus />
           ) : (
-            <h1
-              onClick={() => canEdit && setIsEditingTitle(true)}
-              className={`text-xl font-bold text-[var(--asana-text-primary)] rounded px-1 -ml-1 transition-colors min-h-[1.5em] ${canEdit ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : ''}`}
-            >
-              {currentTask.title}
+            <h1 onClick={() => canEdit && setIsEditingTitle(true)}
+              className={`text-xl font-bold text-[var(--asana-text-primary)] rounded px-1 -ml-1 min-h-[1.5em] ${canEdit ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : ''}`}>
+              {task.title}
             </h1>
           )}
-        </div>
 
-        {/* ── Metadata ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-          {/* Assignee */}
-          <div className="flex items-center">
-            <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Assignee</span>
-            <div className="flex items-center space-x-2 p-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-colors cursor-pointer flex-1 min-w-0">
-              {currentTask.assignees?.length > 0 ? (
-                <>
-                  <div className="w-6 h-6 rounded-full bg-asana-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                    {currentTask.assignees[0].user.name.charAt(0).toUpperCase()}
+          {/* ── Fields grid ── */}
+          <div className="space-y-3">
+            {/* Assignee */}
+            <div className="flex items-center relative">
+              <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Assignee</span>
+              <button onClick={() => canEdit && setShowAssigneePicker(true)}
+                className={`flex items-center space-x-2 p-1.5 rounded transition-colors flex-1 min-w-0 ${canEdit ? 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer' : ''}`}>
+                {task.assignees?.length > 0 ? (
+                  <>
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                      style={{ backgroundColor: `hsl(${task.assignees[0].user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                      {task.assignees[0].user?.name?.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm text-[var(--asana-text-primary)] truncate">{task.assignees[0].user?.name}</span>
+                  </>
+                ) : (
+                  <div className="flex items-center space-x-2 text-[var(--asana-text-secondary)]">
+                    <div className="w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                    </div>
+                    <span className="text-xs">No assignee</span>
                   </div>
-                  <span className="text-sm text-[var(--asana-text-primary)] truncate">{currentTask.assignees[0].user.name}</span>
-                </>
-              ) : (
-                <div className="flex items-center space-x-2 text-[var(--asana-text-secondary)]">
-                  <div className="w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-xs">?</div>
-                  <span className="text-xs">No assignee</span>
+                )}
+              </button>
+              {showAssigneePicker && (
+                <DetailAssigneePicker taskId={taskId} members={members}
+                  onClose={() => setShowAssigneePicker(false)} onDone={refetchTask}
+                  onOptimisticAssign={(user) => setOptimistic(prev => ({ ...prev, assignees: [{ user }] }))} />
+              )}
+            </div>
+
+            {/* Due Date */}
+            <div className="flex items-center">
+              <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Due date</span>
+              <div className="flex items-center p-1.5 rounded transition-colors flex-1">
+                <svg className="w-4 h-4 text-[var(--asana-text-secondary)] mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <input type="date" value={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => canEdit && handleUpdate('dueDate', e.target.value || null)} readOnly={!canEdit}
+                  className={`bg-transparent border-none p-0 text-sm text-[var(--asana-text-primary)] focus:ring-0 flex-1 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`} />
+              </div>
+            </div>
+
+            {/* Priority */}
+            <div className="flex items-center">
+              <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Priority</span>
+              <select value={task.priority || 'LOW'} onChange={(e) => handleUpdate('priority', e.target.value)} disabled={!canEdit}
+                className={`bg-transparent border-none p-1.5 rounded text-xs font-semibold focus:ring-0 ${PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.LOW} ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
+              </select>
+            </div>
+
+            {/* Status */}
+            <div className="flex items-center">
+              <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Status</span>
+              <select value={task.status || 'TODO'} onChange={(e) => handleUpdate('status', e.target.value)} disabled={!canEdit}
+                className={`border-none p-1.5 rounded text-xs font-semibold focus:ring-0 ${STATUS_COLORS[task.status] || STATUS_COLORS.TODO} ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
+                {STATUS_OPTIONS.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+              </select>
+            </div>
+
+            {/* Section */}
+            <div className="flex items-center">
+              <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Section</span>
+              <span className="text-sm text-[var(--asana-text-primary)] p-1.5">{task.list?.name || '—'}</span>
+            </div>
+
+            {/* Estimated time */}
+            <TimeField label="Estimated time" taskId={taskId} field="estimatedTime" value={task.estimatedTime} canEdit={canEdit} onUpdate={refetchTask} onOptimistic={(f, v) => setOptimistic(prev => ({ ...prev, [f]: v }))} />
+
+            {/* Actual time */}
+            <TimeField label="Actual time" taskId={taskId} field="actualTime" value={task.actualTime} canEdit={canEdit} onUpdate={refetchTask} onOptimistic={(f, v) => setOptimistic(prev => ({ ...prev, [f]: v }))} />
+
+            {/* Created */}
+            {task.createdAt && (
+              <div className="flex items-center">
+                <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Created</span>
+                <span className="text-xs text-[var(--asana-text-secondary)] p-1.5">
+                  {new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* ── Description ── */}
+          <div className="pt-4 border-t border-[var(--asana-border)]">
+            <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-2">Description</h3>
+            <textarea placeholder={canEdit ? 'What is this task about?' : ''} value={description}
+              onChange={(e) => canEdit && setDescription(e.target.value)}
+              onBlur={() => canEdit && description !== (task.description || '') && handleUpdate('description', description)}
+              readOnly={!canEdit}
+              className={`w-full bg-[var(--asana-bg)] border border-[var(--asana-border)] p-3 text-sm text-[var(--asana-text-primary)] placeholder-gray-400 rounded-lg min-h-[80px] resize-none transition-all outline-none ${canEdit ? 'focus:ring-1 focus:ring-asana-blue/30 focus:border-asana-blue/30' : 'cursor-default'}`} />
+          </div>
+
+          {/* ── Subtasks ── */}
+          <div className="pt-4 border-t border-[var(--asana-border)]">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">
+                Subtasks {(localSubtasks || task.subtasks)?.length > 0 && <span className="ml-1 font-normal">{(localSubtasks || task.subtasks).filter(s => s.status === 'DONE').length}/{(localSubtasks || task.subtasks).length}</span>}
+              </h3>
+            </div>
+            <div className="space-y-1">
+              {(localSubtasks || task.subtasks)?.map((sub) => (
+                <div key={sub.id} className="flex items-center space-x-3 py-1.5 px-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/30 group transition-colors">
+                  <button onClick={() => {
+                    const newStatus = sub.status === 'DONE' ? 'TODO' : 'DONE';
+                    setLocalSubtasks(prev => (prev || task.subtasks || []).map(s => s.id === sub.id ? { ...s, status: newStatus } : s));
+                    dispatch(optimisticUpdateTask({ taskId: sub.id, data: { status: newStatus } }));
+                    dispatch(updateTask({ taskId: sub.id, data: { status: newStatus } })).then(refetchTask);
+                  }}
+                    className={`w-[16px] h-[16px] rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                      sub.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
+                    }`}>
+                    {sub.status === 'DONE' && <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                  </button>
+                  <span className={`text-sm flex-1 ${sub.status === 'DONE' ? 'line-through text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>{sub.title}</span>
+                  {sub.assignees?.length > 0 && (
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0"
+                      style={{ backgroundColor: `hsl(${sub.assignees[0].user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                      {sub.assignees[0].user?.name?.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  {canEdit && (
+                    <button onClick={() => {
+                      setLocalSubtasks(prev => (prev || task.subtasks || []).filter(s => s.id !== sub.id));
+                      dispatch(optimisticDeleteTask(sub.id));
+                      dispatch(deleteTask(sub.id)).then(refetchTask);
+                    }}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  )}
                 </div>
+              ))}
+              {canEdit && (
+                <form onSubmit={handleAddSubtask} className="flex items-center space-x-3 py-1.5 px-2">
+                  <svg className="w-4 h-4 text-[var(--asana-text-secondary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <input type="text" placeholder="Add subtask..." value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)}
+                    className="flex-1 bg-transparent border-none py-0 text-sm focus:ring-0 text-[var(--asana-text-primary)] placeholder-gray-400 outline-none" />
+                </form>
               )}
             </div>
           </div>
 
-          {/* Due Date */}
-          <div className="flex items-center">
-            <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Due date</span>
-            <input
-              type="date"
-              value={currentTask.dueDate ? new Date(currentTask.dueDate).toISOString().split('T')[0] : ''}
-              onChange={(e) => canEdit && handleUpdate('dueDate', e.target.value)}
-              readOnly={!canEdit}
-              className={`bg-transparent border-none p-1.5 rounded text-sm text-[var(--asana-text-primary)] focus:ring-0 transition-colors flex-1 ${canEdit ? 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer' : 'cursor-default'}`}
-            />
-          </div>
-
-          {/* Priority */}
-          <div className="flex items-center">
-            <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Priority</span>
-            <select
-              value={currentTask.priority}
-              onChange={(e) => handleUpdate('priority', e.target.value)}
-              disabled={!canEdit}
-              className={`bg-transparent border-none p-1.5 rounded text-sm text-[var(--asana-text-primary)] focus:ring-0 transition-colors flex-1 ${canEdit ? 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer' : 'cursor-default opacity-80'}`}
-            >
-              <option value="LOW">Low</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HIGH">High</option>
-            </select>
-          </div>
-
-          {/* Status */}
-          <div className="flex items-center">
-            <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Status</span>
-            <select
-              value={currentTask.status}
-              onChange={(e) => handleUpdate('status', e.target.value)}
-              disabled={!canEdit}
-              className={`border-none p-1.5 rounded text-xs font-medium focus:ring-0 transition-colors ${STATUS_COLORS[currentTask.status]} ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}
-            >
-              {STATUS_OPTIONS.map(s => (
-                <option key={s} value={s}>{s.replace('_', ' ')}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* List */}
-          <div className="flex items-center">
-            <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Section</span>
-            <span className="text-sm text-[var(--asana-text-primary)] p-1.5">{currentTask.list?.name || '—'}</span>
-          </div>
-        </div>
-
-        {/* ── Description ── */}
-        <div className="pt-2 border-t border-[var(--asana-border)]">
-          <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-2">Description</h3>
-          <textarea
-            placeholder={canEdit ? 'Add more detail to this task...' : ''}
-            value={description}
-            onChange={(e) => canEdit && setDescription(e.target.value)}
-            onBlur={() => canEdit && description !== currentTask.description && handleUpdate('description', description)}
-            readOnly={!canEdit}
-            className={`w-full bg-transparent border-none p-1.5 text-sm text-[var(--asana-text-primary)] placeholder-gray-400 dark:placeholder-gray-600 rounded min-h-[80px] resize-none transition-all ${canEdit ? 'focus:ring-1 focus:ring-asana-blue/20' : 'cursor-default'}`}
-          />
-        </div>
-
-        {/* ── Subtasks ── */}
-        <div className="pt-2 border-t border-[var(--asana-border)]">
-          <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-3">Subtasks</h3>
-          <div className="space-y-2">
-            {currentTask.subtasks?.map((subtask) => (
-              <div key={subtask.id} className="flex items-center space-x-3 group">
-                <button
-                  onClick={() => dispatch(updateTask({ taskId: subtask.id, data: { status: subtask.status === 'DONE' ? 'TODO' : 'DONE' } }))}
-                  className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                    subtask.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
-                  }`}
-                >
-                  {subtask.status === 'DONE' && (
-                    <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </button>
-                <span className={`text-sm flex-1 ${subtask.status === 'DONE' ? 'line-through text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>
-                  {subtask.title}
-                </span>
-                {canEdit && (
-                  <button
-                    onClick={() => dispatch(deleteTask(subtask.id))}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
+          {/* ── Attachments ── */}
+          <div className="pt-4 border-t border-[var(--asana-border)]">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Attachments</h3>
+              {canEdit && (
+                <label className={`cursor-pointer text-xs font-medium text-asana-blue hover:underline ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+                  {isUploading ? 'Uploading...' : '+ Add file'}
+                </label>
+              )}
+            </div>
+            {task.attachments?.length > 0 && (
+              <div className="space-y-2">
+                {task.attachments.map((att) => (
+                  <div key={att.id} className="flex items-center p-2.5 border border-[var(--asana-border)] rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 group transition-all">
+                    <div className="w-8 h-8 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center mr-3 text-[var(--asana-text-secondary)] flex-shrink-0">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[var(--asana-text-primary)] truncate block hover:text-asana-blue">{att.filename}</a>
+                      <span className="text-[10px] text-[var(--asana-text-secondary)]">{(att.size / 1024).toFixed(1)} KB</span>
+                    </div>
+                    {canEdit && (
+                      <button onClick={() => dispatch(removeAttachment({ taskId, attachmentId: att.id }))}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-            {canEdit && (
-              <form onSubmit={handleAddSubtask} className="mt-2">
-                <input
-                  type="text"
-                  placeholder="Add a subtask..."
-                  value={newSubtask}
-                  onChange={(e) => setNewSubtask(e.target.value)}
-                  className="w-full bg-transparent border-b border-transparent focus:border-asana-blue/40 py-1 text-sm focus:ring-0 transition-all text-[var(--asana-text-primary)] placeholder-gray-400 dark:placeholder-gray-600 outline-none"
-                />
-              </form>
             )}
           </div>
-        </div>
 
-        {/* ── Attachments ── */}
-        <div className="pt-2 border-t border-[var(--asana-border)]">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Attachments</h3>
-            {canEdit && (
-              <label className={`cursor-pointer text-xs font-medium text-asana-blue hover:text-asana-blue-dark transition-colors ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
-                {isUploading ? 'Uploading...' : '+ Add file'}
-              </label>
-            )}
-          </div>
-          {currentTask.attachments?.length > 0 && (
-            <div className="grid grid-cols-2 gap-2">
-              {currentTask.attachments.map((attachment) => (
-                <div key={attachment.id} className="flex items-center p-2 border border-[var(--asana-border)] rounded-asana hover:bg-gray-50 dark:hover:bg-gray-800 group transition-all">
-                  <div className="w-8 h-8 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center mr-2.5 text-[var(--asana-text-secondary)] flex-shrink-0">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="block text-xs font-medium text-[var(--asana-text-primary)] truncate hover:text-asana-blue">
-                      {attachment.filename}
-                    </a>
-                    <span className="text-[10px] text-[var(--asana-text-secondary)]">{(attachment.size / 1024).toFixed(1)} KB</span>
-                  </div>
-                  {canEdit && (
-                    <button onClick={() => dispatch(removeAttachment({ taskId, attachmentId: attachment.id }))} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+          {/* ── Comments & Activity ── */}
+          <div className="pt-4 border-t border-[var(--asana-border)]">
+            {/* Tabs */}
+            <div className="flex items-center space-x-4 mb-4">
+              <button onClick={() => setActiveTab('comments')}
+                className={`text-xs font-bold pb-1.5 border-b-2 transition-colors ${activeTab === 'comments' ? 'border-asana-blue text-[var(--asana-text-primary)]' : 'border-transparent text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)]'}`}>
+                Comments
+              </button>
+              <button onClick={() => setActiveTab('activity')}
+                className={`text-xs font-bold pb-1.5 border-b-2 transition-colors ${activeTab === 'activity' ? 'border-asana-blue text-[var(--asana-text-primary)]' : 'border-transparent text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)]'}`}>
+                All activity
+              </button>
+            </div>
+
+            {/* Comment input */}
+            {canComment && activeTab === 'comments' && (
+              <div className="flex space-x-3 mb-4">
+                <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
+                  style={{ backgroundColor: `hsl(${user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                  {user?.name?.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 border border-[var(--asana-border)] rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-asana-blue/30 focus-within:border-asana-blue/30 transition-all bg-[var(--asana-bg)]">
+                  <textarea placeholder="Add a comment..." value={newComment} onChange={(e) => setNewComment(e.target.value)}
+                    className="w-full bg-transparent p-3 text-sm focus:ring-0 resize-none min-h-[60px] border-none text-[var(--asana-text-primary)] placeholder-gray-400 outline-none" />
+                  {newComment.trim() && (
+                    <div className="flex justify-end px-3 pb-2">
+                      <button onClick={handleAddComment} className="asana-button-primary text-xs py-1 px-3">Comment</button>
+                    </div>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── Activity & Comments ── */}
-        <div className="pt-2 border-t border-[var(--asana-border)]">
-          <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-4">Activity</h3>
-
-          {/* Comment input — EDITOR or COMMENTER */}
-          {canComment && (
-            <div className="flex space-x-3 mb-5">
-              <div className="w-7 h-7 rounded-full bg-asana-blue flex-shrink-0 flex items-center justify-center text-white text-xs font-bold">
-                {user?.name?.charAt(0).toUpperCase()}
               </div>
-              <div className="flex-1 border border-[var(--asana-border)] rounded-asana overflow-hidden focus-within:ring-2 focus-within:ring-asana-blue/20 focus-within:border-asana-blue/30 transition-all bg-[var(--asana-bg)]">
-                <textarea
-                  placeholder="Write a comment..."
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  className="w-full bg-transparent p-3 text-sm focus:ring-0 resize-none min-h-[70px] border-none text-[var(--asana-text-primary)] placeholder-gray-400 dark:placeholder-gray-600 outline-none"
-                />
-                {newComment.trim() && (
-                  <div className="flex justify-end px-3 pb-2">
-                    <button onClick={handleAddComment} className="asana-button-primary text-xs py-1 px-3">
-                      Comment
-                    </button>
+            )}
+
+            {/* Comments list */}
+            {activeTab === 'comments' && (isFullyLoaded || localComments) && (
+              <div className="space-y-4">
+                {(localComments || task.comments || []).map((comment) => (
+                  <div key={comment.id} className="flex space-x-3 group">
+                    <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
+                      style={{ backgroundColor: `hsl(${comment.user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                      {comment.user?.name?.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-semibold text-[var(--asana-text-primary)]">{comment.user?.name}</span>
+                        <span className="text-[10px] text-[var(--asana-text-secondary)]">{new Date(comment.createdAt).toLocaleString()}</span>
+                        {(canEdit || comment.userId === user?.id) && (
+                          <button onClick={() => handleDeleteComment(comment.id)}
+                            className="opacity-0 group-hover:opacity-100 text-[var(--asana-text-secondary)] hover:text-red-500 transition-all">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-sm text-[var(--asana-text-primary)] mt-0.5 whitespace-pre-wrap">{comment.content}</p>
+                    </div>
                   </div>
+                ))}
+                {(localComments || task.comments || []).length === 0 && (
+                  <p className="text-xs text-[var(--asana-text-secondary)] text-center py-4">No comments yet</p>
                 )}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Activity log */}
-          {currentTask.activityLogs?.length > 0 && (
-            <div className="space-y-3 pl-10 relative">
-              <div className="absolute left-[13px] top-2 bottom-2 w-px bg-[var(--asana-border)]" />
-              {currentTask.activityLogs.map((log) => (
-                <div key={log.id} className="relative">
-                  <div className="absolute left-[-28px] top-1 w-5 h-5 rounded-full bg-[var(--asana-surface)] border border-[var(--asana-border)] flex items-center justify-center z-10">
-                    <div className="w-1.5 h-1.5 rounded-full bg-asana-blue/40" />
+            {/* Activity log */}
+            {activeTab === 'activity' && isFullyLoaded && (
+              <div className="space-y-3">
+                {(task.activityLogs || []).map((log) => (
+                  <div key={log.id} className="flex items-start space-x-3">
+                    <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--asana-text-secondary)]" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-[var(--asana-text-primary)]">
+                        <span className="font-semibold">{log.user?.name}</span>
+                        <span className="text-[var(--asana-text-secondary)] ml-1">
+                          {log.action === 'TASK_CREATED' ? 'created this task' :
+                           log.action === 'TASK_UPDATED' ? 'updated this task' :
+                           log.action === 'SUBTASK_CREATED' ? 'added a subtask' :
+                           log.action.toLowerCase().replace(/_/g, ' ')}
+                        </span>
+                      </p>
+                      <p className="text-[10px] text-[var(--asana-text-secondary)]">{new Date(log.createdAt).toLocaleString()}</p>
+                    </div>
                   </div>
-                  <p className="text-sm text-[var(--asana-text-primary)]">
-                    <span className="font-semibold">{log.user?.name}</span>
-                    <span className="text-[var(--asana-text-secondary)] ml-1">
-                      {log.action === 'TASK_CREATED' ? 'created this task' :
-                       log.action === 'TASK_UPDATED' ? 'updated this task' :
-                       log.action === 'SUBTASK_CREATED' ? 'added a subtask' :
-                       log.action.toLowerCase().replace(/_/g, ' ')}
-                    </span>
-                  </p>
-                  <p className="text-[10px] text-[var(--asana-text-secondary)] mt-0.5">
-                    {new Date(log.createdAt).toLocaleString()}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+                {(task.activityLogs || []).length === 0 && (
+                  <p className="text-xs text-[var(--asana-text-secondary)] text-center py-4">No activity yet</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

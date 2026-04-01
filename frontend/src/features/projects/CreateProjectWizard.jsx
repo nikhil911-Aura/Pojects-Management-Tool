@@ -85,27 +85,32 @@ function CreateProjectWizard({ isOpen, onClose }) {
   };
 
   const handleCreate = async () => {
-    if (!currentWorkspace?.id || !projectData.name.trim()) return;
+    if (!currentWorkspace?.id || !projectData.name.trim() || creating) return;
     setCreating(true);
 
-    // Map SHARED → PUBLIC for backend (backend only knows PUBLIC/PRIVATE)
     const backendVisibility = projectData.visibility === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC';
+    const isPrivate = projectData.visibility === 'PRIVATE';
 
-    const result = await dispatch(createProject({
-      workspaceId: currentWorkspace.id,
-      projectData: {
-        ...projectData,
-        visibility: backendVisibility,
-        views: Object.keys(selectedViews).filter((k) => selectedViews[k]),
-      },
-    }));
-    setCreating(false);
+    try {
+      const result = await dispatch(createProject({
+        workspaceId: currentWorkspace.id,
+        projectData: {
+          name: projectData.name.trim(),
+          description: projectData.description?.trim() || undefined,
+          color: projectData.color,
+          visibility: backendVisibility,
+          views: Object.keys(selectedViews).filter((k) => selectedViews[k]),
+        },
+      })).unwrap();
 
-    if (result.payload) {
       onClose();
       resetForm();
-      const dest = `/project/${result.payload.id}`;
-      navigate(projectData.visibility === 'PRIVATE' ? `${dest}?share=1` : dest);
+      const dest = `/project/${result.id}`;
+      navigate(isPrivate ? `${dest}?share=1` : dest);
+    } catch (err) {
+      console.error('Failed to create project:', err);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -134,9 +139,9 @@ function CreateProjectWizard({ isOpen, onClose }) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && handleClose()}>
       {step === 1 ? (
         /* ── STEP 1: Project details ── */
-        <div className="bg-[var(--asana-surface)] rounded-2xl shadow-2xl w-full max-w-[880px] max-h-[90vh] flex overflow-hidden animate-fade-in">
+        <div className="bg-[var(--asana-surface)] rounded-2xl shadow-2xl w-full max-w-[880px] max-h-[90vh] flex flex-col md:flex-row overflow-hidden animate-fade-in mx-3 sm:mx-0">
           {/* Left panel — Form */}
-          <div className="w-[420px] flex-shrink-0 p-8 flex flex-col">
+          <div className="w-full md:w-[420px] flex-shrink-0 p-5 sm:p-8 flex flex-col overflow-y-auto">
             {/* Back arrow placeholder (for consistency with Asana) */}
             <button onClick={handleClose} className="self-start mb-6 p-1 -ml-1 text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -260,15 +265,15 @@ function CreateProjectWizard({ isOpen, onClose }) {
           </div>
 
           {/* Right panel — Preview */}
-          <div className="flex-1 bg-gray-900/40 dark:bg-gray-900/60 p-6 flex flex-col overflow-hidden border-l border-[var(--asana-border)]">
+          <div className="flex-1 bg-gray-900/40 dark:bg-gray-900/60 p-6 hidden md:flex flex-col overflow-hidden border-l border-[var(--asana-border)]">
             <ProjectPreview name={projectData.name} color={projectData.color} />
           </div>
         </div>
       ) : (
         /* ── STEP 2: Choose views ── */
-        <div className="bg-[var(--asana-surface)] rounded-2xl shadow-2xl w-full max-w-[880px] max-h-[90vh] flex overflow-hidden animate-fade-in">
+        <div className="bg-[var(--asana-surface)] rounded-2xl shadow-2xl w-full max-w-[880px] max-h-[90vh] flex flex-col md:flex-row overflow-hidden animate-fade-in mx-3 sm:mx-0">
           {/* Left panel — View selection */}
-          <div className="w-[420px] flex-shrink-0 p-8 flex flex-col">
+          <div className="w-full md:w-[420px] flex-shrink-0 p-5 sm:p-8 flex flex-col overflow-y-auto">
             <h2 className="text-xl font-bold text-[var(--asana-text-primary)] mb-1">Choose views for your project</h2>
             <p className="text-xs text-[var(--asana-text-secondary)] mb-6">Asana recommended</p>
 
@@ -328,7 +333,7 @@ function CreateProjectWizard({ isOpen, onClose }) {
           </div>
 
           {/* Right panel — Preview */}
-          <div className="flex-1 bg-gray-900/40 dark:bg-gray-900/60 p-6 flex flex-col overflow-hidden border-l border-[var(--asana-border)]">
+          <div className="flex-1 bg-gray-900/40 dark:bg-gray-900/60 p-6 hidden md:flex flex-col overflow-hidden border-l border-[var(--asana-border)]">
             <ProjectPreview name={projectData.name} color={projectData.color} views={selectedViews} />
           </div>
         </div>

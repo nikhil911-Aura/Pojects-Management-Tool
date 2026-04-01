@@ -16,7 +16,10 @@ import { upload } from '../../core/cloudinary.js';
 
 const router = express.Router();
 
-// Routes
+// Search — MUST be before /:id to avoid route conflict
+router.get('/workspace/:workspaceId/search', authenticate, validate(searchValidation), asyncHandler(taskController.search));
+
+// CRUD
 router.post('/list/:listId', authenticate, validate(createTaskValidation), asyncHandler(taskController.create));
 router.get('/:id', authenticate, validate(taskIdValidation), asyncHandler(taskController.getById));
 router.put('/:id', authenticate, validate(taskIdValidation), validate(updateTaskValidation), asyncHandler(taskController.update));
@@ -32,8 +35,5 @@ router.put('/:id/move', authenticate, validate(taskIdValidation), validate(moveT
 // Assignees
 router.post('/:id/assignees', authenticate, validate(taskIdValidation), validate(assignUserValidation), asyncHandler(taskController.assignUser));
 router.delete('/:id/assignees/:assigneeId', authenticate, validate(taskIdValidation), asyncHandler(taskController.removeAssignee));
-
-// Search
-router.get('/workspace/:workspaceId/search', authenticate, validate(searchValidation), asyncHandler(taskController.search));
 
 export default router;

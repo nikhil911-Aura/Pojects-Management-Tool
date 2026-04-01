@@ -21,6 +21,7 @@ export const validate = (validations) => {
       message: err.msg
     }));
 
-    throw ApiError.badRequest('Validation failed', extractedErrors);
+    next(ApiError.badRequest('Validation failed', extractedErrors));
+    return;
   };
 };
