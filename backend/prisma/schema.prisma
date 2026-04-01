@@ -140,17 +140,59 @@ model Project {
   description String?
   icon        String?
   color       String?
+  views       String[]          @default(["overview", "list", "board", "timeline", "dashboard"])
   visibility  ProjectVisibility @default(PRIVATE)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
   // Relations
-  workspaceId String
-  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  board       Board?
-  members     ProjectMember[]
+  workspaceId  String
+  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  board        Board?
+  members      ProjectMember[]
+  customFields CustomField[]
 
   @@index([workspaceId])
+}
+
+enum FieldType {
+  TEXT
+  NUMBER
+  SINGLE_SELECT
+  MULTI_SELECT
+  DATE
+  PEOPLE
+  CHECKBOX
+  TIME_TRACKING
+}
+
+model CustomField {
+  id        String    @id @default(uuid())
+  name      String
+  type      FieldType @default(TEXT)
+  options   Json?     // for SELECT types: [{ value, color }]
+  position  Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  projectId String
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  values    CustomFieldValue[]
+
+  @@index([projectId])
+}
+
+model CustomFieldValue {
+  id        String   @id @default(uuid())
+  value     String?  // stores text, number as string, select option value, date ISO, etc.
+
+  fieldId   String
+  field     CustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  taskId    String
+  task      Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([fieldId, taskId])
+  @@index([fieldId])
+  @@index([taskId])
 }
 
 model ProjectMember {
@@ -199,14 +241,23 @@ model List {
   @@index([boardId])
 }
 
+enum TaskType {
+  DEFAULT_TASK
+  MILESTONE
+  APPROVAL
+}
+
 model Task {
   id          String     @id @default(uuid())
   title       String
   description String?
+  taskType    TaskType   @default(DEFAULT_TASK)
   status      TaskStatus @default(TODO)
   priority    Priority   @default(LOW)
-  dueDate     DateTime?
-  position    Float      @default(0)
+  dueDate       DateTime?
+  estimatedTime Int?       // estimated time in minutes
+  actualTime    Int?       // actual time in minutes
+  position      Float      @default(0)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -219,11 +270,12 @@ model Task {
   parent      Task?      @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
   subtasks    Task[]     @relation("Subtasks")
 
-  assignees   TaskAssignee[]
-  comments    Comment[]
-  activityLogs ActivityLog[]
-  attachments Attachment[]
-  tags        Tag[]
+  assignees        TaskAssignee[]
+  comments         Comment[]
+  activityLogs     ActivityLog[]
+  attachments      Attachment[]
+  tags             Tag[]
+  customFieldValues CustomFieldValue[]
 
   @@index([listId])
   @@index([parentId])

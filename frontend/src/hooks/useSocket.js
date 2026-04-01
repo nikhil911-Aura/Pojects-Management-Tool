@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useAppDispatch } from '../store/hooks';
 import { fetchLists } from '../store/slices/boardSlice';
@@ -7,6 +7,20 @@ import { fetchTask } from '../store/slices/taskSlice';
 export const useSocket = (projectId, boardId) => {
   const dispatch = useAppDispatch();
   const socketRef = useRef(null);
+  const [pendingItems, setPendingItems] = useState([]);
+  // pendingItems: [{ id, type: 'task'|'subtask'|'section', listId?, taskId?, title }]
+
+  const addPendingItem = useCallback((item) => {
+    setPendingItems(prev => [...prev, { ...item, id: `pending-${Date.now()}-${Math.random()}` }]);
+    // Emit to other users
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('pending_item', { projectId, ...item });
+    }
+  }, [projectId]);
+
+  const clearPendingItems = useCallback(() => {
+    setPendingItems([]);
+  }, []);
 
   useEffect(() => {
     if (!projectId) return;
@@ -17,10 +31,10 @@ export const useSocket = (projectId, boardId) => {
       withCredentials: true,
       reconnection: true,
       reconnectionAttempts: 3,
-      reconnectionDelay: 2000,
+      reconnectionDelay: 3000,
       timeout: 5000,
-      // Suppress connection errors from the console — backend may not be running
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
+      upgrade: true,
     });
 
     socketRef.current = socket;
@@ -29,11 +43,10 @@ export const useSocket = (projectId, boardId) => {
       socket.emit('join_project', projectId);
     });
 
-    socket.on('connect_error', () => {
-      // Silently swallow — backend may not be running in dev
-    });
+    socket.on('connect_error', () => {});
 
     socket.on('task_created', () => {
+      setPendingItems([]);
       if (boardId) dispatch(fetchLists(boardId));
     });
 
@@ -50,6 +63,15 @@ export const useSocket = (projectId, boardId) => {
       if (boardId) dispatch(fetchLists(boardId));
     });
 
+    // Receive pending items from other users
+    socket.on('pending_item', (item) => {
+      setPendingItems(prev => [...prev, { ...item, id: `remote-${Date.now()}-${Math.random()}` }]);
+      // Auto-clear after 3s (real data will arrive via task_created)
+      setTimeout(() => {
+        setPendingItems(prev => prev.filter(p => !p.id.startsWith('remote-')));
+      }, 3000);
+    });
+
     return () => {
       socket.emit('leave_project', projectId);
       socket.off('connect');
@@ -58,9 +80,10 @@ export const useSocket = (projectId, boardId) => {
       socket.off('task_updated');
       socket.off('task_deleted');
       socket.off('task_moved');
+      socket.off('pending_item');
       socket.disconnect();
     };
   }, [projectId, boardId, dispatch]);
 
-  return socketRef.current;
+  return { socket: socketRef.current, pendingItems, addPendingItem, clearPendingItems };
 };

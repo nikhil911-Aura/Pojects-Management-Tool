@@ -125,6 +125,16 @@ export const listService = {
                   include: {
                     user: { select: { id: true, name: true, avatar: true } }
                   }
+                },
+                subtasks: {
+                  orderBy: { position: 'asc' },
+                  include: {
+                    assignees: {
+                      include: {
+                        user: { select: { id: true, name: true, avatar: true } }
+                      }
+                    }
+                  }
                 }
               }
             }

@@ -142,7 +142,7 @@ function Dashboard() {
   if (!currentWorkspace) return null;
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
+    <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
       {/* ── Page header ── */}
       <div className="flex items-center justify-between mb-8">
         <div>

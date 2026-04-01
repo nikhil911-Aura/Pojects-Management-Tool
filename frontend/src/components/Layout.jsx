@@ -89,16 +89,22 @@ function Layout() {
 
   return (
     <div className="h-screen flex overflow-hidden font-sans bg-[var(--asana-bg)]">
-      <Sidebar
-        isOpen={isSidebarOpen}
-        toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        onOpenCreateProject={() => { setShowQuickAdd(false); navigate(`/workspace/${currentWorkspace?.id}`); }}
-      />
+      {/* Mobile sidebar overlay */}
+      {isSidebarOpen && (
+        <div className="md:hidden sidebar-mobile-overlay" onClick={() => setIsSidebarOpen(false)} />
+      )}
+      <div className={`${isSidebarOpen ? 'md:block' : ''} ${isSidebarOpen ? 'sidebar-mobile-open md:relative md:w-auto' : 'hidden md:block'}`}>
+        <Sidebar
+          isOpen={isSidebarOpen}
+          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          onOpenCreateProject={() => { setShowQuickAdd(false); navigate(`/workspace/${currentWorkspace?.id}`); }}
+        />
+      </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* ── Header ── */}
-        <header className="h-14 bg-[var(--asana-surface)] border-b border-[var(--asana-border)] px-4 flex items-center justify-between sticky top-0 z-30">
-          <div className="flex items-center space-x-3">
+        <header className="h-14 bg-[var(--asana-surface)] border-b border-[var(--asana-border)] px-2 sm:px-4 flex items-center justify-between sticky top-0 z-30">
+          <div className="flex items-center space-x-2 sm:space-x-3">
             {/* Sidebar toggle */}
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -109,13 +115,13 @@ function Layout() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <span className="text-sm font-semibold text-[var(--asana-text-primary)] hidden md:block">
+            <span className="text-sm font-semibold text-[var(--asana-text-primary)] hidden sm:block truncate max-w-[150px] lg:max-w-none">
               {getPageTitle()}
             </span>
           </div>
 
           {/* ── Search ── */}
-          <div className="flex-1 max-w-lg mx-6 hidden md:block relative" ref={searchRef}>
+          <div className="flex-1 max-w-lg mx-2 sm:mx-6 relative hidden sm:block" ref={searchRef}>
             <div className="relative">
               <span className="absolute inset-y-0 left-3 flex items-center text-[var(--asana-text-secondary)] pointer-events-none">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -143,28 +149,67 @@ function Layout() {
             </div>
 
             {/* Search dropdown */}
-            {showSearchResults && searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-asana shadow-xl z-50 max-h-72 overflow-y-auto">
-                <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)]">
-                  Tasks
-                </p>
-                {searchResults.map((task) => (
-                  <button
-                    key={task.id}
-                    onClick={() => {
-                      navigate(`/project/${task.list?.boardId}?task=${task.id}`);
-                      setShowSearchResults(false);
-                      setSearchQuery('');
-                    }}
-                    className="w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-3 transition-colors"
-                  >
-                    <div className="w-4 h-4 rounded-full border-2 border-gray-300 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-[var(--asana-text-primary)] truncate">{task.title}</p>
-                      <p className="text-xs text-[var(--asana-text-secondary)] truncate">{task.list?.name}</p>
-                    </div>
-                  </button>
-                ))}
+            {showSearchResults && searchQuery.trim() && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-asana shadow-xl z-50 max-h-80 overflow-y-auto">
+                {searchResults.length > 0 ? (
+                  <>
+                    <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)]">
+                      Tasks
+                    </p>
+                    {searchResults.map((task) => {
+                      const projectId = task.list?.board?.project?.id;
+                      const projectName = task.list?.board?.project?.name;
+                      const projectColor = task.list?.board?.project?.color || '#4573D2';
+                      return (
+                        <button
+                          key={task.id}
+                          onClick={() => {
+                            navigate(`/project/${projectId}?task=${task.id}`);
+                            setShowSearchResults(false);
+                            setSearchQuery('');
+                            dispatch(clearSearchResults());
+                          }}
+                          className="w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-3 transition-colors"
+                        >
+                          <div
+                            className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                              task.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600'
+                            }`}
+                          >
+                            {task.status === 'DONE' && (
+                              <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-sm font-medium truncate ${task.status === 'DONE' ? 'line-through text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>{task.title}</p>
+                            <div className="flex items-center space-x-1.5 mt-0.5">
+                              <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: projectColor }} />
+                              <p className="text-[11px] text-[var(--asana-text-secondary)] truncate">{projectName} &middot; {task.list?.name}</p>
+                            </div>
+                          </div>
+                          {task.assignees?.length > 0 && (
+                            <div
+                              className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0"
+                              style={{ backgroundColor: `hsl(${task.assignees[0].user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}
+                              title={task.assignees[0].user?.name}
+                            >
+                              {task.assignees[0].user?.name?.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <div className="px-4 py-6 text-center">
+                    <svg className="w-8 h-8 mx-auto text-[var(--asana-text-secondary)] mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <p className="text-sm text-[var(--asana-text-secondary)]">No tasks found for "{searchQuery}"</p>
+                  </div>
+                )}
               </div>
             )}
           </div>

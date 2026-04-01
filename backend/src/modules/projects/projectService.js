@@ -4,7 +4,7 @@ import { ApiError } from '../../core/utils/apiResponse.js';
 export const projectService = {
   // Create project
   async create(workspaceId, userId, projectData) {
-    const { name, description, icon, color, visibility } = projectData;
+    const { name, description, icon, color, visibility, views } = projectData;
 
     // Check workspace membership — all roles can create projects (like real Asana)
     // Guests are forced to PRIVATE visibility
@@ -29,6 +29,7 @@ export const projectService = {
         description,
         icon,
         color,
+        views: views?.length > 0 ? views : ['overview', 'list', 'board', 'timeline', 'dashboard'],
         visibility: visibility || 'PRIVATE',
         workspaceId,
         board: {
@@ -219,7 +220,7 @@ export const projectService = {
       throw ApiError.forbidden('You do not have permission to update this project');
     }
 
-    const { name, description, icon, visibility } = updateData;
+    const { name, description, icon, color, visibility } = updateData;
 
     const updated = await prisma.project.update({
       where: { id: projectId },
@@ -227,10 +228,17 @@ export const projectService = {
         ...(name && { name }),
         ...(description !== undefined && { description }),
         ...(icon !== undefined && { icon }),
+        ...(color !== undefined && { color }),
         ...(visibility && { visibility })
       },
       include: {
-        board: true
+        board: true,
+        members: {
+          include: {
+            user: { select: { id: true, name: true, email: true, avatar: true } }
+          }
+        },
+        workspace: { select: { id: true, name: true } }
       }
     });
 
