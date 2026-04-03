@@ -1,89 +1,241 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useAppDispatch } from '../store/hooks';
-import { fetchLists } from '../store/slices/boardSlice';
+import { fetchLists, optimisticUpdateTask, optimisticRenameSection, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticDeleteTask, optimisticAssignUser } from '../store/slices/boardSlice';
 import { fetchTask } from '../store/slices/taskSlice';
+import { fetchProject } from '../store/slices/projectSlice';
+import { setApiSocketId } from '../services/api';
 
 export const useSocket = (projectId, boardId) => {
   const dispatch = useAppDispatch();
   const socketRef = useRef(null);
   const [pendingItems, setPendingItems] = useState([]);
-  // pendingItems: [{ id, type: 'task'|'subtask'|'section', listId?, taskId?, title }]
+  const [liveEdits, setLiveEdits] = useState({});
+  const [customFieldEvent, setCustomFieldEvent] = useState(null);
+  const customFieldCounterRef = useRef(0);
+  const customFieldCallbackRef = useRef(null);
+  const editLockRef = useRef(false);
+  const editLockTimerRef = useRef(null);
+  const timersRef = useRef([]); // track all timeouts for cleanup
+
+  // Safe timeout — tracked for cleanup on unmount
+  const safeTimeout = (fn, ms) => {
+    const id = setTimeout(fn, ms);
+    timersRef.current.push(id);
+    return id;
+  };
 
   const addPendingItem = useCallback((item) => {
     setPendingItems(prev => [...prev, { ...item, id: `pending-${Date.now()}-${Math.random()}` }]);
-    // Emit to other users
     if (socketRef.current?.connected) {
       socketRef.current.emit('pending_item', { projectId, ...item });
     }
   }, [projectId]);
 
-  const clearPendingItems = useCallback(() => {
-    setPendingItems([]);
+  const acquireEditLock = useCallback(() => {
+    editLockRef.current = true;
+    if (editLockTimerRef.current) clearTimeout(editLockTimerRef.current);
   }, []);
+
+  const releaseEditLock = useCallback((delayMs = 1500) => {
+    if (editLockTimerRef.current) clearTimeout(editLockTimerRef.current);
+    editLockTimerRef.current = setTimeout(() => {
+      editLockRef.current = false;
+      if (boardId) dispatch(fetchLists(boardId));
+    }, delayMs);
+  }, [boardId, dispatch]);
+
+  const emitLiveEdit = useCallback((data) => {
+    acquireEditLock();
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('live_edit', { projectId, ...data });
+    }
+  }, [projectId, acquireEditLock]);
+
+  const emitInstant = useCallback((event, data) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('instant_change', { projectId, event, ...data });
+    }
+  }, [projectId]);
+
+  const clearPendingItems = useCallback(() => { setPendingItems([]); }, []);
 
   useEffect(() => {
     if (!projectId) return;
 
-    const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
-    const socket = io(SOCKET_URL, {
-      withCredentials: true,
-      reconnection: true,
-      reconnectionAttempts: 3,
-      reconnectionDelay: 3000,
-      timeout: 5000,
-      transports: ['polling', 'websocket'],
-      upgrade: true,
+    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+      withCredentials: true, reconnection: true, reconnectionAttempts: 5,
+      reconnectionDelay: 2000, timeout: 5000,
+      transports: ['polling', 'websocket'], upgrade: true,
     });
 
     socketRef.current = socket;
 
     socket.on('connect', () => {
       socket.emit('join_project', projectId);
+      setApiSocketId(socket.id);
     });
 
     socket.on('connect_error', () => {});
 
+    // ── Backend events — fallback safety net (sender excluded via x-socket-id) ──
     socket.on('task_created', () => {
-      setPendingItems([]);
-      if (boardId) dispatch(fetchLists(boardId));
+      try { setPendingItems([]); } catch {}
+    });
+    socket.on('task_deleted', () => {});
+    socket.on('task_updated', () => {});
+    socket.on('task_moved', () => { try { if (boardId) dispatch(fetchLists(boardId)); } catch {} });
+    socket.on('section_created', () => {});
+    socket.on('section_updated', () => {});
+    socket.on('section_deleted', () => {});
+
+    // Backend member events — these only fire for OTHER users (sender excluded)
+    // They serve as fallback if instant_change was missed
+    socket.on('member_added', () => { try { dispatch(fetchProject(projectId)); } catch {} });
+    socket.on('member_removed', () => { try { dispatch(fetchProject(projectId)); } catch {} });
+    socket.on('member_role_changed', () => { try { dispatch(fetchProject(projectId)); } catch {} });
+    socket.on('project_settings_changed', () => { try { dispatch(fetchProject(projectId)); } catch {} });
+    socket.on('project_deleted', () => { window.location.href = '/'; });
+
+    // ── Instant changes from other users — primary real-time channel ──
+    socket.on('instant_change', (data) => {
+      try {
+        if (!data?.event) return;
+        const { event } = data;
+
+        // Task CRUD
+        if (event === 'task_added' && data.listId && data.task) {
+          dispatch(optimisticAddTask({ listId: data.listId, task: data.task }));
+        }
+        if (event === 'subtask_added' && data.taskId && data.subtask) {
+          dispatch(optimisticAddSubtask({ listId: data.listId, taskId: data.taskId, subtask: data.subtask }));
+        }
+        if (event === 'task_deleted' && data.taskId) {
+          dispatch(optimisticDeleteTask(data.taskId));
+        }
+
+        // Replace temp items with real data from DB
+        if (event === 'task_replaced' && data.tempId && data.listId && data.task) {
+          // Find and replace the temp task with real task
+          const lists = store?.getState?.()?.board?.lists;
+          // Use optimisticUpdateTask with the old ID to remove, then add real
+          dispatch(optimisticDeleteTask(data.tempId));
+          dispatch(optimisticAddTask({ listId: data.listId, task: data.task }));
+        }
+        if (event === 'subtask_replaced' && data.tempId && data.taskId && data.subtask) {
+          dispatch(optimisticDeleteTask(data.tempId));
+          dispatch(optimisticAddSubtask({ taskId: data.taskId, subtask: data.subtask }));
+        }
+        if (event === 'section_replaced' && data.tempId && data.section) {
+          // Remove temp section, add real
+          dispatch({ type: 'board/deleteList/fulfilled', payload: data.tempId });
+          dispatch(optimisticAddSection({ section: data.section }));
+        }
+
+        // Section CRUD
+        if (event === 'section_added' && data.section) {
+          dispatch(optimisticAddSection({ section: data.section }));
+        }
+        if (event === 'section_deleted' && data.listId) {
+          dispatch({ type: 'board/deleteList/fulfilled', payload: data.listId });
+        }
+
+        // Task field updates
+        if (event === 'task_completed' && data.taskId) {
+          dispatch(optimisticUpdateTask({ taskId: data.taskId, data: { status: data.status } }));
+        }
+        if (event === 'task_field_updated' && data.taskId && data.field) {
+          dispatch(optimisticUpdateTask({ taskId: data.taskId, data: { [data.field]: data.value } }));
+        }
+        if (event === 'task_assigned' && data.taskId && data.user) {
+          dispatch(optimisticAssignUser({ taskId: data.taskId, user: data.user }));
+        }
+
+        // Custom fields
+        if (event === 'custom_field_added' || event === 'custom_field_deleted' || event === 'custom_field_value_set' || event === 'custom_field_replaced') {
+          customFieldCounterRef.current++;
+          const evt = { ...data, _seq: customFieldCounterRef.current };
+          setCustomFieldEvent(evt);
+          customFieldCallbackRef.current?.(evt);
+        }
+
+        // Member operations
+        if (event === 'member_added_instant' && data.member) {
+          dispatch({ type: 'project/addProjectMember/fulfilled', payload: { projectId, member: data.member } });
+        }
+        if (event === 'member_removed_instant' && data.userId) {
+          dispatch({ type: 'project/removeProjectMember/fulfilled', payload: { projectId, memberId: data.userId } });
+        }
+        if (event === 'member_role_changed_instant' && data.userId) {
+          dispatch({ type: 'project/updateProjectMemberRole/fulfilled', payload: { projectId, member: { userId: data.userId, projectRole: data.projectRole } } });
+        }
+
+        // Timer / Time tracking
+        if (event === 'timer_started' && data.taskId) {
+          dispatch(optimisticUpdateTask({ taskId: data.taskId, data: { timerStartedAt: data.startedAt, timerStartedBy: data.startedBy } }));
+        }
+        if (event === 'timer_stopped' && data.taskId) {
+          dispatch(optimisticUpdateTask({ taskId: data.taskId, data: { timerStartedAt: null, timerStartedBy: null, actualTime: data.totalMinutes || 0 } }));
+        }
+        if (event === 'time_entry_added' && data.taskId && data.totalMinutes !== undefined) {
+          dispatch(optimisticUpdateTask({ taskId: data.taskId, data: { actualTime: data.totalMinutes } }));
+        }
+        if (event === 'time_entry_deleted' && data.taskId && data.totalMinutes !== undefined) {
+          dispatch(optimisticUpdateTask({ taskId: data.taskId, data: { actualTime: data.totalMinutes } }));
+        }
+      } catch (err) {
+        console.error('Socket instant_change error:', err);
+      }
     });
 
-    socket.on('task_updated', ({ taskId }) => {
-      if (taskId) dispatch(fetchTask(taskId));
-      if (boardId) dispatch(fetchLists(boardId));
-    });
-
-    socket.on('task_deleted', () => {
-      if (boardId) dispatch(fetchLists(boardId));
-    });
-
-    socket.on('task_moved', () => {
-      if (boardId) dispatch(fetchLists(boardId));
-    });
-
-    // Receive pending items from other users
+    // Pending items from other users
     socket.on('pending_item', (item) => {
-      setPendingItems(prev => [...prev, { ...item, id: `remote-${Date.now()}-${Math.random()}` }]);
-      // Auto-clear after 3s (real data will arrive via task_created)
-      setTimeout(() => {
-        setPendingItems(prev => prev.filter(p => !p.id.startsWith('remote-')));
-      }, 3000);
+      try {
+        setPendingItems(prev => [...prev, { ...item, id: `remote-${Date.now()}-${Math.random()}` }]);
+        safeTimeout(() => {
+          setPendingItems(prev => prev.filter(p => !p.id.startsWith('remote-')));
+        }, 3000);
+      } catch {}
+    });
+
+    // Live edit from other users
+    socket.on('live_edit', (data) => {
+      try {
+        if (!data?.entityType || !data?.entityId || data?.field === undefined) return;
+        const key = `${data.entityType}-${data.entityId}-${data.field}`;
+
+        setLiveEdits(prev => ({ ...prev, [key]: data.value }));
+
+        if (data.entityType === 'task' && data.field === 'title') {
+          dispatch(optimisticUpdateTask({ taskId: data.entityId, data: { title: data.value } }));
+        }
+        if (data.entityType === 'section' && data.field === 'name') {
+          dispatch(optimisticRenameSection({ listId: data.entityId, name: data.value }));
+        }
+
+        safeTimeout(() => {
+          setLiveEdits(prev => { const copy = { ...prev }; delete copy[key]; return copy; });
+        }, 3000);
+      } catch {}
     });
 
     return () => {
+      // Clean up ALL tracked timeouts
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+      if (editLockTimerRef.current) clearTimeout(editLockTimerRef.current);
+
       socket.emit('leave_project', projectId);
-      socket.off('connect');
-      socket.off('connect_error');
-      socket.off('task_created');
-      socket.off('task_updated');
-      socket.off('task_deleted');
-      socket.off('task_moved');
-      socket.off('pending_item');
+      socket.removeAllListeners();
       socket.disconnect();
     };
   }, [projectId, boardId, dispatch]);
 
-  return { socket: socketRef.current, pendingItems, addPendingItem, clearPendingItems };
+  const setCustomFieldCallback = useCallback((cb) => { customFieldCallbackRef.current = cb; }, []);
+
+  return {
+    socket: socketRef.current, pendingItems, addPendingItem, clearPendingItems,
+    liveEdits, emitLiveEdit, emitInstant, customFieldEvent, setCustomFieldCallback,
+    acquireEditLock, releaseEditLock
+  };
 };

@@ -7,12 +7,20 @@ const api = axios.create({
   }
 });
 
-// Request interceptor to add token
+// Global socket ID — set by useSocket hook
+let _socketId = null;
+export const setApiSocketId = (id) => { _socketId = id; };
+
+// Request interceptor to add token + socket ID
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken');
     if (token && token !== 'undefined' && token !== 'null') {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Send our socket ID so backend can exclude us from broadcasts
+    if (_socketId) {
+      config.headers['x-socket-id'] = _socketId;
     }
     return config;
   },

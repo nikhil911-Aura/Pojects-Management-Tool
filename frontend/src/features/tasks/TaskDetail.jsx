@@ -2,9 +2,11 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchTask, updateTask, createSubtask, deleteTask, assignUser, addAttachment, removeAttachment } from '../../store/slices/taskSlice';
-import { optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser } from '../../store/slices/boardSlice';
+import { optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticAddSubtask } from '../../store/slices/boardSlice';
 import api from '../../services/api';
 import { useRole } from '../../hooks/useRole';
+import { useCelebration } from '../../components/Celebration';
+import { useAutoSave, SaveIndicator } from '../../hooks/useAutoSave';
 
 const STATUS_OPTIONS = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'];
 const STATUS_LABELS = { TODO: 'To do', IN_PROGRESS: 'In progress', REVIEW: 'Review', DONE: 'Completed' };
@@ -44,7 +46,7 @@ function parseTime(input) {
 }
 
 /* ── Assignee Picker for task detail ── */
-function DetailAssigneePicker({ taskId, members, onClose, onDone, onOptimisticAssign }) {
+function DetailAssigneePicker({ taskId, members, onClose, onDone, onOptimisticAssign, emitInstant }) {
   const dispatch = useAppDispatch();
   const ref = useRef(null);
   const [search, setSearch] = useState('');
@@ -64,9 +66,10 @@ function DetailAssigneePicker({ taskId, members, onClose, onDone, onOptimisticAs
     if (user) {
       onOptimisticAssign?.(user);
       dispatch(optimisticAssignUser({ taskId, user }));
+      emitInstant?.('task_assigned', { taskId, user });
     }
     onClose();
-    dispatch(assignUser({ taskId, userId })).then(() => onDone());
+    dispatch(assignUser({ taskId, userId }));
   };
 
   return (
@@ -136,18 +139,33 @@ function TimeField({ label, taskId, field, value, canEdit, onUpdate, onOptimisti
 /* ═══════════════════════════════════════════
    TaskDetail Component
    ═══════════════════════════════════════════ */
-function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTask = null }) {
+function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTask = null, emitInstant }) {
   const { taskId: paramTaskId } = useParams();
   const taskId = propTaskId || paramTaskId;
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { currentTask } = useAppSelector((state) => state.task);
   const { currentProject } = useAppSelector((state) => state.project);
+  const { lists } = useAppSelector((state) => state.board);
   const { user } = useAppSelector((state) => state.auth);
   const { canEdit, canComment } = useRole();
   const members = currentProject?.members || [];
 
-  const baseTask = (currentTask?.id === taskId ? currentTask : null) || previewTask;
+  // Find task from board lists (has optimistic updates from list view)
+  const boardTask = (() => {
+    for (const list of lists) {
+      const found = list.tasks?.find(t => t.id === taskId);
+      if (found) return { ...found, list: { id: list.id, name: list.name } };
+      for (const t of (list.tasks || [])) {
+        const sub = t.subtasks?.find(s => s.id === taskId);
+        if (sub) return { ...sub, list: { id: list.id, name: list.name } };
+      }
+    }
+    return null;
+  })();
+
+  // Priority: boardTask (has optimistic updates) > currentTask (API data) > previewTask (initial)
+  const baseTask = boardTask || (currentTask?.id === taskId ? currentTask : null) || previewTask;
   const isFullyLoaded = currentTask?.id === taskId;
 
   // Local optimistic overlay — merges over fetched data for instant UI
@@ -155,13 +173,31 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
   const task = baseTask ? { ...baseTask, ...optimistic } : null;
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [title, setTitle] = useState(task?.title || '');
-  const [description, setDescription] = useState(task?.description || '');
+
+  // Auto-save title
+  const titleAutoSave = useAutoSave({
+    initialValue: task?.title || '',
+    entityId: taskId,
+    onSave: async (val) => { await dispatch(updateTask({ taskId, data: { title: val } })).unwrap(); },
+    onOptimistic: (val) => { setOptimistic(prev => ({ ...prev, title: val })); dispatch(optimisticUpdateTask({ taskId, data: { title: val } })); },
+    debounceMs: 400,
+  });
+
+  // Auto-save description
+  const descAutoSave = useAutoSave({
+    initialValue: task?.description || '',
+    entityId: taskId,
+    onSave: async (val) => { await dispatch(updateTask({ taskId, data: { description: val } })).unwrap(); },
+    onOptimistic: (val) => setOptimistic(prev => ({ ...prev, description: val })),
+    debounceMs: 500,
+  });
   const [newSubtask, setNewSubtask] = useState('');
   const [newComment, setNewComment] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [showAssigneePicker, setShowAssigneePicker] = useState(false);
   const [activeTab, setActiveTab] = useState('comments');
+  const [justCompleted, setJustCompleted] = useState(false);
+  const { celebrate, CelebrationComponent } = useCelebration();
   const [localComments, setLocalComments] = useState(null); // optimistic comments
   const [localSubtasks, setLocalSubtasks] = useState(null); // optimistic subtasks
 
@@ -174,18 +210,17 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
 
   useEffect(() => {
     if (currentTask?.id === taskId) {
-      setTitle(currentTask.title);
-      setDescription(currentTask.description || '');
       setOptimistic({});
       setLocalComments(null);
       setLocalSubtasks(null);
     }
   }, [currentTask, taskId]);
 
-  // Optimistic update — instant UI + background API + board sync
+  // Optimistic update — instant UI + instant broadcast + background API
   const handleUpdate = (field, value) => {
     setOptimistic(prev => ({ ...prev, [field]: value }));
     dispatch(optimisticUpdateTask({ taskId, data: { [field]: value } }));
+    emitInstant?.('task_field_updated', { taskId, field, value });
     dispatch(updateTask({ taskId, data: { [field]: value } }));
   };
 
@@ -194,11 +229,23 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
   const handleAddSubtask = (e) => {
     e.preventDefault();
     if (!newSubtask.trim()) return;
-    const tempSubtask = { id: `temp-${Date.now()}`, title: newSubtask.trim(), status: 'TODO', assignees: [], subtasks: [] };
+    const title = newSubtask.trim();
+    const listId = task.listId || task.list?.id;
+    const tempSubtask = { id: `temp-${Date.now()}`, title, status: 'TODO', priority: 'LOW', taskType: 'DEFAULT_TASK', assignees: [], subtasks: [] };
+
+    // 1. Local optimistic (modal)
     setLocalSubtasks(prev => [...(prev || task?.subtasks || []), tempSubtask]);
+    // 2. Board optimistic (list view behind modal)
+    dispatch(optimisticAddSubtask({ listId, taskId, subtask: tempSubtask }));
+    // 3. Instant broadcast to other users
+    emitInstant?.('subtask_added', { listId, taskId, subtask: tempSubtask });
+    // 4. Clear input
     setNewSubtask('');
-    dispatch(createSubtask({ listId: task.listId || task.list?.id, taskId, subtaskData: { title: tempSubtask.title } }))
-      .then(() => refetchTask());
+    // 5. Background DB save — then broadcast real subtask to replace temp
+    const tempId = tempSubtask.id;
+    dispatch(createSubtask({ listId, taskId, subtaskData: { title } })).unwrap().then((realSub) => {
+      emitInstant?.('subtask_replaced', { tempId, taskId, subtask: realSub });
+    }).catch(() => {});
   };
 
   const handleAddComment = (e) => {
@@ -228,6 +275,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
   const handleDeleteTask = () => {
     if (window.confirm('Delete this task?')) {
       dispatch(optimisticDeleteTask(taskId));
+      emitInstant?.('task_deleted', { taskId });
       if (isEmbedded) onClose();
       else navigate(-1);
       dispatch(deleteTask(taskId));
@@ -256,13 +304,18 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
         </div>
         <div className="flex items-center space-x-1">
           <button
-            onClick={() => canEdit && handleUpdate('status', task.status === 'DONE' ? 'TODO' : 'DONE')}
+            onClick={() => {
+              if (!canEdit) return;
+              const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
+              if (newStatus === 'DONE') { setJustCompleted(true); setTimeout(() => setJustCompleted(false), 600); celebrate(); }
+              handleUpdate('status', newStatus);
+            }}
             disabled={!canEdit}
-            className={`flex items-center px-3 py-1.5 rounded-md border text-xs font-semibold transition-all ${
+            className={`flex items-center px-3 py-1.5 rounded-md border text-xs font-semibold transition-all duration-300 ${
               task.status === 'DONE' ? 'bg-green-500 text-white border-green-500' : 'text-[var(--asana-text-secondary)] border-[var(--asana-border)] hover:border-green-400 hover:text-green-500'
-            } ${!canEdit ? 'cursor-default opacity-70' : ''}`}
+            } ${justCompleted ? 'check-pop' : ''} ${!canEdit ? 'cursor-default opacity-70' : ''}`}
           >
-            <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-3.5 h-3.5 mr-1 ${justCompleted ? 'check-draw' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
             </svg>
             {task.status === 'DONE' ? 'Completed' : 'Mark complete'}
@@ -288,10 +341,14 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
         <div className="p-6 space-y-5">
           {/* ── Title ── */}
           {canEdit && isEditingTitle ? (
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
-              onBlur={() => { setIsEditingTitle(false); if (title !== task.title) handleUpdate('title', title); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { setTitle(task.title); setIsEditingTitle(false); } }}
-              className="text-xl font-bold w-full bg-transparent border-none p-0 focus:ring-0 text-[var(--asana-text-primary)] outline-none" autoFocus />
+            <div className="flex items-center space-x-2">
+              <input type="text" value={titleAutoSave.value}
+                onChange={(e) => titleAutoSave.setValue(e.target.value)}
+                onBlur={() => { titleAutoSave.flush(); setIsEditingTitle(false); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { titleAutoSave.flush(); setIsEditingTitle(false); } if (e.key === 'Escape') setIsEditingTitle(false); }}
+                className="text-xl font-bold w-full bg-transparent border-none p-0 focus:ring-0 text-[var(--asana-text-primary)] outline-none" autoFocus />
+              <SaveIndicator status={titleAutoSave.saveStatus} />
+            </div>
           ) : (
             <h1 onClick={() => canEdit && setIsEditingTitle(true)}
               className={`text-xl font-bold text-[var(--asana-text-primary)] rounded px-1 -ml-1 min-h-[1.5em] ${canEdit ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : ''}`}>
@@ -326,7 +383,8 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
               {showAssigneePicker && (
                 <DetailAssigneePicker taskId={taskId} members={members}
                   onClose={() => setShowAssigneePicker(false)} onDone={refetchTask}
-                  onOptimisticAssign={(user) => setOptimistic(prev => ({ ...prev, assignees: [{ user }] }))} />
+                  onOptimisticAssign={(user) => setOptimistic(prev => ({ ...prev, assignees: [{ user }] }))}
+                  emitInstant={emitInstant} />
               )}
             </div>
 
@@ -389,11 +447,14 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
           {/* ── Description ── */}
           <div className="pt-4 border-t border-[var(--asana-border)]">
             <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-2">Description</h3>
-            <textarea placeholder={canEdit ? 'What is this task about?' : ''} value={description}
-              onChange={(e) => canEdit && setDescription(e.target.value)}
-              onBlur={() => canEdit && description !== (task.description || '') && handleUpdate('description', description)}
-              readOnly={!canEdit}
-              className={`w-full bg-[var(--asana-bg)] border border-[var(--asana-border)] p-3 text-sm text-[var(--asana-text-primary)] placeholder-gray-400 rounded-lg min-h-[80px] resize-none transition-all outline-none ${canEdit ? 'focus:ring-1 focus:ring-asana-blue/30 focus:border-asana-blue/30' : 'cursor-default'}`} />
+            <div className="relative">
+              <textarea placeholder={canEdit ? 'What is this task about?' : ''} value={descAutoSave.value}
+                onChange={(e) => canEdit && descAutoSave.setValue(e.target.value)}
+                onBlur={() => descAutoSave.flush()}
+                readOnly={!canEdit}
+                className={`w-full bg-[var(--asana-bg)] border border-[var(--asana-border)] p-3 text-sm text-[var(--asana-text-primary)] placeholder-gray-400 rounded-lg min-h-[80px] resize-none transition-all outline-none ${canEdit ? 'focus:ring-1 focus:ring-asana-blue/30 focus:border-asana-blue/30' : 'cursor-default'}`} />
+              <div className="absolute top-2 right-2"><SaveIndicator status={descAutoSave.saveStatus} /></div>
+            </div>
           </div>
 
           {/* ── Subtasks ── */}
@@ -410,7 +471,8 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                     const newStatus = sub.status === 'DONE' ? 'TODO' : 'DONE';
                     setLocalSubtasks(prev => (prev || task.subtasks || []).map(s => s.id === sub.id ? { ...s, status: newStatus } : s));
                     dispatch(optimisticUpdateTask({ taskId: sub.id, data: { status: newStatus } }));
-                    dispatch(updateTask({ taskId: sub.id, data: { status: newStatus } })).then(refetchTask);
+                    emitInstant?.('task_completed', { taskId: sub.id, status: newStatus });
+                    dispatch(updateTask({ taskId: sub.id, data: { status: newStatus } }));
                   }}
                     className={`w-[16px] h-[16px] rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
                       sub.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
@@ -428,7 +490,8 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                     <button onClick={() => {
                       setLocalSubtasks(prev => (prev || task.subtasks || []).filter(s => s.id !== sub.id));
                       dispatch(optimisticDeleteTask(sub.id));
-                      dispatch(deleteTask(sub.id)).then(refetchTask);
+                      emitInstant?.('task_deleted', { taskId: sub.id });
+                      dispatch(deleteTask(sub.id));
                     }}
                       className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all">
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -575,6 +638,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
           </div>
         </div>
       </div>
+      <CelebrationComponent />
     </div>
   );
 }

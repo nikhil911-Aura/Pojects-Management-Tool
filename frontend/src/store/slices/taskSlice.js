@@ -170,7 +170,13 @@ const taskSlice = createSlice({
       })
       .addCase(createSubtask.fulfilled, (state, action) => {
         if (state.currentTask && state.currentTask.id === action.payload.parentId) {
-          state.currentTask.subtasks.push(action.payload);
+          if (!state.currentTask.subtasks) state.currentTask.subtasks = [];
+          if (!state.currentTask.subtasks.some(s => s.id === action.payload.id)) {
+            // Replace temp subtask or add
+            const tempIdx = state.currentTask.subtasks.findIndex(s => s.id.startsWith('temp-'));
+            if (tempIdx !== -1) state.currentTask.subtasks[tempIdx] = action.payload;
+            else state.currentTask.subtasks.push(action.payload);
+          }
         }
       })
       .addCase(moveTask.fulfilled, (state, action) => {

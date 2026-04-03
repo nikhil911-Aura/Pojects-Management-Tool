@@ -171,10 +171,11 @@ const projectSlice = createSlice({
       })
       .addCase(addProjectMember.fulfilled, (state, action) => {
         if (state.currentProject?.id === action.payload.projectId) {
-          state.currentProject.members = [
-            ...(state.currentProject.members || []),
-            action.payload.member
-          ];
+          const members = state.currentProject.members || [];
+          const exists = members.some(m => m.userId === action.payload.member.userId);
+          if (!exists) {
+            state.currentProject.members = [...members, action.payload.member];
+          }
         }
       })
       .addCase(updateProjectMemberRole.fulfilled, (state, action) => {

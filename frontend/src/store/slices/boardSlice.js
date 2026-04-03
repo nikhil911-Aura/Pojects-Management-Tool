@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
+import { createTask, createSubtask } from './taskSlice';
 
 export const fetchLists = createAsyncThunk(
   'board/fetchLists',
@@ -88,56 +89,75 @@ const boardSlice = createSlice({
     clearLists: (state) => {
       state.lists = [];
     },
-    // Optimistic: instantly add a task to a list
+    // Optimistic: instantly add a task to a list (skip if duplicate, fallback to first list)
     optimisticAddTask: (state, action) => {
       const { listId, task } = action.payload;
-      const list = state.lists.find(l => l.id === listId);
+      let list = state.lists.find(l => l.id === listId);
+      // Fallback: if listId is temp and not found, try to find any list (the section might have been replaced with real ID)
+      if (!list && listId?.startsWith('temp-')) {
+        list = state.lists[state.lists.length - 1]; // last added section
+      }
       if (list) {
         if (!list.tasks) list.tasks = [];
-        list.tasks.push(task);
+        if (!list.tasks.some(t => t.id === task.id)) list.tasks.push(task);
       }
     },
-    // Optimistic: instantly add a subtask under a parent
+    // Optimistic: instantly add a subtask under a parent (recursive, skip if duplicate)
     optimisticAddSubtask: (state, action) => {
-      const { listId, taskId, subtask } = action.payload;
-      const list = state.lists.find(l => l.id === listId);
-      if (list) {
-        const parent = list.tasks?.find(t => t.id === taskId);
-        if (parent) {
-          if (!parent.subtasks) parent.subtasks = [];
-          parent.subtasks.push(subtask);
+      const { taskId, subtask } = action.payload;
+      function findAndAdd(tasks) {
+        if (!tasks) return false;
+        for (const t of tasks) {
+          if (t.id === taskId) {
+            if (!t.subtasks) t.subtasks = [];
+            if (!t.subtasks.some(s => s.id === subtask.id || (s.id.startsWith('temp-') && s.title === subtask.title))) {
+              t.subtasks.push(subtask);
+            }
+            return true;
+          }
+          if (findAndAdd(t.subtasks)) return true;
         }
+        return false;
+      }
+      for (const list of state.lists) {
+        if (findAndAdd(list.tasks)) return;
       }
     },
     // Optimistic: instantly add a section
+    // Optimistic: instantly add a section (skip if duplicate)
     optimisticAddSection: (state, action) => {
       const { section } = action.payload;
-      state.lists.push(section);
+      if (!state.lists.some(l => l.id === section.id)) state.lists.push(section);
     },
-    // Optimistic: update a task field in-place
+    // Optimistic: update a task field in-place (recursive — any depth)
     optimisticUpdateTask: (state, action) => {
       const { taskId, data } = action.payload;
-      for (const list of state.lists) {
-        // Check top-level tasks
-        const task = list.tasks?.find(t => t.id === taskId);
-        if (task) { Object.assign(task, data); return; }
-        // Check subtasks
-        for (const t of (list.tasks || [])) {
-          const sub = t.subtasks?.find(s => s.id === taskId);
-          if (sub) { Object.assign(sub, data); return; }
+      function findAndUpdate(tasks) {
+        if (!tasks) return false;
+        for (const t of tasks) {
+          if (t.id === taskId) { Object.assign(t, data); return true; }
+          if (findAndUpdate(t.subtasks)) return true;
         }
+        return false;
+      }
+      for (const list of state.lists) {
+        if (findAndUpdate(list.tasks)) return;
       }
     },
-    // Optimistic: remove a task
+    // Optimistic: remove a task (recursive — any depth)
     optimisticDeleteTask: (state, action) => {
       const taskId = action.payload;
-      for (const list of state.lists) {
-        const idx = list.tasks?.findIndex(t => t.id === taskId);
-        if (idx !== undefined && idx !== -1) { list.tasks.splice(idx, 1); return; }
-        for (const t of (list.tasks || [])) {
-          const subIdx = t.subtasks?.findIndex(s => s.id === taskId);
-          if (subIdx !== undefined && subIdx !== -1) { t.subtasks.splice(subIdx, 1); return; }
+      function findAndDelete(tasks) {
+        if (!tasks) return false;
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) { tasks.splice(idx, 1); return true; }
+        for (const t of tasks) {
+          if (findAndDelete(t.subtasks)) return true;
         }
+        return false;
+      }
+      for (const list of state.lists) {
+        if (findAndDelete(list.tasks)) return;
       }
     },
     // Optimistic: rename a section
@@ -146,16 +166,19 @@ const boardSlice = createSlice({
       const list = state.lists.find(l => l.id === listId);
       if (list) list.name = name;
     },
-    // Optimistic: set assignee on a task
+    // Optimistic: set assignee on a task (recursive — any depth)
     optimisticAssignUser: (state, action) => {
       const { taskId, user } = action.payload;
-      for (const list of state.lists) {
-        const task = list.tasks?.find(t => t.id === taskId);
-        if (task) { task.assignees = [{ user }]; return; }
-        for (const t of (list.tasks || [])) {
-          const sub = t.subtasks?.find(s => s.id === taskId);
-          if (sub) { sub.assignees = [{ user }]; return; }
+      function findAndAssign(tasks) {
+        if (!tasks) return false;
+        for (const t of tasks) {
+          if (t.id === taskId) { t.assignees = [{ user }]; return true; }
+          if (findAndAssign(t.subtasks)) return true;
         }
+        return false;
+      }
+      for (const list of state.lists) {
+        if (findAndAssign(list.tasks)) return;
       }
     }
   },
@@ -173,7 +196,14 @@ const boardSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(createList.fulfilled, (state, action) => {
-        state.lists.push(action.payload);
+        // Replace temp section matching by name, or add if not found
+        const realSection = action.payload;
+        const tempIdx = state.lists.findIndex(l => l.id.startsWith('temp-') && l.name === realSection.name);
+        if (tempIdx !== -1) {
+          state.lists[tempIdx] = { ...realSection, tasks: state.lists[tempIdx].tasks || realSection.tasks || [] };
+        } else if (!state.lists.some(l => l.id === realSection.id)) {
+          state.lists.push(realSection);
+        }
       })
       .addCase(updateList.fulfilled, (state, action) => {
         const index = state.lists.findIndex(l => l.id === action.payload.id);
@@ -188,6 +218,39 @@ const boardSlice = createSlice({
         const listIds = action.payload;
         const reordered = listIds.map(id => state.lists.find(l => l.id === id)).filter(Boolean);
         state.lists = reordered;
+      })
+      // Replace temp task with real one after API creates it
+      .addCase(createTask.fulfilled, (state, action) => {
+        const realTask = action.payload;
+        if (!realTask?.listId) return;
+        const list = state.lists.find(l => l.id === realTask.listId);
+        if (list?.tasks) {
+          const tempIdx = list.tasks.findIndex(t => t.id.startsWith('temp-') && t.title === realTask.title);
+          if (tempIdx !== -1) {
+            list.tasks[tempIdx] = { ...realTask, subtasks: list.tasks[tempIdx].subtasks || realTask.subtasks || [] };
+          } else if (!list.tasks.some(t => t.id === realTask.id)) {
+            list.tasks.push(realTask);
+          }
+        }
+      })
+      // Replace temp subtask with real one after API creates it
+      .addCase(createSubtask.fulfilled, (state, action) => {
+        const realSub = action.payload;
+        if (!realSub?.parentId) return;
+        function findAndReplace(tasks) {
+          if (!tasks) return false;
+          for (const t of tasks) {
+            if (t.id === realSub.parentId && t.subtasks) {
+              const tempIdx = t.subtasks.findIndex(s => s.id.startsWith('temp-') && s.title === realSub.title);
+              if (tempIdx !== -1) { t.subtasks[tempIdx] = realSub; return true; }
+              if (!t.subtasks.some(s => s.id === realSub.id)) { t.subtasks.push(realSub); return true; }
+              return true;
+            }
+            if (findAndReplace(t.subtasks)) return true;
+          }
+          return false;
+        }
+        for (const list of state.lists) { if (findAndReplace(list.tasks)) break; }
       });
   }
 });
