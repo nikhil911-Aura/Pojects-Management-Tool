@@ -21,24 +21,25 @@ const ROLE_CONFIG = {
   },
 };
 
-function ProjectMembersPanel({ project, onClose, onOpenShare }) {
+function ProjectMembersPanel({ project, onClose, onOpenShare, emitInstant }) {
   const dispatch = useAppDispatch();
   const members = project?.members || [];
 
   const handleRoleChange = (userId, projectRole) => {
-    dispatch(updateProjectMemberRole({
-      projectId: project.id,
-      userId,
-      projectRole,
-    }));
+    // Optimistic
+    dispatch({ type: 'project/updateProjectMemberRole/fulfilled', payload: { projectId: project.id, member: { userId, projectRole } } });
+    emitInstant?.('member_role_changed_instant', { userId, projectRole });
+    // Background API
+    dispatch(updateProjectMemberRole({ projectId: project.id, memberId: userId, projectRole }));
   };
 
   const handleRemove = (userId, userName) => {
     if (confirm(`Remove ${userName} from this project?`)) {
-      dispatch(removeProjectMember({
-        projectId: project.id,
-        userId,
-      }));
+      // Optimistic
+      dispatch({ type: 'project/removeProjectMember/fulfilled', payload: { projectId: project.id, memberId: userId } });
+      emitInstant?.('member_removed_instant', { userId });
+      // Background API
+      dispatch(removeProjectMember({ projectId: project.id, memberId: userId }));
     }
   };
 

@@ -4,6 +4,8 @@ import { createTask, createSubtask, updateTask, assignUser, deleteTask } from '.
 import { fetchLists, createList, updateList, deleteList, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticRenameSection } from '../../store/slices/boardSlice';
 import { useRole } from '../../hooks/useRole';
 import api from '../../services/api';
+import { useAutoSave, SaveIndicator } from '../../hooks/useAutoSave';
+import TimeTracker from '../../components/TimeTracker';
 
 const STATUS_CONFIG = {
   TODO:        { label: 'To do',       cls: 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200' },
@@ -55,7 +57,7 @@ function useClickOutside(ref, handler) {
 /* ═══════════════════════════════════════════
    Assignee Picker
    ═══════════════════════════════════════════ */
-function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone }) {
+function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, emitInstant }) {
   const dispatch = useAppDispatch();
   const ref = useRef(null);
   const [search, setSearch] = useState('');
@@ -69,9 +71,12 @@ function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone }) 
 
   const handleAssign = async (userId) => {
     const user = (members || []).map(m => m.user || m).find(u => u.id === userId);
-    if (user) dispatch(optimisticAssignUser({ taskId, user }));
+    if (user) {
+      dispatch(optimisticAssignUser({ taskId, user }));
+      emitInstant?.('task_assigned', { taskId, user });
+    }
     onClose();
-    dispatch(assignUser({ taskId, userId })).then(() => onDone());
+    dispatch(assignUser({ taskId, userId }));
   };
 
   return (
@@ -104,15 +109,17 @@ function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone }) 
 /* ═══════════════════════════════════════════
    Status Picker
    ═══════════════════════════════════════════ */
-function StatusPicker({ taskId, currentStatus, onClose, onDone }) {
+function StatusPicker({ taskId, currentStatus, onClose, onDone, onCelebrate, emitInstant }) {
   const dispatch = useAppDispatch();
   const ref = useRef(null);
   useClickOutside(ref, onClose);
 
   const handleChange = async (status) => {
     dispatch(optimisticUpdateTask({ taskId, data: { status } }));
+    emitInstant?.('task_completed', { taskId, status });
+    if (status === 'DONE') onCelebrate?.();
     onClose();
-    dispatch(updateTask({ taskId, data: { status } })).then(() => onDone());
+    dispatch(updateTask({ taskId, data: { status } }));
   };
 
   return (
@@ -174,12 +181,22 @@ function TimeCell({ taskId, field, value, canEdit, onDone }) {
 /* ═══════════════════════════════════════════
    Task Row
    ═══════════════════════════════════════════ */
-function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSubtasks, isExpanded, onToggle, cols = {}, customFields = [], fieldValues = {}, onSetFieldValue, depth = 0 }) {
+function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSubtasks, isExpanded, onToggle, cols = {}, customFields = [], fieldValues = {}, onSetFieldValue, depth = 0, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock }) {
   const dispatch = useAppDispatch();
   const [showAssigneePicker, setShowAssigneePicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [contextMenu, setContextMenu] = useState(null); // { x, y }
+  const [contextMenu, setContextMenu] = useState(null);
+  const [justCompleted, setJustCompleted] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const titleAutoSave = useAutoSave({
+    initialValue: task.title,
+    entityId: task.id,
+    onSave: async (val) => { await dispatch(updateTask({ taskId: task.id, data: { title: val } })).unwrap(); },
+    onOptimistic: (val) => dispatch(optimisticUpdateTask({ taskId: task.id, data: { title: val } })),
+    onBroadcast: (val) => emitLiveEdit?.({ entityType: 'task', entityId: task.id, field: 'title', value: val }),
+    debounceMs: 400,
+  });
   const dateRef = useRef(null);
   const contextRef = useRef(null);
 
@@ -197,27 +214,37 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
     e.stopPropagation();
     if (!canEdit || busy) return;
     const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
+    if (newStatus === 'DONE') { setJustCompleted(true); setTimeout(() => setJustCompleted(false), 600); onCelebrate?.(); }
     dispatch(optimisticUpdateTask({ taskId: task.id, data: { status: newStatus } }));
-    dispatch(updateTask({ taskId: task.id, data: { status: newStatus } })).then(() => onRefresh());
+    emitInstant?.('task_completed', { taskId: task.id, status: newStatus });
+    dispatch(updateTask({ taskId: task.id, data: { status: newStatus } }));
   };
 
   const handleDelete = (e) => {
     if (e?.stopPropagation) e.stopPropagation();
     if (!canEdit || busy) return;
     dispatch(optimisticDeleteTask(task.id));
-    dispatch(deleteTask(task.id)).then(() => onRefresh());
+    emitInstant?.('task_deleted', { taskId: task.id });
+    dispatch(deleteTask(task.id));
   };
 
   const handleConvertTo = (type) => {
     setContextMenu(null);
     dispatch(optimisticUpdateTask({ taskId: task.id, data: { taskType: type } }));
-    dispatch(updateTask({ taskId: task.id, data: { taskType: type } })).then(() => onRefresh());
+    emitInstant?.('task_field_updated', { taskId: task.id, field: 'taskType', value: type });
+    dispatch(updateTask({ taskId: task.id, data: { taskType: type } }));
   };
 
   const handleDateChange = (e) => {
     const val = e.target.value;
     dispatch(optimisticUpdateTask({ taskId: task.id, data: { dueDate: val || null } }));
-    dispatch(updateTask({ taskId: task.id, data: { dueDate: val || null } })).then(() => onRefresh());
+    emitInstant?.('task_field_updated', { taskId: task.id, field: 'dueDate', value: val || null });
+    dispatch(updateTask({ taskId: task.id, data: { dueDate: val || null } }));
+  };
+
+  const handleStopEditing = () => {
+    titleAutoSave.flush();
+    setEditingTitle(false);
   };
 
   const handleContextMenu = (e) => {
@@ -230,8 +257,8 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
   const statusCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.TODO;
 
   return (
-    <div className="flex items-stretch border-b border-[var(--asana-border)] hover:bg-gray-50/80 dark:hover:bg-[#2a2e35] cursor-pointer group transition-colors"
-      onClick={() => onTaskClick(task.id)}
+    <div className={`flex items-stretch border-b border-[var(--asana-border)]/30 hover:bg-gray-50/50 dark:hover:bg-[#2a2e35]/50 cursor-pointer group transition-colors ${justCompleted ? 'row-complete-flash' : ''}`}
+      onClick={() => { if (!editingTitle) onTaskClick(task.id); }}
       onContextMenu={handleContextMenu}>
 
       {/* ── Right-click context menu ── */}
@@ -246,6 +273,13 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               {task.status === 'DONE' ? 'Mark incomplete' : 'Mark complete'}
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); setContextMenu(null); setEditingTitle(true); }}
+              className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
+              <svg className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Rename
             </button>
             <div className="border-t border-[var(--asana-border)] my-1" />
             {/* Convert to submenu */}
@@ -282,7 +316,7 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
       )}
 
       {/* ── Name ── */}
-      <div className="flex-1 min-w-0 flex items-center py-[7px] border-r border-[var(--asana-border)]"
+      <div className="w-[45%] min-w-[200px] flex-shrink-0 flex items-center py-[8px] border-r border-[var(--asana-border)]/40"
         style={{ paddingLeft: `${depth * 1.5 + 1}rem`, paddingRight: '0.75rem' }}>
         {/* Expand arrow — shows for any task with subtasks at any depth */}
         {hasSubtasks ? (
@@ -295,47 +329,67 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
           </button>
         ) : <span className="w-[18px] mr-1.5 flex-shrink-0" />}
 
-        {/* Task icon — Circle for tasks, Diamond for milestones, Star for approvals */}
+        {/* Task icon — Circle / Diamond / Approval with completion animation */}
         {isMilestone ? (
-          <button onClick={toggleComplete} className="flex-shrink-0 mr-3">
-            <svg width="18" height="18" viewBox="0 0 18 18" className="flex-shrink-0">
+          <button onClick={toggleComplete} className={`flex-shrink-0 mr-3 relative ${justCompleted ? 'celebrate-burst' : ''}`}>
+            <svg width="18" height="18" viewBox="0 0 18 18" className={`flex-shrink-0 ${justCompleted ? 'check-pop' : ''}`}>
               <rect x="9" y="1" width="10" height="10" rx="1.5"
                 transform="rotate(45 9 1)"
-                className={`transition-colors ${task.status === 'DONE' ? 'fill-green-500 stroke-green-500' : 'fill-transparent stroke-gray-400 dark:stroke-gray-500 group-hover:stroke-green-400'}`}
+                className={`transition-all duration-300 ${task.status === 'DONE' ? 'fill-green-500 stroke-green-500' : 'fill-transparent stroke-gray-400 dark:stroke-gray-500 group-hover:stroke-green-400'}`}
                 strokeWidth="2" />
               {task.status === 'DONE' && (
-                <path d="M6.5 9.5L8 11L11.5 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <path d="M6.5 9.5L8 11L11.5 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"
+                  className={justCompleted ? 'check-draw' : ''} />
               )}
             </svg>
           </button>
         ) : isApproval ? (
-          <button onClick={toggleComplete} className="flex-shrink-0 mr-3">
-            <svg width="18" height="18" viewBox="0 0 20 20" className="flex-shrink-0">
+          <button onClick={toggleComplete} className={`flex-shrink-0 mr-3 relative ${justCompleted ? 'celebrate-burst' : ''}`}>
+            <svg width="18" height="18" viewBox="0 0 20 20" className={`flex-shrink-0 ${justCompleted ? 'check-pop' : ''}`}>
               <circle cx="10" cy="10" r="7"
-                className={`transition-colors ${task.status === 'DONE' ? 'fill-green-500 stroke-green-500' : 'fill-transparent stroke-purple-400 dark:stroke-purple-500 group-hover:stroke-green-400'}`}
+                className={`transition-all duration-300 ${task.status === 'DONE' ? 'fill-green-500 stroke-green-500' : 'fill-transparent stroke-purple-400 dark:stroke-purple-500 group-hover:stroke-green-400'}`}
                 strokeWidth="2" />
               <path d="M7 10l2 2 4-4" stroke={task.status === 'DONE' ? 'white' : 'currentColor'}
-                className={task.status === 'DONE' ? '' : 'text-purple-400'}
+                className={`${task.status === 'DONE' ? '' : 'text-purple-400'} ${justCompleted ? 'check-draw' : ''}`}
                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </svg>
           </button>
         ) : (
           <button onClick={toggleComplete}
-            className={`w-[18px] h-[18px] rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-3 transition-colors ${
+            className={`w-[18px] h-[18px] rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-3 transition-all duration-300 relative ${
               task.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
-            }`}>
+            } ${justCompleted ? 'check-pop celebrate-burst' : ''}`}>
             {task.status === 'DONE' && (
-              <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              <svg className={`w-2.5 h-2.5 text-white ${justCompleted ? 'check-draw' : ''}`} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 10l4 4L15 6" className={justCompleted ? 'check-draw' : ''} />
               </svg>
             )}
           </button>
         )}
 
-        {/* Title — bold for milestones */}
-        <span className={`text-sm truncate ${isMilestone ? 'font-bold' : ''} ${task.status === 'DONE' ? 'line-through text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>
-          {task.title}
-        </span>
+        {/* Title — double-click to rename, bold for milestones */}
+        {editingTitle ? (
+          <>
+            <input type="text" value={titleAutoSave.value}
+              onChange={(e) => titleAutoSave.setValue(e.target.value)}
+              onBlur={handleStopEditing}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleStopEditing(); if (e.key === 'Escape') setEditingTitle(false); }}
+              onClick={(e) => e.stopPropagation()}
+              autoFocus
+              className={`text-sm bg-transparent border-b-2 border-asana-blue outline-none py-0 px-0 flex-1 min-w-0 ${isMilestone ? 'font-bold' : ''} text-[var(--asana-text-primary)]`} />
+            <SaveIndicator status={titleAutoSave.saveStatus} />
+          </>
+        ) : (
+          <span
+            className={`text-sm truncate transition-colors duration-300 ${isMilestone ? 'font-bold' : ''} ${canEdit ? 'cursor-text' : ''} ${
+              task.status === 'DONE'
+                ? `text-[var(--asana-text-secondary)] ${justCompleted ? 'strike-animate' : 'line-through'}`
+                : 'text-[var(--asana-text-primary)]'
+            }`}
+            onClick={(e) => { if (!canEdit) return; e.stopPropagation(); setEditingTitle(true); }}>
+            {liveEdits[`task-${task.id}-title`] || task.title}
+          </span>
+        )}
         {!indent && hasSubtasks && (
           <span className="ml-2 text-[10px] text-[var(--asana-text-secondary)] flex-shrink-0">
             {task.subtasks.filter(s => s.status === 'DONE').length}/{task.subtasks.length}
@@ -356,7 +410,7 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
 
       {/* ── Assignee ── */}
       {cols.assignee && (
-        <div className="w-[130px] px-3 py-[7px] flex-shrink-0 border-r border-[var(--asana-border)] flex items-center relative" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-1 min-w-[90px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => canEdit && setShowAssigneePicker(true)}
             className="flex items-center space-x-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md px-1 py-0.5 -mx-1 transition-colors w-full">
             {task.assignees?.length > 0 ? (
@@ -377,14 +431,14 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
           </button>
           {showAssigneePicker && (
             <AssigneePicker taskId={task.id} currentAssignees={task.assignees} members={members}
-              onClose={() => setShowAssigneePicker(false)} onDone={onRefresh} />
+              onClose={() => setShowAssigneePicker(false)} onDone={onRefresh} emitInstant={emitInstant} />
           )}
         </div>
       )}
 
       {/* ── Due date ── */}
       {cols.dueDate && (
-        <div className="w-[110px] px-3 py-[7px] flex-shrink-0 border-r border-[var(--asana-border)] flex items-center relative" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-1 min-w-[80px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
           {canEdit ? (
             <div className="relative cursor-pointer" onClick={() => dateRef.current?.showPicker?.()}>
               <input ref={dateRef} type="date" value={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
@@ -407,21 +461,21 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
 
       {/* ── Status ── */}
       {cols.status && (
-        <div className="w-[110px] px-3 py-[7px] flex-shrink-0 border-r border-[var(--asana-border)] flex items-center relative" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-1 min-w-[80px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => canEdit && setShowStatusPicker(true)}
             className={`text-[10px] font-semibold px-2.5 py-1 rounded truncate ${statusCfg.cls}`}>
             {statusCfg.label}
           </button>
           {showStatusPicker && (
             <StatusPicker taskId={task.id} currentStatus={task.status}
-              onClose={() => setShowStatusPicker(false)} onDone={onRefresh} />
+              onClose={() => setShowStatusPicker(false)} onDone={onRefresh} onCelebrate={onCelebrate} emitInstant={emitInstant} />
           )}
         </div>
       )}
 
       {/* ── Priority ── */}
       {cols.priority && (
-        <div className="w-[100px] px-3 py-[7px] flex-shrink-0 border-r border-[var(--asana-border)] flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-1 min-w-[70px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
           <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
             task.priority === 'HIGH' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' :
             task.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400' :
@@ -432,23 +486,23 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
 
       {/* ── Estimated time ── */}
       {cols.estimatedTime && (
-        <div className="w-[110px] px-3 py-[7px] flex-shrink-0 border-r border-[var(--asana-border)] flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-1 min-w-[75px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
           <TimeCell taskId={task.id} field="estimatedTime" value={task.estimatedTime} canEdit={canEdit} onDone={onRefresh} />
         </div>
       )}
 
-      {/* ── Actual time ── */}
+      {/* ── Actual time (Time Tracker) ── */}
       {cols.actualTime && (
-        <div className="w-[110px] px-3 py-[7px] flex-shrink-0 border-r border-[var(--asana-border)] flex items-center" onClick={(e) => e.stopPropagation()}>
-          <TimeCell taskId={task.id} field="actualTime" value={task.actualTime} canEdit={canEdit} onDone={onRefresh} />
+        <div className="flex-1 min-w-[75px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
+          <TimeTracker taskId={task.id} initialTotal={task.actualTime || 0} timerStartedAt={task.timerStartedAt} canEdit={canEdit} emitInstant={emitInstant} />
         </div>
       )}
 
       {/* ── Dynamic custom field cells ── */}
       {customFields.map(cf => (
-        <div key={cf.id} className="w-[120px] px-3 py-[7px] flex-shrink-0 border-r border-[var(--asana-border)] flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div key={cf.id} className="flex-1 min-w-[80px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
           <CustomFieldCell
-            field={cf}
+            field={{ ...cf, _members: cf.type === 'PEOPLE' ? members : undefined }}
             taskId={task.id}
             value={fieldValues[`${cf.id}-${task.id}`] || ''}
             canEdit={canEdit}
@@ -530,7 +584,12 @@ function FieldTypePicker({ onSelect, onClose }) {
 
   const handleCreate = () => {
     const t = selectedType?.type || 'TEXT';
-    const fieldOptions = (t === 'SINGLE_SELECT' || t === 'MULTI_SELECT') ? options
+    // Auto-add any pending option that wasn't submitted yet
+    let finalOptions = [...options];
+    if ((t === 'SINGLE_SELECT' || t === 'MULTI_SELECT') && newOptionName.trim()) {
+      finalOptions.push({ value: newOptionName.trim(), color: newOptionColor.name });
+    }
+    const fieldOptions = (t === 'SINGLE_SELECT' || t === 'MULTI_SELECT') ? finalOptions
       : t === 'NUMBER' ? [{ format: numberFormat }] : null;
     onSelect(name.trim() || selectedType?.label || 'Field', t, fieldOptions);
   };
@@ -606,7 +665,8 @@ function FieldTypePicker({ onSelect, onClose }) {
                   </svg>
                 </button>
                 {showTypeDropdown && (
-                  <div className="absolute top-full left-0 mt-1 w-full bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl z-10 py-1 max-h-52 overflow-y-auto">
+                  <div className="fixed z-[300] w-[180px] bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 max-h-52 overflow-y-auto"
+                    style={{ top: typeDropdownRef.current?.getBoundingClientRect().bottom + 4, left: typeDropdownRef.current?.getBoundingClientRect().left }}>
                     {FIELD_TYPES.map(ft => (
                       <button key={ft.type} onClick={() => { setSelectedType(ft); setShowTypeDropdown(false); }}
                         className={`w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50 ${selectedType?.type === ft.type ? 'bg-asana-blue/5 text-asana-blue font-medium' : 'text-[var(--asana-text-primary)]'}`}>
@@ -720,10 +780,178 @@ function FieldTypePicker({ onSelect, onClose }) {
 /* ═══════════════════════════════════════════
    Custom Field Cell — Asana-style rendering
    ═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   Custom Field Time Tracker — stores data as JSON in custom field value
+   Format: { total: minutes, entries: [{ mins, date, note }], timerStart: ISO|null }
+   ═══════════════════════════════════════════ */
+function CustomFieldTimeTracker({ taskId, value, canEdit, onChange }) {
+  const parsed = (() => {
+    try { const p = JSON.parse(value || '{}'); return { total: p.total || 0, entries: p.entries || [], timerStart: p.timerStart || null }; }
+    catch { return { total: parseInt(value) || 0, entries: value && parseInt(value) > 0 ? [{ mins: parseInt(value), date: new Date().toISOString(), note: 'Manual' }] : [], timerStart: null }; }
+  })();
+
+  const [total, setTotal] = useState(parsed.total);
+  const [entries, setEntries] = useState(parsed.entries);
+  const [timerStart, setTimerStart] = useState(parsed.timerStart);
+  const [elapsed, setElapsed] = useState(0);
+  const [showPopup, setShowPopup] = useState(false);
+  const [addingTime, setAddingTime] = useState(false);
+  const [addInput, setAddInput] = useState('');
+  const popupRef = useRef(null);
+  const btnRef = useRef(null);
+  const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
+
+  // Persist to custom field value as JSON
+  const persist = (t, e, ts) => {
+    onChange(JSON.stringify({ total: t, entries: e, timerStart: ts }));
+  };
+
+  // Timer tick
+  useEffect(() => {
+    if (!timerStart) { setElapsed(0); return; }
+    const tick = () => setElapsed(Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000));
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [timerStart]);
+
+  // Close popup
+  useEffect(() => {
+    if (!showPopup) return;
+    const handler = (e) => { if (popupRef.current && !popupRef.current.contains(e.target)) setShowPopup(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showPopup]);
+
+  // Sync from prop
+  useEffect(() => {
+    try { const p = JSON.parse(value || '{}'); setTotal(p.total || 0); setEntries(p.entries || []); setTimerStart(p.timerStart || null); } catch {}
+  }, [value]);
+
+  const parseMins = (str) => {
+    const s = str.trim().toLowerCase();
+    const hm = s.match(/^(\d+)\s*h\s*(\d+)\s*m?$/); if (hm) return parseInt(hm[1]) * 60 + parseInt(hm[2]);
+    const ho = s.match(/^(\d+)\s*h$/); if (ho) return parseInt(ho[1]) * 60;
+    const mo = s.match(/^(\d+)\s*m$/); if (mo) return parseInt(mo[1]);
+    const n = parseInt(s); return isNaN(n) ? 0 : n;
+  };
+
+  const fmtMins = (m) => { if (!m) return '0m'; const h = Math.floor(m / 60); const min = m % 60; return h > 0 ? `${h}h ${String(min).padStart(2, '0')}m` : `${min}m`; };
+
+  const handleStartTimer = () => { const now = new Date().toISOString(); setTimerStart(now); persist(total, entries, now); };
+  const handleStopTimer = () => {
+    const mins = Math.max(1, Math.round(elapsed / 60));
+    const newEntries = [{ mins, date: new Date().toISOString(), note: 'Timer' }, ...entries];
+    const newTotal = total + mins;
+    setTimerStart(null); setTotal(newTotal); setEntries(newEntries); setElapsed(0);
+    persist(newTotal, newEntries, null);
+  };
+  const handleAddTime = () => {
+    const mins = parseMins(addInput); if (mins <= 0) return;
+    const newEntries = [{ mins, date: new Date().toISOString(), note: 'Manual' }, ...entries];
+    const newTotal = total + mins;
+    setTotal(newTotal); setEntries(newEntries); setAddInput(''); setAddingTime(false);
+    persist(newTotal, newEntries, timerStart);
+  };
+  const handleDeleteEntry = (idx) => {
+    const e = entries[idx]; const newEntries = entries.filter((_, i) => i !== idx);
+    const newTotal = Math.max(0, total - (e?.mins || 0));
+    setTotal(newTotal); setEntries(newEntries);
+    persist(newTotal, newEntries, timerStart);
+  };
+
+  const timerMins = timerStart ? Math.floor(elapsed / 60) : 0;
+  const timerDisplay = timerStart ? `${String(Math.floor(elapsed / 3600)).padStart(2, '0')}:${String(Math.floor(elapsed / 60) % 60).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}` : null;
+
+  return (
+    <div className="relative w-full">
+      <button ref={btnRef} onClick={(e) => { e.stopPropagation(); if (btnRef.current) { const r = btnRef.current.getBoundingClientRect(); const spaceBelow = window.innerHeight - r.bottom; const openAbove = spaceBelow < 300; setPopupPos({ top: openAbove ? null : r.bottom + 4, bottom: openAbove ? (window.innerHeight - r.top + 4) : null, left: Math.min(r.left, window.innerWidth - 300) }); } setShowPopup(true); }}
+        className={`text-xs flex items-center w-full ${total > 0 || timerStart ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100'}`}>
+        {timerStart && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse mr-1.5" />}
+        {timerStart ? <span className="font-mono text-red-500 font-semibold">{timerDisplay}</span> : total > 0 ? fmtMins(total) : (
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        )}
+      </button>
+      {showPopup && (
+        <div ref={popupRef} className="fixed z-[200] w-72 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl animate-fade-in"
+          style={{ top: popupPos.top ?? 'auto', bottom: popupPos.bottom ?? 'auto', left: popupPos.left }}
+          onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-48 overflow-y-auto">
+            {entries.map((e, i) => (
+              <div key={i} className="flex items-center px-4 py-2.5 border-b border-[var(--asana-border)] group/entry">
+                <span className="text-sm font-semibold text-[var(--asana-text-primary)] flex-1">{fmtMins(e.mins)}</span>
+                {canEdit && (
+                  <button onClick={() => handleDeleteEntry(i)} className="opacity-0 group-hover/entry:opacity-100 p-0.5 text-[var(--asana-text-secondary)] hover:text-red-500">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                )}
+                <span className="text-[10px] text-[var(--asana-text-secondary)] ml-2">{new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+              </div>
+            ))}
+            {entries.length === 0 && !timerStart && <p className="text-xs text-[var(--asana-text-secondary)] text-center py-4">No time logged</p>}
+          </div>
+          {timerStart && (
+            <div className="px-4 py-2.5 border-b border-[var(--asana-border)] bg-red-50/50 dark:bg-red-900/10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /><span className="text-sm font-mono font-bold text-red-600 dark:text-red-400">{timerDisplay}</span></div>
+                <button onClick={handleStopTimer} className="text-xs font-semibold text-red-600 px-2 py-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30">Stop</button>
+              </div>
+            </div>
+          )}
+          <div className="px-4 py-3">
+            <div className="mb-2"><span className="text-sm font-semibold text-[var(--asana-text-primary)]">{fmtMins(total + timerMins)}</span> <span className="text-[10px] text-[var(--asana-text-secondary)] uppercase">Total</span></div>
+            {canEdit && (
+              <div className="flex items-center space-x-2">
+                {!timerStart ? (
+                  <button onClick={handleStartTimer} className="flex items-center text-xs px-3 py-1.5 rounded-md border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 font-medium">
+                    <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Start timer
+                  </button>
+                ) : (
+                  <button onClick={handleStopTimer} className="flex items-center text-xs px-3 py-1.5 rounded-md bg-red-500 text-white font-medium hover:bg-red-600">Stop timer</button>
+                )}
+                {addingTime ? (
+                  <div className="flex items-center space-x-1">
+                    <input type="text" value={addInput} onChange={(e) => setAddInput(e.target.value)} placeholder="1h 30m" autoFocus
+                      className="w-20 text-xs px-2 py-1.5 bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-md outline-none text-[var(--asana-text-primary)] focus:ring-1 focus:ring-asana-blue"
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddTime(); if (e.key === 'Escape') setAddingTime(false); }} />
+                    <button onClick={handleAddTime} className="text-xs text-asana-blue font-semibold">Add</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setAddingTime(true)} className="flex items-center text-xs px-3 py-1.5 rounded-md border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 font-medium">
+                    <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    Add time
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState(value || '');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0 });
+  const cellBtnRef = useRef(null);
+
+  const openDropdown = () => {
+    if (!canEdit) return;
+    if (cellBtnRef.current) {
+      const r = cellBtnRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - r.bottom;
+      setDropPos({
+        top: spaceBelow < 200 ? null : r.bottom + 2,
+        bottom: spaceBelow < 200 ? (window.innerHeight - r.top + 2) : null,
+        left: Math.min(r.left, window.innerWidth - 200),
+      });
+    }
+    setShowDropdown(!showDropdown);
+  };
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -754,7 +982,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
 
     return (
       <div className="relative w-full">
-        <button onClick={() => canEdit && setShowDropdown(!showDropdown)} className="w-full text-left">
+        <button ref={cellBtnRef} onClick={openDropdown} className="w-full text-left">
           {selected ? (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ backgroundColor: selColor?.bg, color: selColor?.text }}>
               {selected.value}
@@ -764,7 +992,8 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
           )}
         </button>
         {showDropdown && (
-          <div ref={dropdownRef} className="absolute z-50 top-full left-0 mt-1 w-44 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl py-1 animate-fade-in">
+          <div ref={dropdownRef} className="fixed z-[200] w-44 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
+            style={{ top: dropPos.top ?? 'auto', bottom: dropPos.bottom ?? 'auto', left: dropPos.left }}>
             {/* Clear option */}
             <button onClick={() => { onChange(''); setShowDropdown(false); }}
               className="w-full px-3 py-1.5 text-left text-xs text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
@@ -792,7 +1021,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
     const selectedValues = value ? value.split(',').filter(Boolean) : [];
     return (
       <div className="relative w-full">
-        <button onClick={() => canEdit && setShowDropdown(!showDropdown)} className="w-full text-left flex flex-wrap gap-0.5">
+        <button ref={cellBtnRef} onClick={openDropdown} className="w-full text-left flex flex-wrap gap-0.5">
           {selectedValues.length > 0 ? selectedValues.map(v => {
             const opt = parsedOpts.find(o => o.value === v);
             const c = opt ? (OPTION_COLORS.find(oc => oc.name === opt.color) || OPTION_COLORS[0]) : OPTION_COLORS[12];
@@ -800,7 +1029,8 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
           }) : <span className="text-xs text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100">—</span>}
         </button>
         {showDropdown && (
-          <div ref={dropdownRef} className="absolute z-50 top-full left-0 mt-1 w-44 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl py-1 animate-fade-in">
+          <div ref={dropdownRef} className="fixed z-[200] w-44 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
+            style={{ top: dropPos.top ?? 'auto', bottom: dropPos.bottom ?? 'auto', left: dropPos.left }}>
             {parsedOpts.map(opt => {
               const c = OPTION_COLORS.find(oc => oc.name === opt.color) || OPTION_COLORS[0];
               const isSelected = selectedValues.includes(opt.value);
@@ -830,14 +1060,56 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
     );
   }
 
-  // NUMBER — with format support
+  // PEOPLE — member picker (like assignee)
+  if (field.type === 'PEOPLE') {
+    const selectedName = value || '';
+    return (
+      <div className="relative w-full">
+        <button ref={cellBtnRef} onClick={openDropdown} className="w-full text-left flex items-center">
+          {selectedName ? (
+            <>
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold mr-1.5 flex-shrink-0"
+                style={{ backgroundColor: `hsl(${selectedName.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                {selectedName.charAt(0).toUpperCase()}
+              </div>
+              <span className="text-xs text-[var(--asana-text-primary)] truncate">{selectedName}</span>
+            </>
+          ) : (
+            <span className="text-xs text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100">—</span>
+          )}
+        </button>
+        {showDropdown && (
+          <div ref={dropdownRef} className="fixed z-[200] w-48 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-48 overflow-y-auto"
+            style={{ top: dropPos.top ?? 'auto', bottom: dropPos.bottom ?? 'auto', left: dropPos.left }}>
+            <button onClick={() => { onChange(''); setShowDropdown(false); }}
+              className="w-full px-3 py-1.5 text-left text-xs text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">Clear</button>
+            {(field._members || []).map(m => {
+              const name = m.user?.name || m.name || '';
+              return (
+                <button key={name} onClick={() => { onChange(name); setShowDropdown(false); }}
+                  className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 ${value === name ? 'bg-asana-blue/5' : ''}`}>
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold mr-2"
+                    style={{ backgroundColor: `hsl(${name.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                    {name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-xs text-[var(--asana-text-primary)]">{name}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // NUMBER — with format support (live update on every keystroke)
   if (field.type === 'NUMBER') {
     const fmt = parsedOpts[0]?.format || 'number';
     if (editing) {
       return (
-        <input type="number" value={input} onChange={(e) => setInput(e.target.value)} autoFocus
+        <input type="number" value={input} onChange={(e) => { setInput(e.target.value); onChange(e.target.value); }} autoFocus
           className="text-xs bg-transparent border-none p-0 text-[var(--asana-text-primary)] outline-none w-full text-right"
-          onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }} />
+          onBlur={() => setEditing(false)} onKeyDown={(e) => { if (e.key === 'Enter') setEditing(false); if (e.key === 'Escape') setEditing(false); }} />
       );
     }
     const display = value ? (fmt === 'currency' ? `$${value}` : fmt === 'percentage' ? `${value}%` : value) : '';
@@ -849,12 +1121,24 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
     );
   }
 
-  // TEXT, TIME_TRACKING, PEOPLE — inline text editing
+  // TIME_TRACKING — full Asana-style timer + entries (uses custom field value as storage)
+  if (field.type === 'TIME_TRACKING') {
+    return (
+      <CustomFieldTimeTracker
+        taskId={taskId}
+        value={value}
+        canEdit={canEdit}
+        onChange={onChange}
+      />
+    );
+  }
+
+  // TEXT — inline text editing (live update on every keystroke)
   if (editing) {
     return (
-      <input type="text" value={input} onChange={(e) => setInput(e.target.value)} autoFocus
+      <input type="text" value={input} onChange={(e) => { setInput(e.target.value); onChange(e.target.value); }} autoFocus
         className="text-xs bg-transparent border-none p-0 text-[var(--asana-text-primary)] outline-none w-full"
-        onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }} />
+        onBlur={() => setEditing(false)} onKeyDown={(e) => { if (e.key === 'Enter') setEditing(false); if (e.key === 'Escape') setEditing(false); }} />
     );
   }
 
@@ -869,7 +1153,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
 /* ═══════════════════════════════════════════
    Recursive Task Tree Node — renders task + subtasks at any depth
    ═══════════════════════════════════════════ */
-function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customFields, fieldValues, onSetFieldValue, onTaskClick, onRefresh, expandedTasks, toggleTask, addingSubtaskTo, setAddingSubtaskTo, newSubtaskTitle, setNewSubtaskTitle, handleAddSubtask, pendingItems = [] }) {
+function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customFields, fieldValues, onSetFieldValue, onTaskClick, onRefresh, expandedTasks, toggleTask, addingSubtaskTo, setAddingSubtaskTo, newSubtaskTitle, setNewSubtaskTitle, handleAddSubtask, pendingItems = [], onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock }) {
   const hasSubtasks = task.subtasks?.length > 0;
   const isExpanded = expandedTasks[task.id];
 
@@ -879,7 +1163,7 @@ function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customField
         customFields={customFields} fieldValues={fieldValues} onSetFieldValue={onSetFieldValue}
         onTaskClick={onTaskClick} onRefresh={onRefresh}
         hasSubtasks={hasSubtasks} isExpanded={isExpanded} onToggle={() => toggleTask(task.id)}
-        depth={depth} />
+        depth={depth} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} />
 
       {/* Recursively render subtasks */}
       {isExpanded && task.subtasks?.map((sub) => (
@@ -890,7 +1174,7 @@ function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customField
           expandedTasks={expandedTasks} toggleTask={toggleTask}
           addingSubtaskTo={addingSubtaskTo} setAddingSubtaskTo={setAddingSubtaskTo}
           newSubtaskTitle={newSubtaskTitle} setNewSubtaskTitle={setNewSubtaskTitle}
-          handleAddSubtask={handleAddSubtask} pendingItems={pendingItems} />
+          handleAddSubtask={handleAddSubtask} pendingItems={pendingItems} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} />
       ))}
 
       {/* Add subtask input */}
@@ -926,7 +1210,7 @@ function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customField
 function PendingRow({ title, type, depth = 0 }) {
   return (
     <div className="flex items-stretch border-b border-[var(--asana-border)] animate-pulse">
-      <div className="flex-1 min-w-0 flex items-center py-[7px] border-r border-[var(--asana-border)]"
+      <div className="w-[45%] min-w-[200px] flex-shrink-0 flex items-center py-[8px] border-r border-[var(--asana-border)]/40"
         style={{ paddingLeft: `${depth * 1.5 + 1}rem`, paddingRight: '0.75rem' }}>
         <span className="w-[18px] mr-1.5 flex-shrink-0" />
         {type === 'section' ? (
@@ -947,7 +1231,7 @@ function PendingRow({ title, type, depth = 0 }) {
   );
 }
 
-function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingItems = [], addPendingItem, clearPendingItems }) {
+function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingItems = [], addPendingItem, clearPendingItems, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, addSectionTrigger = 0, customFieldEvent, setCustomFieldCallback }) {
   const cols = { assignee: true, dueDate: true, status: true, estimatedTime: true, actualTime: true, priority: false, ...columns };
   const dispatch = useAppDispatch();
   const { canEdit } = useRole();
@@ -959,6 +1243,16 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
   const [addingTaskTo, setAddingTaskTo] = useState(null);
   const [addingSubtaskTo, setAddingSubtaskTo] = useState(null);
   const [addingSection, setAddingSection] = useState(false);
+  const addSectionInputRef = useRef(null);
+
+  // Respond to "Add Section" button from header
+  useEffect(() => {
+    if (addSectionTrigger > 0) {
+      setAddingSection(true);
+      setNewSectionName('');
+      setTimeout(() => addSectionInputRef.current?.focus(), 100);
+    }
+  }, [addSectionTrigger]);
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [editingSectionName, setEditingSectionName] = useState('');
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -986,27 +1280,71 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
     } catch (e) { /* project might not exist yet */ }
   }, [projectId]);
 
-  useEffect(() => { fetchCustomFields(); }, [fetchCustomFields]);
+  // Clear stale custom fields when project changes, then fetch fresh
+  useEffect(() => {
+    setCustomFields([]);
+    setFieldValues({});
+    fetchCustomFields();
+  }, [fetchCustomFields]);
+
+  // Handle custom field events from other users via direct callback (instant, no React state cycle)
+  useEffect(() => {
+    setCustomFieldCallback?.((evt) => {
+      if (!evt?.event) return;
+      if (evt.event === 'custom_field_added' && evt.field) {
+        setCustomFields(prev => prev.some(f => f.id === evt.field.id) ? prev : [...prev, evt.field]);
+      }
+      if (evt.event === 'custom_field_deleted' && evt.fieldId) {
+        setCustomFields(prev => prev.filter(f => f.id !== evt.fieldId));
+      }
+      if (evt.event === 'custom_field_value_set' && evt.fieldId && evt.taskId) {
+        setFieldValues(prev => ({ ...prev, [`${evt.fieldId}-${evt.taskId}`]: evt.value }));
+      }
+      if (evt.event === 'custom_field_replaced' && evt.tempId && evt.field) {
+        setCustomFields(prev => prev.map(f => f.id === evt.tempId ? evt.field : f));
+      }
+    });
+    return () => setCustomFieldCallback?.(null);
+  }, [setCustomFieldCallback]);
 
   const addCustomField = async (name, type, options) => {
     if (!projectId) return;
-    try {
-      await api.post(`/api/v1/custom-fields/project/${projectId}`, { name, type, options: options || null });
-      fetchCustomFields();
-    } catch (e) { console.error('Failed to add field:', e); }
+    const tempId = `temp-field-${Date.now()}`;
+    const tempField = { id: tempId, name, type: type || 'TEXT', options: options || null, position: customFields.length };
+
+    // 1. Optimistic local
+    setCustomFields(prev => [...prev, tempField]);
+    // 2. Broadcast to others
+    emitInstant?.('custom_field_added', { field: tempField });
+    // 3. Background API — then broadcast real field to replace temp
     setShowFieldPicker(false);
+    try {
+      const res = await api.post(`/api/v1/custom-fields/project/${projectId}`, { name, type, options: options || null });
+      const realField = res.data.data;
+      // Replace temp with real locally
+      setCustomFields(prev => prev.map(f => f.id === tempId ? realField : f));
+      // Broadcast real field to other users
+      emitInstant?.('custom_field_replaced', { tempId, field: realField });
+    } catch (e) { console.error('Failed to add field:', e); }
   };
 
   const deleteCustomField = async (fieldId) => {
+    // 1. Optimistic local
+    setCustomFields(prev => prev.filter(f => f.id !== fieldId));
+    // 2. Broadcast to others
+    emitInstant?.('custom_field_deleted', { fieldId });
+    // 3. Background API
     try {
       await api.delete(`/api/v1/custom-fields/${fieldId}`);
-      fetchCustomFields();
     } catch (e) { console.error('Failed to delete field:', e); }
   };
 
   const setFieldValue = async (fieldId, taskId, value) => {
-    // Optimistic
+    // Optimistic local
     setFieldValues(prev => ({ ...prev, [`${fieldId}-${taskId}`]: value }));
+    // Broadcast to others
+    emitInstant?.('custom_field_value_set', { fieldId, taskId, value });
+    // Background API
     try {
       await api.put(`/api/v1/custom-fields/${fieldId}/task/${taskId}`, { value });
     } catch (e) { console.error('Failed to set field value:', e); }
@@ -1014,91 +1352,81 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
 
   const toggleSection = (id) => setCollapsedSections(p => ({ ...p, [id]: !p[id] }));
 
-  const handleRenameSection = (listId) => {
-    const name = editingSectionName.trim();
-    if (!name || name === lists.find(l => l.id === listId)?.name) {
-      setEditingSectionId(null);
-      return;
-    }
+  const sectionSaveTimerRef = useRef(null);
+
+  const handleSectionNameChange = (listId, name) => {
+    setEditingSectionName(name);
     dispatch(optimisticRenameSection({ listId, name }));
+    emitLiveEdit?.({ entityType: 'section', entityId: listId, field: 'name', value: name });
+
+    if (sectionSaveTimerRef.current) clearTimeout(sectionSaveTimerRef.current);
+    sectionSaveTimerRef.current = setTimeout(() => {
+      if (name.trim()) dispatch(updateList({ listId, data: { name: name.trim() } }));
+    }, 400);
+  };
+
+  const handleStopEditingSection = (listId) => {
+    if (sectionSaveTimerRef.current) clearTimeout(sectionSaveTimerRef.current);
+    const name = editingSectionName.trim();
+    if (name && name !== lists.find(l => l.id === listId)?.name) {
+      dispatch(updateList({ listId, data: { name } }));
+    }
     setEditingSectionId(null);
-    dispatch(updateList({ listId, data: { name } }));
   };
   const toggleTask = (id) => setExpandedTasks(p => ({ ...p, [id]: !p[id] }));
   const refetch = () => {
     if (boardId) dispatch(fetchLists(boardId));
   };
 
-  const handleAddTask = async (e, listId) => {
+  const handleAddTask = (e, listId) => {
     e.preventDefault();
-    if (!newTaskTitle.trim() || submitting) return;
+    if (!newTaskTitle.trim()) return;
     const title = newTaskTitle.trim();
     const tempId = `temp-${Date.now()}`;
-    setSubmitting(true);
+    const task = { id: tempId, title, status: 'TODO', priority: 'LOW', taskType: 'DEFAULT_TASK', assignees: [], subtasks: [], position: 9999 };
+
+    // 1. Local optimistic
+    dispatch(optimisticAddTask({ listId, task }));
+    // 2. Instant broadcast to other users (they see the task appear immediately)
+    emitInstant?.('task_added', { listId, task });
+    // 3. Clear input, keep open
     setNewTaskTitle('');
-    setAddingTaskTo(null);
-
-    // Optimistic: add fake task instantly
-    dispatch(optimisticAddTask({
-      listId,
-      task: { id: tempId, title, status: 'TODO', priority: 'LOW', taskType: 'DEFAULT_TASK', assignees: [], subtasks: [], position: 9999 }
-    }));
-    addPendingItem?.({ type: 'task', listId, title });
-
-    try {
-      await dispatch(createTask({ listId, taskData: { title } })).unwrap();
-      refetch(); // sync with real server data
-    } finally {
-      setSubmitting(false);
-    }
+    // 4. Background DB save — then broadcast REAL task to replace temp on other users
+    dispatch(createTask({ listId, taskData: { title } })).unwrap().then((realTask) => {
+      emitInstant?.('task_replaced', { tempId, listId, task: realTask });
+    }).catch(() => {});
   };
 
-  const handleAddSubtask = async (e, listId, taskId) => {
+  const handleAddSubtask = (e, listId, taskId) => {
     e.preventDefault();
-    if (!newSubtaskTitle.trim() || submitting) return;
+    if (!newSubtaskTitle.trim()) return;
     const title = newSubtaskTitle.trim();
     const tempId = `temp-${Date.now()}`;
-    setSubmitting(true);
+    const subtask = { id: tempId, title, status: 'TODO', priority: 'LOW', taskType: 'DEFAULT_TASK', assignees: [], subtasks: [], position: 9999 };
+
+    dispatch(optimisticAddSubtask({ listId, taskId, subtask }));
+    emitInstant?.('subtask_added', { listId, taskId, subtask });
     setNewSubtaskTitle('');
-    setAddingSubtaskTo(null);
     setExpandedTasks(p => ({ ...p, [taskId]: true }));
-
-    // Optimistic: add fake subtask instantly
-    dispatch(optimisticAddSubtask({
-      listId, taskId,
-      subtask: { id: tempId, title, status: 'TODO', priority: 'LOW', taskType: 'DEFAULT_TASK', assignees: [], subtasks: [], position: 9999 }
-    }));
-    addPendingItem?.({ type: 'subtask', listId, taskId, title });
-
-    try {
-      await dispatch(createSubtask({ listId, taskId, subtaskData: { title } })).unwrap();
-      refetch();
-    } finally {
-      setSubmitting(false);
-    }
+    dispatch(createSubtask({ listId, taskId, subtaskData: { title } })).unwrap().then((realSub) => {
+      emitInstant?.('subtask_replaced', { tempId, taskId, subtask: realSub });
+    }).catch(() => {});
   };
 
-  const handleAddSection = async (e) => {
+  const handleAddSection = (e) => {
     e.preventDefault();
-    if (!newSectionName.trim() || !boardId || submitting) return;
+    if (!newSectionName.trim() || !boardId) return;
     const name = newSectionName.trim();
     const tempId = `temp-section-${Date.now()}`;
-    setSubmitting(true);
+    const section = { id: tempId, name, tasks: [], position: 9999 };
+
+    dispatch(optimisticAddSection({ section }));
+    emitInstant?.('section_added', { section });
     setNewSectionName('');
     setAddingSection(false);
-
-    // Optimistic: add fake section instantly
-    dispatch(optimisticAddSection({
-      section: { id: tempId, name, tasks: [], position: 9999 }
-    }));
-    addPendingItem?.({ type: 'section', title: name });
-
-    try {
-      await dispatch(createList({ boardId, name })).unwrap();
-      refetch();
-    } finally {
-      setSubmitting(false);
-    }
+    dispatch(createList({ boardId, name })).unwrap().then((realSection) => {
+      emitInstant?.('section_replaced', { tempId, section: realSection });
+    }).catch(() => {});
   };
 
   // Calculate section sums
@@ -1107,47 +1435,44 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
   };
 
   return (
-    <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] overflow-x-auto">
+    <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] overflow-x-auto relative">
+      {/* + Add field — absolute top-right corner */}
+      {canEdit && (
+        <button id="add-field-btn" onClick={() => setShowFieldPicker(!showFieldPicker)}
+          className="absolute top-0 right-0 z-20 w-8 h-[33px] flex items-center justify-center bg-[var(--asana-surface)] border-l border-b border-[var(--asana-border)]/40 rounded-tr-lg rounded-bl-lg text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          title="Add field">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      )}
       {/* ── Column headers ── */}
-      <div className="flex items-stretch border-b border-[var(--asana-border)] bg-[var(--asana-surface)] sticky top-0 z-10">
-        <div className="flex-1 min-w-0 px-4 py-2 border-r border-[var(--asana-border)]">
-          <span className="text-[11px] font-semibold text-[var(--asana-text-secondary)]">Name</span>
+      <div className="flex items-stretch border-b border-[var(--asana-border)]/60 bg-[var(--asana-surface)] sticky top-0 z-10">
+        <div className="w-[45%] min-w-[200px] px-5 py-2 border-r border-[var(--asana-border)]/40 flex-shrink-0">
+          <span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Name</span>
         </div>
-        {cols.assignee && <div className="w-[130px] px-3 py-2 flex-shrink-0 border-r border-[var(--asana-border)]"><span className="text-[11px] font-semibold text-[var(--asana-text-secondary)]">Assignee</span></div>}
-        {cols.dueDate && <div className="w-[110px] px-3 py-2 flex-shrink-0 border-r border-[var(--asana-border)]"><span className="text-[11px] font-semibold text-[var(--asana-text-secondary)]">Due date</span></div>}
-        {cols.status && <div className="w-[110px] px-3 py-2 flex-shrink-0 border-r border-[var(--asana-border)]"><span className="text-[11px] font-semibold text-[var(--asana-text-secondary)]">Status</span></div>}
-        {cols.priority && <div className="w-[100px] px-3 py-2 flex-shrink-0 border-r border-[var(--asana-border)]"><span className="text-[11px] font-semibold text-[var(--asana-text-secondary)]">Priority</span></div>}
-        {cols.estimatedTime && <div className="w-[110px] px-3 py-2 flex-shrink-0 border-r border-[var(--asana-border)]"><span className="text-[11px] font-semibold text-[var(--asana-text-secondary)]">Estimated ti...</span></div>}
-        {cols.actualTime && <div className="w-[110px] px-3 py-2 flex-shrink-0 border-r border-[var(--asana-border)]"><span className="text-[11px] font-semibold text-[var(--asana-text-secondary)]">Actual time</span></div>}
+        {cols.assignee && <div className="flex-1 min-w-[90px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Assignee</span></div>}
+        {cols.dueDate && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Due date</span></div>}
+        {cols.status && <div className="flex-1 min-w-[75px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Status</span></div>}
+        {cols.priority && <div className="flex-1 min-w-[70px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Priority</span></div>}
+        {cols.estimatedTime && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Estimated ti...</span></div>}
+        {cols.actualTime && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Actual time</span></div>}
 
         {/* Dynamic custom field columns */}
         {customFields.map(cf => (
-          <div key={cf.id} className="w-[120px] px-3 py-2 flex-shrink-0 border-r border-[var(--asana-border)] group/col">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-[var(--asana-text-secondary)] truncate">{cf.name}</span>
+          <div key={cf.id} className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center group/col">
+            <span className="text-[11px] font-semibold text-[var(--asana-text-secondary)] truncate flex-1">{cf.name}</span>
               {canEdit && (
                 <button onClick={() => deleteCustomField(cf.id)}
-                  className="opacity-0 group-hover/col:opacity-100 p-0.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-[var(--asana-text-secondary)] hover:text-red-500 transition-all">
+                  className="opacity-0 group-hover/col:opacity-100 p-0.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-[var(--asana-text-secondary)] hover:text-red-500 transition-all ml-1">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               )}
-            </div>
           </div>
         ))}
 
-        {/* + Add field button */}
-        {canEdit && (
-          <div className="w-[36px] px-1.5 py-2 flex-shrink-0 flex items-center justify-center">
-            <button id="add-field-btn" onClick={() => setShowFieldPicker(!showFieldPicker)}
-              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ── Sections ── */}
@@ -1169,16 +1494,16 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
 
                 {editingSectionId === list.id ? (
                   <input type="text" value={editingSectionName}
-                    onChange={(e) => setEditingSectionName(e.target.value)}
-                    onBlur={() => handleRenameSection(list.id)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleRenameSection(list.id); if (e.key === 'Escape') setEditingSectionId(null); }}
+                    onChange={(e) => handleSectionNameChange(list.id, e.target.value)}
+                    onBlur={() => handleStopEditingSection(list.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleStopEditingSection(list.id); if (e.key === 'Escape') setEditingSectionId(null); }}
                     autoFocus
                     className="text-sm font-bold bg-transparent border-b-2 border-asana-blue outline-none text-[var(--asana-text-primary)] py-0 px-0 flex-1 min-w-0" />
                 ) : (
                   <span className={`text-sm font-bold text-[var(--asana-text-primary)] truncate ${canEdit ? 'cursor-text hover:text-asana-blue' : ''}`}
                     onDoubleClick={(e) => { if (!canEdit) return; e.stopPropagation(); setEditingSectionId(list.id); setEditingSectionName(list.name); }}
                     onClick={() => toggleSection(list.id)}>
-                    {list.name}
+                    {liveEdits[`section-${list.id}-name`] || list.name}
                   </span>
                 )}
 
@@ -1194,7 +1519,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete section "${list.name}" and all its tasks?`)) dispatch(deleteList(list.id)); }}
+                    <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete section "${list.name}" and all its tasks?`)) { emitInstant?.('section_deleted', { listId: list.id }); dispatch(deleteList(list.id)); } }}
                       className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-[var(--asana-text-secondary)] hover:text-red-500" title="Delete">
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1214,7 +1539,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                       expandedTasks={expandedTasks} toggleTask={toggleTask}
                       addingSubtaskTo={addingSubtaskTo} setAddingSubtaskTo={setAddingSubtaskTo}
                       newSubtaskTitle={newSubtaskTitle} setNewSubtaskTitle={setNewSubtaskTitle}
-                      handleAddSubtask={handleAddSubtask} pendingItems={pendingItems} />
+                      handleAddSubtask={handleAddSubtask} pendingItems={pendingItems} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} />
                   ))}
 
                   {/* Add task row */}
@@ -1224,7 +1549,8 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                         <form onSubmit={(e) => handleAddTask(e, list.id)} className="flex items-center px-4 py-[7px]">
                           <span className="w-[18px] mr-1.5 flex-shrink-0" />
                           <div className="w-[18px] h-[18px] rounded-full border-2 border-gray-200 dark:border-gray-700 flex-shrink-0 mr-3" />
-                          <input type="text" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)}
+                          <input type="text" value={newTaskTitle}
+                            onChange={(e) => setNewTaskTitle(e.target.value)}
                             placeholder="Write a task name, press Enter" autoFocus
                             className="flex-1 text-sm bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400"
                             onKeyDown={(e) => { if (e.key === 'Escape') { setAddingTaskTo(null); setNewTaskTitle(''); } }}
@@ -1243,18 +1569,53 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                   )}
 
                   {/* Section summary row (SUM) */}
-                  {(cols.estimatedTime || cols.actualTime) && (estSum > 0 || actSum > 0) && (
-                    <div className="flex items-stretch border-b border-[var(--asana-border)] bg-gray-50/50 dark:bg-gray-800/20">
-                      <div className="flex-1 min-w-0 px-4 py-1.5 border-r border-[var(--asana-border)]" />
-                      {cols.assignee && <div className="w-[130px] px-3 py-1.5 flex-shrink-0 border-r border-[var(--asana-border)]" />}
-                      {cols.dueDate && <div className="w-[110px] px-3 py-1.5 flex-shrink-0 border-r border-[var(--asana-border)]" />}
-                      {cols.status && <div className="w-[110px] px-3 py-1.5 flex-shrink-0 border-r border-[var(--asana-border)]"><span className="text-[10px] font-semibold text-[var(--asana-text-secondary)] uppercase">SUM</span></div>}
-                      {cols.priority && <div className="w-[100px] px-3 py-1.5 flex-shrink-0 border-r border-[var(--asana-border)]" />}
-                      {cols.estimatedTime && <div className="w-[110px] px-3 py-1.5 flex-shrink-0 border-r border-[var(--asana-border)]"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{estSum > 0 ? formatTime(estSum) : ''}</span></div>}
-                      {cols.actualTime && <div className="w-[110px] px-3 py-1.5 flex-shrink-0 border-r border-[var(--asana-border)]"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{actSum > 0 ? formatTime(actSum) : ''}</span></div>}
-                      {customFields.map(cf => <div key={cf.id} className="w-[120px] px-3 py-1.5 flex-shrink-0 border-r border-[var(--asana-border)]" />)}
-                    </div>
-                  )}
+                  {(() => {
+                    const cfSums = {};
+                    customFields.forEach(cf => {
+                      if (cf.type === 'TIME_TRACKING' || cf.type === 'NUMBER') {
+                        let sum = 0;
+                        (list.tasks || []).forEach(t => {
+                          const val = fieldValues[`${cf.id}-${t.id}`];
+                          if (val) {
+                            if (cf.type === 'TIME_TRACKING') {
+                              try { sum += (JSON.parse(val).total || 0); } catch { sum += (parseInt(val) || 0); }
+                            } else { sum += (parseFloat(val) || 0); }
+                          }
+                        });
+                        if (sum > 0) cfSums[cf.id] = sum;
+                      }
+                    });
+                    const hasCfSums = Object.keys(cfSums).length > 0;
+                    if (!(estSum > 0 || actSum > 0 || hasCfSums)) return null;
+                    return (
+                      <div className="flex items-stretch border-b border-[var(--asana-border)] bg-gray-50/50 dark:bg-gray-800/20">
+                        <div className="w-[45%] min-w-[200px] flex-shrink-0 px-4 py-1.5 border-r border-[var(--asana-border)]/40" />
+                        {cols.assignee && <div className="flex-1 min-w-[90px] px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
+                        {cols.dueDate && <div className="flex-1 min-w-[75px] px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
+                        {cols.status && <div className="flex-1 min-w-[75px] px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-[10px] font-semibold text-[var(--asana-text-secondary)] uppercase">SUM</span></div>}
+                        {cols.priority && <div className="flex-1 min-w-[70px] px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
+                        {cols.estimatedTime && <div className="flex-1 min-w-[75px] px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{estSum > 0 ? formatTime(estSum) : ''}</span></div>}
+                        {cols.actualTime && <div className="flex-1 min-w-[75px] px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{actSum > 0 ? formatTime(actSum) : ''}</span></div>}
+                        {customFields.map(cf => {
+                          const cfSum = cfSums[cf.id];
+                          return (
+                            <div key={cf.id} className="flex-1 min-w-[80px] px-3 py-1.5 border-r border-[var(--asana-border)]/40">
+                              {cfSum ? (
+                                <span className="text-xs font-semibold text-[var(--asana-text-primary)]">
+                                  {cf.type === 'TIME_TRACKING' ? formatTime(cfSum) :
+                                   cf.type === 'NUMBER' ? (() => {
+                                     const opts = typeof cf.options === 'string' ? JSON.parse(cf.options || '[]') : (cf.options || []);
+                                     const fmt = opts[0]?.format || 'number';
+                                     return fmt === 'currency' ? `$${cfSum}` : fmt === 'percentage' ? `${cfSum}%` : String(cfSum);
+                                   })() : String(cfSum)}
+                                </span>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </>
               )}
             </Fragment>
@@ -1266,8 +1627,10 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
           <div className="px-4 py-2.5">
             {addingSection ? (
               <form onSubmit={handleAddSection} className="flex items-center space-x-2">
-                <input type="text" value={newSectionName} onChange={(e) => setNewSectionName(e.target.value)}
-                  placeholder="Section name..." autoFocus
+                <input type="text" value={newSectionName}
+                  onChange={(e) => setNewSectionName(e.target.value)}
+                  ref={addSectionInputRef}
+                  placeholder="Section name, press Enter" autoFocus
                   className="text-sm font-bold bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400 flex-1"
                   onKeyDown={(e) => { if (e.key === 'Escape') { setAddingSection(false); setNewSectionName(''); } }}
                   onBlur={() => { if (!newSectionName.trim()) { setAddingSection(false); setNewSectionName(''); } }} />
@@ -1284,6 +1647,69 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
           </div>
         )}
       </div>
+
+      {/* ── Grand Total row (all sections combined) ── */}
+      {(() => {
+        const allTasks = lists.flatMap(l => l.tasks || []);
+        const totalEst = allTasks.reduce((s, t) => s + (t.estimatedTime || 0), 0);
+        const totalAct = allTasks.reduce((s, t) => s + (t.actualTime || 0), 0);
+
+        // Custom field totals
+        const cfTotals = {};
+        customFields.forEach(cf => {
+          if (cf.type === 'TIME_TRACKING' || cf.type === 'NUMBER') {
+            let sum = 0;
+            allTasks.forEach(t => {
+              const val = fieldValues[`${cf.id}-${t.id}`];
+              if (val) {
+                if (cf.type === 'TIME_TRACKING') {
+                  try { sum += (JSON.parse(val).total || 0); } catch { sum += (parseInt(val) || 0); }
+                } else { sum += (parseFloat(val) || 0); }
+              }
+            });
+            if (sum > 0) cfTotals[cf.id] = sum;
+          }
+        });
+
+        const hasTotals = totalEst > 0 || totalAct > 0 || Object.keys(cfTotals).length > 0;
+        if (!hasTotals) return null;
+
+        return (
+          <div className="flex items-stretch border-t-2 border-[var(--asana-border)] bg-gray-100/50 dark:bg-gray-800/40 font-semibold">
+            <div className="w-[45%] min-w-[200px] flex-shrink-0 px-5 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
+              <span className="text-xs font-bold text-[var(--asana-text-primary)] uppercase tracking-wider">Total</span>
+            </div>
+            {cols.assignee && <div className="flex-1 min-w-[90px] px-3 py-2 border-r border-[var(--asana-border)]/40" />}
+            {cols.dueDate && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40" />}
+            {cols.status && <div className="flex-1 min-w-[75px] px-3 py-2 border-r border-[var(--asana-border)]/40" />}
+            {cols.priority && <div className="flex-1 min-w-[70px] px-3 py-2 border-r border-[var(--asana-border)]/40" />}
+            {cols.estimatedTime && (
+              <div className="w-[110px] px-3 py-2 flex-shrink-0 border-r border-[var(--asana-border)] flex items-center">
+                <span className="text-xs font-bold text-[var(--asana-text-primary)]">{totalEst > 0 ? formatTime(totalEst) : ''}</span>
+              </div>
+            )}
+            {cols.actualTime && (
+              <div className="w-[110px] px-3 py-2 flex-shrink-0 border-r border-[var(--asana-border)] flex items-center">
+                <span className="text-xs font-bold text-[var(--asana-text-primary)]">{totalAct > 0 ? formatTime(totalAct) : ''}</span>
+              </div>
+            )}
+            {customFields.map(cf => (
+              <div key={cf.id} className="w-[120px] px-3 py-2 flex-shrink-0 border-r border-[var(--asana-border)] flex items-center">
+                {cfTotals[cf.id] ? (
+                  <span className="text-xs font-bold text-[var(--asana-text-primary)]">
+                    {cf.type === 'TIME_TRACKING' ? formatTime(cfTotals[cf.id]) :
+                     cf.type === 'NUMBER' ? (() => {
+                       const opts = typeof cf.options === 'string' ? JSON.parse(cf.options || '[]') : (cf.options || []);
+                       const fmt = opts[0]?.format || 'number';
+                       return fmt === 'currency' ? `$${cfTotals[cf.id]}` : fmt === 'percentage' ? `${cfTotals[cf.id]}%` : String(cfTotals[cf.id]);
+                     })() : String(cfTotals[cf.id])}
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Field picker rendered as fixed overlay (outside scroll container) */}
       {showFieldPicker && canEdit && (

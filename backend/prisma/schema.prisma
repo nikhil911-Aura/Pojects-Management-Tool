@@ -72,6 +72,7 @@ model User {
   comments      Comment[]
   activityLogs  ActivityLog[]
   attachments   Attachment[]
+  timeEntries   TimeEntry[]
   invitesSent   WorkspaceInvite[]
 
   // Refresh tokens
@@ -254,10 +255,12 @@ model Task {
   taskType    TaskType   @default(DEFAULT_TASK)
   status      TaskStatus @default(TODO)
   priority    Priority   @default(LOW)
-  dueDate       DateTime?
-  estimatedTime Int?       // estimated time in minutes
-  actualTime    Int?       // actual time in minutes
-  position      Float      @default(0)
+  dueDate         DateTime?
+  estimatedTime   Int?       // estimated time in minutes
+  actualTime      Int?       // computed sum of time entries in minutes
+  timerStartedAt  DateTime?  // when the active timer started (null = no timer running)
+  timerStartedBy  String?    // userId of who started the timer
+  position        Float      @default(0)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -276,6 +279,7 @@ model Task {
   attachments      Attachment[]
   tags             Tag[]
   customFieldValues CustomFieldValue[]
+  timeEntries      TimeEntry[]
 
   @@index([listId])
   @@index([parentId])
@@ -359,4 +363,20 @@ model Attachment {
 
   @@index([userId])
   @@index([taskId])
+}
+
+model TimeEntry {
+  id        String   @id @default(uuid())
+  minutes   Int
+  note      String?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
 }

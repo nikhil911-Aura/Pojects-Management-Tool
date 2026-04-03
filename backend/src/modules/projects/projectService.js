@@ -1,9 +1,10 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
+import { emitToWorkspace, emitToProject } from '../../core/socket.js';
 
 export const projectService = {
   // Create project
-  async create(workspaceId, userId, projectData) {
+  async create(workspaceId, userId, projectData, excludeSocketId) {
     const { name, description, icon, color, visibility, views } = projectData;
 
     // Check workspace membership — all roles can create projects (like real Asana)
@@ -73,6 +74,7 @@ export const projectService = {
       }
     });
 
+    emitToWorkspace(workspaceId, 'project_created', { project }, excludeSocketId);
     return project;
   },
 
@@ -102,7 +104,24 @@ export const projectService = {
         })
       },
       include: {
-        board: true,
+        board: {
+          include: {
+            lists: {
+              select: {
+                id: true,
+                name: true,
+                _count: { select: { tasks: true } },
+                tasks: {
+                  select: {
+                    id: true,
+                    taskType: true,
+                    parentId: true,
+                  }
+                }
+              }
+            }
+          }
+        },
         workspace: { select: { id: true, name: true } },
         members: {
           include: {
@@ -198,7 +217,7 @@ export const projectService = {
   },
 
   // Update project
-  async update(projectId, userId, updateData) {
+  async update(projectId, userId, updateData, excludeSocketId) {
     const project = await prisma.project.findUnique({
       where: { id: projectId }
     });
@@ -242,11 +261,13 @@ export const projectService = {
       }
     });
 
+    emitToWorkspace(project.workspaceId, 'project_updated', { project: updated }, excludeSocketId);
+    emitToProject(projectId, 'project_settings_changed', { project: updated }, excludeSocketId);
     return updated;
   },
 
   // Delete project
-  async delete(projectId, userId) {
+  async delete(projectId, userId, excludeSocketId) {
     const project = await prisma.project.findUnique({
       where: { id: projectId }
     });
@@ -272,11 +293,13 @@ export const projectService = {
       where: { id: projectId }
     });
 
+    emitToWorkspace(project.workspaceId, 'project_deleted', { projectId }, excludeSocketId);
+    emitToProject(projectId, 'project_deleted', { projectId }, excludeSocketId);
     return true;
   },
 
   // Add member to project
-  async addMember(projectId, userId, memberData) {
+  async addMember(projectId, userId, memberData, excludeSocketId) {
     const { userId: newMemberId, role = 'MEMBER', projectRole = 'EDITOR' } = memberData;
 
     const project = await prisma.project.findUnique({
@@ -333,11 +356,12 @@ export const projectService = {
       }
     });
 
+    emitToProject(projectId, 'member_added', { member, projectId }, excludeSocketId);
     return member;
   },
 
   // Remove member from project
-  async removeMember(projectId, userId, memberIdToRemove) {
+  async removeMember(projectId, userId, memberIdToRemove, excludeSocketId) {
     const project = await prisma.project.findUnique({
       where: { id: projectId }
     });
@@ -368,11 +392,12 @@ export const projectService = {
       }
     });
 
+    emitToProject(projectId, 'member_removed', { userId: memberIdToRemove, projectId }, excludeSocketId);
     return true;
   },
 
   // Update a project member's role (Editor / Commenter / Viewer)
-  async updateMemberRole(projectId, userId, memberData) {
+  async updateMemberRole(projectId, userId, memberData, excludeSocketId) {
     const { userId: targetUserId, projectRole } = memberData;
 
     const project = await prisma.project.findUnique({ where: { id: projectId } });
@@ -390,6 +415,7 @@ export const projectService = {
       include: { user: { select: { id: true, name: true, email: true, avatar: true } } }
     });
 
+    emitToProject(projectId, 'member_role_changed', { member: updated, projectId }, excludeSocketId);
     return updated;
   }
 };

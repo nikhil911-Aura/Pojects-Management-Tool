@@ -8,6 +8,7 @@ import { searchTasks, clearSearchResults } from '../store/slices/taskSlice';
 import { useTheme } from '../context/ThemeContext';
 import Sidebar from './Sidebar';
 import InviteModal from '../features/workspace/InviteModal';
+import { useWorkspaceSocket } from '../hooks/useWorkspaceSocket';
 
 function Layout() {
   const dispatch = useAppDispatch();
@@ -17,6 +18,9 @@ function Layout() {
   const { user } = useAppSelector((state) => state.auth);
   const { workspaces, currentWorkspace } = useAppSelector((state) => state.workspace);
   const { searchResults } = useAppSelector((state) => state.task);
+
+  // Workspace-level socket for live sidebar updates
+  useWorkspaceSocket();
 
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);

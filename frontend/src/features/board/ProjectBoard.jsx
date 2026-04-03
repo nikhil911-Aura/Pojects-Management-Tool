@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchProject, deleteProject, updateProject } from '../../store/slices/projectSlice';
+import { fetchProject, deleteProject, updateProject, setCurrentProject } from '../../store/slices/projectSlice';
 import { fetchLists, createList, deleteList, clearLists } from '../../store/slices/boardSlice';
 import { createTask, moveTask as moveTaskAction } from '../../store/slices/taskSlice';
 import ProjectListView from './ProjectListView';
@@ -13,6 +13,7 @@ import { useSocket } from '../../hooks/useSocket';
 import { useRole } from '../../hooks/useRole';
 import ShareModal from '../projects/ShareModal';
 import ProjectMembersPanel from '../projects/ProjectMembersPanel';
+import { useCelebration } from '../../components/Celebration';
 
 const PRIORITY_DOT = {
   HIGH: 'bg-red-500 animate-pulse',
@@ -120,13 +121,15 @@ function ProjectBoard() {
 
   const isReady = initialLoaded;
 
-  const { pendingItems, addPendingItem, clearPendingItems } = useSocket(projectId, currentProject?.board?.id);
+  const { pendingItems, addPendingItem, clearPendingItems, liveEdits, emitLiveEdit, emitInstant, customFieldEvent, setCustomFieldCallback, releaseEditLock } = useSocket(projectId, currentProject?.board?.id);
 
   const { canEdit, isWorkspaceAdmin } = useRole();
+  const { celebrate, CelebrationComponent } = useCelebration();
 
   const [showShare, setShowShare] = useState(searchParams.get('share') === '1');
   const [showMembersPanel, setShowMembersPanel] = useState(false);
   const [showCreateList, setShowCreateList] = useState(false);
+  const [addSectionTrigger, setAddSectionTrigger] = useState(0);
   const [showCreateTask, setShowCreateTask] = useState(null);
   const [newListName, setNewListName] = useState('');
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -147,6 +150,9 @@ function ProjectBoard() {
   useEffect(() => {
     let cancelled = false;
     setInitialLoaded(false);
+
+    // Clear stale project data IMMEDIATELY so useRole doesn't read old permissions
+    dispatch(setCurrentProject(null));
 
     // Fetch project → then lists → then mark ready
     dispatch(fetchProject(projectId)).unwrap().then(async (project) => {
@@ -481,7 +487,13 @@ function ProjectBoard() {
 
             {canEdit && (
               <button
-                onClick={() => setShowCreateList(true)}
+                onClick={() => {
+                  if (activeView === 'list') {
+                    setAddSectionTrigger(prev => prev + 1);
+                  } else {
+                    setShowCreateList(true);
+                  }
+                }}
                 className="asana-button-primary flex items-center text-xs px-3 py-1.5"
               >
                 <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -725,6 +737,14 @@ function ProjectBoard() {
             pendingItems={pendingItems}
             addPendingItem={addPendingItem}
             clearPendingItems={clearPendingItems}
+            onCelebrate={celebrate}
+            liveEdits={liveEdits}
+            emitLiveEdit={emitLiveEdit}
+            releaseEditLock={releaseEditLock}
+            emitInstant={emitInstant}
+            addSectionTrigger={addSectionTrigger}
+            customFieldEvent={customFieldEvent}
+            setCustomFieldCallback={setCustomFieldCallback}
           />
         ) : activeView === 'overview' ? (
           <OverviewView project={currentProject} lists={lists} members={members} />
@@ -743,6 +763,7 @@ function ProjectBoard() {
       {showShare && (
         <ShareModal
           projectId={projectId}
+          emitInstant={emitInstant}
           onClose={() => {
             setShowShare(false);
             setSearchParams(prev => { prev.delete('share'); return prev; });
@@ -756,6 +777,7 @@ function ProjectBoard() {
           project={currentProject}
           onClose={() => setShowMembersPanel(false)}
           onOpenShare={() => { setShowMembersPanel(false); setShowShare(true); }}
+          emitInstant={emitInstant}
         />
       )}
 
@@ -772,11 +794,14 @@ function ProjectBoard() {
           <div className="absolute inset-0 z-50 flex justify-end">
             <div className="absolute inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm animate-fade-in" onClick={closeTask} />
             <div className="w-full max-w-full sm:max-w-2xl bg-[var(--asana-surface)] shadow-2xl relative animate-slide-in-right h-full overflow-y-auto border-l border-[var(--asana-border)]">
-              <TaskDetail taskId={selectedTaskId} isEmbedded={true} onClose={closeTask} previewTask={previewTask} />
+              <TaskDetail taskId={selectedTaskId} isEmbedded={true} onClose={closeTask} previewTask={previewTask} emitInstant={emitInstant} />
             </div>
           </div>
         );
       })()}
+
+      {/* Celebration animation */}
+      <CelebrationComponent />
     </div>
   );
 }

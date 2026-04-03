@@ -16,16 +16,19 @@ import commentRoutes from './modules/comments/commentRoutes.js';
 import activityRoutes from './modules/activity/activityRoutes.js';
 import inviteRoutes from './modules/invites/inviteRoutes.js';
 import customFieldRoutes from './modules/customFields/customFieldRoutes.js';
+import timeTrackingRoutes from './modules/timeTracking/timeTrackingRoutes.js';
 
 const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.1.12:3000'],
   credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// Attach socket ID from request header to req object
+app.use((req, res, next) => { req.socketId = req.headers['x-socket-id'] || null; next(); });
 app.use(requestLogger);
 
 // API Routes
@@ -39,6 +42,7 @@ app.use('/api/v1/comments', commentRoutes);
 app.use('/api/v1/activities', activityRoutes);
 app.use('/api/v1/invites', inviteRoutes);
 app.use('/api/v1/custom-fields', customFieldRoutes);
+app.use('/api/v1/time-tracking', timeTrackingRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -59,8 +63,8 @@ initSocket(server);
 // Start server
 const { port } = config;
 
-server.listen(port, () => {
-  logger.info(`Server running on port ${port} in ${config.nodeEnv} mode`);
+server.listen(port, '0.0.0.0', () => {
+  logger.info(`Server running on 0.0.0.0:${port} in ${config.nodeEnv} mode`);
 });
 
 export default app;

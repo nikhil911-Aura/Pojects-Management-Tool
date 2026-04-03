@@ -108,7 +108,7 @@ async function getContextFromTask(taskId, userId) {
 export const taskService = {
 
   // Create task — EDITOR or workspace Admin
-  async create(listId, userId, taskData) {
+  async create(listId, userId, taskData, excludeSocketId) {
     const { title, description, status, priority, dueDate, estimatedTime, actualTime, taskType, parentId } = taskData;
 
     const { list, workspaceMember, projectRole, projectId } = await getContextFromList(listId, userId);
@@ -152,7 +152,7 @@ export const taskService = {
       // Don't fail task creation if activity log fails
     }
 
-    emitToProject(projectId, 'task_created', { task, listId });
+    emitToProject(projectId, 'task_created', { task, listId }, excludeSocketId);
     return task;
   },
 
@@ -189,7 +189,7 @@ export const taskService = {
   },
 
   // Update task — EDITOR or workspace Admin
-  async update(taskId, userId, updateData) {
+  async update(taskId, userId, updateData, excludeSocketId) {
     const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
 
     if (!canEditProject(workspaceMember.role, projectRole)) {
@@ -226,12 +226,12 @@ export const taskService = {
       // Don't fail task update if activity log fails
     }
 
-    emitToProject(projectId, 'task_updated', updated);
+    emitToProject(projectId, 'task_updated', updated, excludeSocketId);
     return updated;
   },
 
   // Delete task — workspace Admin always; EDITOR who created the task
-  async delete(taskId, userId) {
+  async delete(taskId, userId, excludeSocketId) {
     const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
 
     if (!canEditProject(workspaceMember.role, projectRole)) {
@@ -249,12 +249,12 @@ export const taskService = {
     }
 
     await prisma.task.delete({ where: { id: taskId } });
-    emitToProject(projectId, 'task_deleted', taskId);
+    emitToProject(projectId, 'task_deleted', taskId, excludeSocketId);
     return true;
   },
 
   // Move task — EDITOR or workspace Admin
-  async moveTask(taskId, userId, moveData) {
+  async moveTask(taskId, userId, moveData, excludeSocketId) {
     const { listId, position } = moveData;
     const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
 
@@ -275,12 +275,12 @@ export const taskService = {
       data: { action: 'TASK_MOVED', details: { fromList: task.listId, toList: listId }, userId, taskId }
     });
 
-    emitToProject(projectId, 'task_moved', { taskId, fromList: task.listId, toList: listId, position });
+    emitToProject(projectId, 'task_moved', { taskId, fromList: task.listId, toList: listId, position }, excludeSocketId);
     return updated;
   },
 
   // Assign user — EDITOR or workspace Admin
-  async assignUser(taskId, userId, assigneeId) {
+  async assignUser(taskId, userId, assigneeId, excludeSocketId) {
     const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
 
     if (!canEditProject(workspaceMember.role, projectRole)) {
@@ -292,12 +292,12 @@ export const taskService = {
       include: { user: true }
     });
 
-    emitToProject(projectId, 'user_assigned', { taskId, assignee });
+    emitToProject(projectId, 'user_assigned', { taskId, assignee }, excludeSocketId);
     return assignee;
   },
 
   // Remove assignee — EDITOR or workspace Admin
-  async removeAssignee(taskId, userId, assigneeId) {
+  async removeAssignee(taskId, userId, assigneeId, excludeSocketId) {
     const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
 
     if (!canEditProject(workspaceMember.role, projectRole)) {
@@ -305,7 +305,7 @@ export const taskService = {
     }
 
     await prisma.taskAssignee.delete({ where: { userId_taskId: { userId: assigneeId, taskId } } });
-    emitToProject(projectId, 'user_removed', { taskId, assigneeId });
+    emitToProject(projectId, 'user_removed', { taskId, assigneeId }, excludeSocketId);
     return true;
   },
 
