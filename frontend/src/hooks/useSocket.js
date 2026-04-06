@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useAppDispatch } from '../store/hooks';
-import { fetchLists, optimisticUpdateTask, optimisticRenameSection, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticDeleteTask, optimisticAssignUser } from '../store/slices/boardSlice';
+import { fetchLists, optimisticUpdateTask, optimisticRenameSection, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticDeleteTask, optimisticAssignUser, optimisticReplaceItem } from '../store/slices/boardSlice';
 import { fetchTask } from '../store/slices/taskSlice';
 import { fetchProject } from '../store/slices/projectSlice';
 import { setApiSocketId } from '../services/api';
@@ -37,13 +37,12 @@ export const useSocket = (projectId, boardId) => {
     if (editLockTimerRef.current) clearTimeout(editLockTimerRef.current);
   }, []);
 
-  const releaseEditLock = useCallback((delayMs = 1500) => {
+  const releaseEditLock = useCallback((delayMs = 5000) => {
     if (editLockTimerRef.current) clearTimeout(editLockTimerRef.current);
     editLockTimerRef.current = setTimeout(() => {
       editLockRef.current = false;
-      if (boardId) dispatch(fetchLists(boardId));
     }, delayMs);
-  }, [boardId, dispatch]);
+  }, []);
 
   const emitLiveEdit = useCallback((data) => {
     acquireEditLock();
@@ -78,13 +77,28 @@ export const useSocket = (projectId, boardId) => {
 
     socket.on('connect_error', () => {});
 
-    // ── Backend events — fallback safety net (sender excluded via x-socket-id) ──
-    socket.on('task_created', () => {
-      try { setPendingItems([]); } catch {}
-    });
+    // ── Backend events — long-delay safety net only ──
+    // instant_change already handles all real-time UI updates.
+    // Backend events fire AFTER DB write — use them ONLY as a delayed consistency check
+    // to catch anything instant_change might have missed (e.g., network glitch).
+    // The delay must be long enough that instant_change has already applied.
+    const safetyRefetch = (() => {
+      let timer = null;
+      return () => {
+        if (editLockRef.current) return; // don't overwrite active edits
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          if (editLockRef.current) return;
+          if (boardId) dispatch(fetchLists(boardId));
+        }, 8000); // 8s — long enough that instant_change has settled
+        timersRef.current.push(timer);
+      };
+    })();
+
+    socket.on('task_created', () => { try { setPendingItems([]); } catch {} });
     socket.on('task_deleted', () => {});
     socket.on('task_updated', () => {});
-    socket.on('task_moved', () => { try { if (boardId) dispatch(fetchLists(boardId)); } catch {} });
+    socket.on('task_moved', () => { safetyRefetch(); });
     socket.on('section_created', () => {});
     socket.on('section_updated', () => {});
     socket.on('section_deleted', () => {});
@@ -114,22 +128,18 @@ export const useSocket = (projectId, boardId) => {
           dispatch(optimisticDeleteTask(data.taskId));
         }
 
-        // Replace temp items with real data from DB
-        if (event === 'task_replaced' && data.tempId && data.listId && data.task) {
-          // Find and replace the temp task with real task
-          const lists = store?.getState?.()?.board?.lists;
-          // Use optimisticUpdateTask with the old ID to remove, then add real
-          dispatch(optimisticDeleteTask(data.tempId));
-          dispatch(optimisticAddTask({ listId: data.listId, task: data.task }));
+        // Replace temp items with real data from DB (atomic — single dispatch)
+        if (event === 'task_replaced' && data.tempId && data.task) {
+          dispatch(optimisticReplaceItem({ tempId: data.tempId, item: data.task }));
         }
-        if (event === 'subtask_replaced' && data.tempId && data.taskId && data.subtask) {
-          dispatch(optimisticDeleteTask(data.tempId));
-          dispatch(optimisticAddSubtask({ taskId: data.taskId, subtask: data.subtask }));
+        if (event === 'subtask_replaced' && data.tempId && data.subtask) {
+          dispatch(optimisticReplaceItem({ tempId: data.tempId, item: data.subtask }));
         }
         if (event === 'section_replaced' && data.tempId && data.section) {
-          // Remove temp section, add real
-          dispatch({ type: 'board/deleteList/fulfilled', payload: data.tempId });
-          dispatch(optimisticAddSection({ section: data.section }));
+          dispatch(optimisticReplaceItem({ tempId: data.tempId, item: data.section }));
+        }
+        if (event === 'custom_field_replaced' && data.tempId && data.field) {
+          // Handled by customFieldCallback
         }
 
         // Section CRUD

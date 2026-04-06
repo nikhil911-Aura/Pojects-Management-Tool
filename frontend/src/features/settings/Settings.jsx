@@ -3,7 +3,7 @@ import { useAppSelector } from '../../store/hooks';
 
 function SettingsRow({ label, description, children }) {
   return (
-    <div className="flex items-center justify-between py-4 border-b border-[var(--asana-border)] last:border-0">
+    <div className="flex items-center justify-between py-4 border-b border-asana-border last:border-0">
       <div className="mr-8">
         <p className="text-sm font-medium text-[var(--asana-text-primary)]">{label}</p>
         {description && <p className="text-xs text-[var(--asana-text-secondary)] mt-0.5">{description}</p>}
@@ -41,7 +41,7 @@ function Settings() {
       </div>
 
       {/* Appearance */}
-      <div className="bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-asana-lg px-6 mb-6">
+      <div className="bg-[var(--asana-surface)] border border-asana-border rounded-asana-lg px-6 mb-6">
         <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] pt-5 pb-2">Appearance</h2>
         <SettingsRow
           label="Dark mode"
@@ -52,7 +52,7 @@ function Settings() {
       </div>
 
       {/* Workspace */}
-      <div className="bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-asana-lg px-6 mb-6">
+      <div className="bg-[var(--asana-surface)] border border-asana-border rounded-asana-lg px-6 mb-6">
         <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] pt-5 pb-2">Workspace</h2>
         <SettingsRow label="Current workspace" description="Active workspace for your session">
           <span className="text-sm font-medium text-[var(--asana-text-primary)] bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
@@ -65,7 +65,7 @@ function Settings() {
       </div>
 
       {/* Account */}
-      <div className="bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-asana-lg px-6">
+      <div className="bg-[var(--asana-surface)] border border-asana-border rounded-asana-lg px-6">
         <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] pt-5 pb-2">Account</h2>
         <SettingsRow label="Language" description="Interface language">
           <select className="asana-input text-sm py-1 px-2">

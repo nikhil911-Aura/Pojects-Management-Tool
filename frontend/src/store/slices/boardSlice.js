@@ -180,6 +180,50 @@ const boardSlice = createSlice({
       for (const list of state.lists) {
         if (findAndAssign(list.tasks)) return;
       }
+    },
+    // Replace a temp task/subtask with real data (atomic — no flicker)
+    // Replace temp item with real data — preserve any optimistic edits the user made
+    optimisticReplaceItem: (state, action) => {
+      const { tempId, item } = action.payload;
+
+      // Helper: merge server data with any user edits on the temp item
+      function mergeTask(temp, real) {
+        return {
+          ...real,
+          status: temp.status !== 'TODO' ? temp.status : real.status,
+          priority: temp.priority !== 'LOW' ? temp.priority : real.priority,
+          dueDate: temp.dueDate || real.dueDate,
+          taskType: temp.taskType !== 'DEFAULT_TASK' ? temp.taskType : real.taskType,
+          assignees: temp.assignees?.length ? temp.assignees : real.assignees || [],
+          estimatedTime: temp.estimatedTime || real.estimatedTime,
+          actualTime: temp.actualTime || real.actualTime,
+          subtasks: temp.subtasks || real.subtasks || [],
+        };
+      }
+
+      // Replace in tasks
+      for (const list of state.lists) {
+        const taskIdx = list.tasks?.findIndex(t => t.id === tempId);
+        if (taskIdx !== undefined && taskIdx !== -1) {
+          list.tasks[taskIdx] = mergeTask(list.tasks[taskIdx], item);
+          return;
+        }
+        // Subtask replacement (recursive)
+        function replaceInSubtasks(tasks) {
+          if (!tasks) return false;
+          for (let i = 0; i < tasks.length; i++) {
+            if (tasks[i].id === tempId) { tasks[i] = mergeTask(tasks[i], item); return true; }
+            if (replaceInSubtasks(tasks[i].subtasks)) return true;
+          }
+          return false;
+        }
+        if (replaceInSubtasks(list.tasks)) return;
+      }
+      // Section replacement
+      const sectionIdx = state.lists.findIndex(l => l.id === tempId);
+      if (sectionIdx !== -1) {
+        state.lists[sectionIdx] = { ...item, tasks: state.lists[sectionIdx].tasks || item.tasks || [] };
+      }
     }
   },
   extraReducers: (builder) => {
@@ -208,7 +252,8 @@ const boardSlice = createSlice({
       .addCase(updateList.fulfilled, (state, action) => {
         const index = state.lists.findIndex(l => l.id === action.payload.id);
         if (index !== -1) {
-          state.lists[index] = action.payload;
+          // Preserve tasks — API response may not include them
+          state.lists[index] = { ...action.payload, tasks: state.lists[index].tasks || action.payload.tasks || [] };
         }
       })
       .addCase(deleteList.fulfilled, (state, action) => {
@@ -219,7 +264,7 @@ const boardSlice = createSlice({
         const reordered = listIds.map(id => state.lists.find(l => l.id === id)).filter(Boolean);
         state.lists = reordered;
       })
-      // Replace temp task with real one after API creates it
+      // Replace temp task with real one after API creates it — preserve user's optimistic edits
       .addCase(createTask.fulfilled, (state, action) => {
         const realTask = action.payload;
         if (!realTask?.listId) return;
@@ -227,13 +272,25 @@ const boardSlice = createSlice({
         if (list?.tasks) {
           const tempIdx = list.tasks.findIndex(t => t.id.startsWith('temp-') && t.title === realTask.title);
           if (tempIdx !== -1) {
-            list.tasks[tempIdx] = { ...realTask, subtasks: list.tasks[tempIdx].subtasks || realTask.subtasks || [] };
+            const tempTask = list.tasks[tempIdx];
+            // Merge: server data as base, but preserve any fields the user changed optimistically
+            list.tasks[tempIdx] = {
+              ...realTask,
+              status: tempTask.status !== 'TODO' ? tempTask.status : realTask.status,
+              priority: tempTask.priority !== 'LOW' ? tempTask.priority : realTask.priority,
+              dueDate: tempTask.dueDate || realTask.dueDate,
+              taskType: tempTask.taskType !== 'DEFAULT_TASK' ? tempTask.taskType : realTask.taskType,
+              assignees: tempTask.assignees?.length ? tempTask.assignees : realTask.assignees || [],
+              estimatedTime: tempTask.estimatedTime || realTask.estimatedTime,
+              actualTime: tempTask.actualTime || realTask.actualTime,
+              subtasks: tempTask.subtasks || realTask.subtasks || [],
+            };
           } else if (!list.tasks.some(t => t.id === realTask.id)) {
             list.tasks.push(realTask);
           }
         }
       })
-      // Replace temp subtask with real one after API creates it
+      // Replace temp subtask with real one after API creates it — preserve optimistic edits
       .addCase(createSubtask.fulfilled, (state, action) => {
         const realSub = action.payload;
         if (!realSub?.parentId) return;
@@ -242,7 +299,19 @@ const boardSlice = createSlice({
           for (const t of tasks) {
             if (t.id === realSub.parentId && t.subtasks) {
               const tempIdx = t.subtasks.findIndex(s => s.id.startsWith('temp-') && s.title === realSub.title);
-              if (tempIdx !== -1) { t.subtasks[tempIdx] = realSub; return true; }
+              if (tempIdx !== -1) {
+                const tempSub = t.subtasks[tempIdx];
+                t.subtasks[tempIdx] = {
+                  ...realSub,
+                  status: tempSub.status !== 'TODO' ? tempSub.status : realSub.status,
+                  priority: tempSub.priority !== 'LOW' ? tempSub.priority : realSub.priority,
+                  dueDate: tempSub.dueDate || realSub.dueDate,
+                  taskType: tempSub.taskType !== 'DEFAULT_TASK' ? tempSub.taskType : realSub.taskType,
+                  assignees: tempSub.assignees?.length ? tempSub.assignees : realSub.assignees || [],
+                  subtasks: tempSub.subtasks || realSub.subtasks || [],
+                };
+                return true;
+              }
               if (!t.subtasks.some(s => s.id === realSub.id)) { t.subtasks.push(realSub); return true; }
               return true;
             }
@@ -255,5 +324,5 @@ const boardSlice = createSlice({
   }
 });
 
-export const { moveTask, clearLists, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticRenameSection } = boardSlice.actions;
+export const { moveTask, clearLists, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticRenameSection, optimisticReplaceItem } = boardSlice.actions;
 export default boardSlice.reducer;
