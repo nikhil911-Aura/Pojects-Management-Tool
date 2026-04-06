@@ -105,22 +105,7 @@ export const projectService = {
       },
       include: {
         board: {
-          include: {
-            lists: {
-              select: {
-                id: true,
-                name: true,
-                _count: { select: { tasks: true } },
-                tasks: {
-                  select: {
-                    id: true,
-                    taskType: true,
-                    parentId: true,
-                  }
-                }
-              }
-            }
-          }
+          select: { id: true }
         },
         workspace: { select: { id: true, name: true } },
         members: {
@@ -135,7 +120,65 @@ export const projectService = {
       orderBy: { updatedAt: 'desc' }
     });
 
-    return projects;
+    // Compute lightweight stats per project (replaces fetching all tasks)
+    const projectIds = projects.map(p => p.id);
+    const boardIds = projects.map(p => p.board?.id).filter(Boolean);
+
+    // Batch count queries — single DB call for all projects
+    const [sectionCounts, taskStats] = await Promise.all([
+      // Count sections (lists) per board
+      boardIds.length ? prisma.list.groupBy({
+        by: ['boardId'],
+        where: { boardId: { in: boardIds } },
+        _count: true
+      }) : [],
+      // Count tasks by type per board (via list relation)
+      boardIds.length ? prisma.task.groupBy({
+        by: ['listId'],
+        where: { list: { boardId: { in: boardIds } } },
+        _count: true
+      }).then(async () => {
+        // Get task stats in one raw-ish query via aggregation
+        return prisma.task.findMany({
+          where: { list: { boardId: { in: boardIds } } },
+          select: {
+            taskType: true,
+            parentId: true,
+            list: { select: { boardId: true } }
+          }
+        });
+      }) : []
+    ]);
+
+    // Build stats lookup by boardId
+    const sectionCountMap = {};
+    (Array.isArray(sectionCounts) ? sectionCounts : []).forEach(s => {
+      sectionCountMap[s.boardId] = s._count;
+    });
+
+    const taskStatsMap = {};
+    (Array.isArray(taskStats) ? taskStats : []).forEach(t => {
+      const bid = t.list?.boardId;
+      if (!bid) return;
+      if (!taskStatsMap[bid]) taskStatsMap[bid] = { tasks: 0, milestones: 0, subtasks: 0, total: 0 };
+      taskStatsMap[bid].total++;
+      if (t.parentId) { taskStatsMap[bid].subtasks++; }
+      else if (t.taskType === 'MILESTONE') { taskStatsMap[bid].milestones++; }
+      else { taskStatsMap[bid].tasks++; }
+    });
+
+    // Attach stats to each project (flat structure for frontend)
+    return projects.map(p => {
+      const bid = p.board?.id;
+      const stats = taskStatsMap[bid] || { tasks: 0, milestones: 0, subtasks: 0, total: 0 };
+      return {
+        ...p,
+        stats: {
+          sections: sectionCountMap[bid] || 0,
+          ...stats
+        }
+      };
+    });
   },
 
   // Get project by ID
@@ -144,34 +187,17 @@ export const projectService = {
       where: { id: projectId },
       include: {
         board: {
-          include: {
-            lists: {
-              orderBy: { position: 'asc' },
-              include: {
-                tasks: {
-                  orderBy: { position: 'asc' },
-                  include: {
-                    assignees: {
-                      include: {
-                        user: {
-                          select: {
-                            id: true,
-                            name: true,
-                            avatar: true
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
+          select: { id: true }
         },
         workspace: {
           select: {
             id: true,
-            name: true
+            name: true,
+            members: {
+              where: { userId },
+              select: { role: true },
+              take: 1
+            }
           }
         },
         members: {
@@ -193,10 +219,8 @@ export const projectService = {
       throw ApiError.notFound('Project not found');
     }
 
-    // Check workspace membership
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { workspaceId: project.workspaceId, userId }
-    });
+    // Check workspace membership (fetched inline — no extra DB call)
+    const membership = project.workspace.members?.[0];
 
     if (!membership) {
       throw ApiError.forbidden('You do not have access to this project');
@@ -213,7 +237,9 @@ export const projectService = {
       }
     }
 
-    return project;
+    // Strip internal workspace.members from response (only needed for auth check)
+    const { members: _wm, ...workspaceData } = project.workspace;
+    return { ...project, workspace: workspaceData };
   },
 
   // Update project

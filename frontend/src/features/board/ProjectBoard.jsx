@@ -2,8 +2,9 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchProject, deleteProject, updateProject, setCurrentProject } from '../../store/slices/projectSlice';
+import { fetchProject, deleteProject, updateProject } from '../../store/slices/projectSlice';
 import { fetchLists, createList, deleteList, clearLists } from '../../store/slices/boardSlice';
+import api from '../../services/api';
 import { createTask, moveTask as moveTaskAction } from '../../store/slices/taskSlice';
 import ProjectListView from './ProjectListView';
 import ListToolbar, { applyFilters, applySort, applyGrouping } from './ListToolbar';
@@ -107,7 +108,7 @@ function ProjectBoard() {
 
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { currentProject, loading: projectLoading } = useAppSelector((state) => state.project);
+  const { currentProject, projectLoading, projects } = useAppSelector((state) => state.project);
   const { lists, loading: listsLoading } = useAppSelector((state) => state.board);
 
   const [initialLoaded, setInitialLoaded] = useState(false);
@@ -119,13 +120,16 @@ function ProjectBoard() {
     setInitialLoaded(false);
   }
 
-  const isReady = initialLoaded;
+  // Show content if data is loaded AND matches current route
+  // This avoids showing stale data from a different project
+  const isReady = initialLoaded && currentProject?.id === projectId;
 
   const { pendingItems, addPendingItem, clearPendingItems, liveEdits, emitLiveEdit, emitInstant, customFieldEvent, setCustomFieldCallback, releaseEditLock } = useSocket(projectId, currentProject?.board?.id);
 
   const { canEdit, isWorkspaceAdmin } = useRole();
   const { celebrate, CelebrationComponent } = useCelebration();
 
+  const [prefetchedCF, setPrefetchedCF] = useState({ fields: null, values: null });
   const [showShare, setShowShare] = useState(searchParams.get('share') === '1');
   const [showMembersPanel, setShowMembersPanel] = useState(false);
   const [showCreateList, setShowCreateList] = useState(false);
@@ -151,19 +155,43 @@ function ProjectBoard() {
     let cancelled = false;
     setInitialLoaded(false);
 
-    // Clear stale project data IMMEDIATELY so useRole doesn't read old permissions
-    dispatch(setCurrentProject(null));
+    // Try to get boardId from sidebar projects list (already in Redux) for parallel fetch
+    const cachedProject = projects.find(p => p.id === projectId);
+    const knownBoardId = cachedProject?.board?.id || currentProject?.board?.id;
 
-    // Fetch project → then lists → then mark ready
-    dispatch(fetchProject(projectId)).unwrap().then(async (project) => {
-      if (cancelled) return;
-      if (project?.board?.id) {
-        await dispatch(fetchLists(project.board.id)).unwrap();
+    const projectPromise = dispatch(fetchProject(projectId)).unwrap();
+
+    // Prefetch custom fields in parallel (don't block on it — best effort)
+    const cfPromise = Promise.all([
+      api.get(`/api/v1/custom-fields/project/${projectId}`),
+      api.get(`/api/v1/custom-fields/project/${projectId}/values`),
+    ]).then(([fieldsRes, valuesRes]) => {
+      if (!cancelled) {
+        const valMap = {};
+        (valuesRes.data.data || []).forEach(v => { valMap[`${v.fieldId}-${v.taskId}`] = v.value; });
+        setPrefetchedCF({ fields: fieldsRes.data.data || [], values: valMap });
       }
-      if (!cancelled) setInitialLoaded(true);
-    }).catch(() => {
-      if (!cancelled) setInitialLoaded(true); // show error state, not infinite skeleton
-    });
+    }).catch(() => {});
+
+    if (knownBoardId) {
+      // Parallel: fire all at the same time
+      const listsPromise = dispatch(fetchLists(knownBoardId)).unwrap();
+      Promise.all([projectPromise, listsPromise, cfPromise])
+        .then(() => { if (!cancelled) setInitialLoaded(true); })
+        .catch(() => { if (!cancelled) setInitialLoaded(true); });
+    } else {
+      // Fallback: sequential for lists, parallel for custom fields
+      projectPromise.then(async (project) => {
+        if (cancelled) return;
+        if (project?.board?.id) {
+          await dispatch(fetchLists(project.board.id)).unwrap();
+        }
+        await cfPromise;
+        if (!cancelled) setInitialLoaded(true);
+      }).catch(() => {
+        if (!cancelled) setInitialLoaded(true);
+      });
+    }
 
     // Reset local UI state
     setActiveMemberPopover(null);
@@ -745,6 +773,8 @@ function ProjectBoard() {
             addSectionTrigger={addSectionTrigger}
             customFieldEvent={customFieldEvent}
             setCustomFieldCallback={setCustomFieldCallback}
+            prefetchedCustomFields={prefetchedCF.fields}
+            prefetchedFieldValues={prefetchedCF.values}
           />
         ) : activeView === 'overview' ? (
           <OverviewView project={currentProject} lists={lists} members={members} />

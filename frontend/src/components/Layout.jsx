@@ -33,7 +33,10 @@ function Layout() {
   const quickAddRef = useRef(null);
 
   useEffect(() => {
-    dispatch(fetchWorkspaces());
+    // Skip if workspaces already populated (e.g., from login response)
+    if (workspaces.length === 0) {
+      dispatch(fetchWorkspaces());
+    }
   }, [dispatch]);
 
   useEffect(() => {
@@ -138,7 +141,7 @@ function Layout() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
                 placeholder="Search tasks..."
-                className="w-full bg-gray-100 dark:bg-gray-700 border-transparent focus:bg-[var(--asana-surface)] focus:ring-2 focus:ring-asana-blue/20 focus:border-asana-blue/30 rounded-full pl-10 pr-4 py-1.5 text-sm transition-all outline-none text-[var(--asana-text-primary)] placeholder-gray-400 dark:placeholder-gray-500"
+                className="w-full bg-gray-100 dark:bg-[#313338] border-transparent focus:bg-[var(--asana-surface)] focus:ring-2 focus:ring-asana-blue/20 focus:border-asana-blue/30 rounded-full pl-10 pr-4 py-1.5 text-sm transition-all outline-none text-[var(--asana-text-primary)] placeholder-gray-400 dark:placeholder-gray-500"
               />
               {searchQuery && (
                 <button

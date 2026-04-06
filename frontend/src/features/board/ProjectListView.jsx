@@ -43,6 +43,11 @@ function parseTime(input) {
   return null;
 }
 
+/* ── Uniform column width for all non-name columns ── */
+const COL_W = 'w-[120px] flex-shrink-0';
+/* ── Name column: frozen on left during horizontal scroll ── */
+const NAME_COL = 'w-[400px] flex-shrink-0 sticky left-0 z-10 bg-[var(--asana-surface)]';
+
 /* ═══════════════════════════════════════════
    Dropdown used outside click hook
    ═══════════════════════════════════════════ */
@@ -57,11 +62,23 @@ function useClickOutside(ref, handler) {
 /* ═══════════════════════════════════════════
    Assignee Picker
    ═══════════════════════════════════════════ */
-function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, emitInstant, resolveId = (id) => id, queueOrRun = (_id, fn) => fn(_id) }) {
+function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, emitInstant, resolveId = (id) => id, queueOrRun = (_id, fn) => fn(_id), anchorRef }) {
   const dispatch = useAppDispatch();
   const ref = useRef(null);
   const [search, setSearch] = useState('');
+  const [pos, setPos] = useState({ top: 0, left: 0 });
   useClickOutside(ref, onClose);
+
+  useEffect(() => {
+    if (anchorRef?.current) {
+      const r = anchorRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - r.bottom;
+      setPos({
+        top: spaceBelow < 220 ? Math.max(8, r.top - 220) : r.bottom + 4,
+        left: Math.min(r.left, window.innerWidth - 230),
+      });
+    }
+  }, [anchorRef]);
 
   const assignedIds = (currentAssignees || []).map(a => a.user?.id || a.userId);
   const filtered = (members || []).filter(m =>
@@ -80,7 +97,8 @@ function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, em
   };
 
   return (
-    <div ref={ref} className="absolute z-50 top-full left-0 mt-1 w-56 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl animate-fade-in">
+    <div ref={ref} className="fixed z-[200] w-56 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl animate-fade-in"
+      style={{ top: pos.top, left: pos.left }}>
       <div className="p-2">
         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search people..." autoFocus
           className="w-full px-2.5 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 rounded-md border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400" />
@@ -109,10 +127,22 @@ function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, em
 /* ═══════════════════════════════════════════
    Status Picker
    ═══════════════════════════════════════════ */
-function StatusPicker({ taskId, currentStatus, onClose, onDone, onCelebrate, emitInstant, resolveId = (id) => id, queueOrRun = (_id, fn) => fn(_id) }) {
+function StatusPicker({ taskId, currentStatus, onClose, onDone, onCelebrate, emitInstant, resolveId = (id) => id, queueOrRun = (_id, fn) => fn(_id), anchorRef }) {
   const dispatch = useAppDispatch();
   const ref = useRef(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
   useClickOutside(ref, onClose);
+
+  useEffect(() => {
+    if (anchorRef?.current) {
+      const r = anchorRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - r.bottom;
+      setPos({
+        top: spaceBelow < 200 ? Math.max(8, r.top - 200) : r.bottom + 4,
+        left: Math.min(r.left, window.innerWidth - 170),
+      });
+    }
+  }, [anchorRef]);
 
   const handleChange = async (status) => {
     dispatch(optimisticUpdateTask({ taskId, data: { status } }));
@@ -123,7 +153,8 @@ function StatusPicker({ taskId, currentStatus, onClose, onDone, onCelebrate, emi
   };
 
   return (
-    <div ref={ref} className="absolute z-50 top-full left-0 mt-1 w-40 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl py-1 animate-fade-in">
+    <div ref={ref} className="fixed z-[200] w-40 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in"
+      style={{ top: pos.top, left: pos.left }}>
       {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
         <button key={key} onClick={() => handleChange(key)}
           className="w-full flex items-center px-3 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -142,7 +173,7 @@ function StatusPicker({ taskId, currentStatus, onClose, onDone, onCelebrate, emi
 /* ═══════════════════════════════════════════
    Editable Time Cell (for estimated/actual)
    ═══════════════════════════════════════════ */
-function TimeCell({ taskId, field, value, canEdit, onDone, queueOrRun = (_id, fn) => fn(_id) }) {
+function TimeCell({ taskId, field, value, canEdit, onDone, queueOrRun = (_id, fn) => fn(_id), emitInstant, resolveId = (id) => id }) {
   const dispatch = useAppDispatch();
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState('');
@@ -156,8 +187,9 @@ function TimeCell({ taskId, field, value, canEdit, onDone, queueOrRun = (_id, fn
   const save = () => {
     const mins = parseTime(input);
     dispatch(optimisticUpdateTask({ taskId, data: { [field]: mins } }));
+    emitInstant?.('task_field_updated', { taskId: resolveId(taskId), field, value: mins });
     setEditing(false);
-    queueOrRun(taskId, (realId) => dispatch(updateTask({ taskId: realId, data: { [field]: mins } })).then(() => onDone()));
+    queueOrRun(taskId, (realId) => dispatch(updateTask({ taskId: realId, data: { [field]: mins } })));
   };
 
   if (editing) {
@@ -181,7 +213,7 @@ function TimeCell({ taskId, field, value, canEdit, onDone, queueOrRun = (_id, fn
 /* ═══════════════════════════════════════════
    Task Row
    ═══════════════════════════════════════════ */
-function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSubtasks, isExpanded, onToggle, cols = {}, customFields = [], fieldValues = {}, onSetFieldValue, depth = 0, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, resolveId = (id) => id, queueOrRun = (_id, fn) => fn(_id) }) {
+function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSubtasks, isExpanded, onToggle, cols = {}, customFields = [], fieldValues = {}, onSetFieldValue, depth = 0, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, resolveId = (id) => id, queueOrRun = (_id, fn) => fn(_id), onAddSubtaskHere }) {
   const dispatch = useAppDispatch();
   const [showAssigneePicker, setShowAssigneePicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
@@ -189,6 +221,8 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
   const [contextMenu, setContextMenu] = useState(null);
   const [justCompleted, setJustCompleted] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
+  const assigneeCellRef = useRef(null);
+  const statusCellRef = useRef(null);
   const titleAutoSave = useAutoSave({
     initialValue: task.title,
     entityId: task.id,
@@ -257,7 +291,7 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
   const statusCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.TODO;
 
   return (
-    <div className={`flex items-stretch border-b border-[var(--asana-border)]/30 hover:bg-gray-50/50 dark:hover:bg-[#2a2e35]/50 cursor-pointer group transition-colors ${justCompleted ? 'row-complete-flash' : ''}`}
+    <div className={`flex items-stretch border-b border-[var(--asana-border)]/30 hover:bg-gray-50/50 dark:hover:bg-[#2a2e35]/50 cursor-pointer group transition-colors w-max min-w-full ${justCompleted ? 'row-complete-flash' : ''}`}
       onClick={() => { if (!editingTitle) onTaskClick(task.id); }}
       onContextMenu={handleContextMenu}>
 
@@ -281,6 +315,16 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
               </svg>
               Rename
             </button>
+            {/* Add task/subtask — always adds a child under this item */}
+            {canEdit && onAddSubtaskHere && (
+              <button onClick={(e) => { e.stopPropagation(); setContextMenu(null); onAddSubtaskHere(); }}
+                className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <svg className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                {task.taskType === 'MILESTONE' ? 'Add task' : 'Add subtask'}
+              </button>
+            )}
             <div className="border-t border-[var(--asana-border)] my-1" />
             {/* Convert to submenu */}
             <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Convert to</div>
@@ -316,7 +360,7 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
       )}
 
       {/* ── Name ── */}
-      <div className="w-[45%] min-w-[200px] flex-shrink-0 flex items-center py-[8px] border-r border-[var(--asana-border)]/40"
+      <div className={`${NAME_COL} flex items-center py-[8px] border-r border-[var(--asana-border)]/40`}
         style={{ paddingLeft: `${depth * 1.5 + 1}rem`, paddingRight: '0.75rem' }}>
         {/* Expand arrow — shows for any task with subtasks at any depth */}
         {hasSubtasks ? (
@@ -383,7 +427,7 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
           <span
             className={`text-sm truncate transition-colors duration-300 ${isMilestone ? 'font-bold' : ''} ${canEdit ? 'cursor-text' : ''} ${
               task.status === 'DONE'
-                ? `text-[var(--asana-text-secondary)] ${justCompleted ? 'strike-animate' : 'line-through'}`
+                ? `text-[var(--asana-text-secondary)]`
                 : 'text-[var(--asana-text-primary)]'
             }`}
             onClick={(e) => { if (!canEdit) return; e.stopPropagation(); setEditingTitle(true); }}>
@@ -410,7 +454,7 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
 
       {/* ── Assignee ── */}
       {cols.assignee && (
-        <div className="flex-1 min-w-[90px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
+        <div ref={assigneeCellRef} className="w-[120px] flex-shrink-0 px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => canEdit && setShowAssigneePicker(true)}
             className="flex items-center space-x-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md px-1 py-0.5 -mx-1 transition-colors w-full">
             {task.assignees?.length > 0 ? (
@@ -431,14 +475,14 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
           </button>
           {showAssigneePicker && (
             <AssigneePicker taskId={task.id} currentAssignees={task.assignees} members={members}
-              onClose={() => setShowAssigneePicker(false)} onDone={onRefresh} emitInstant={emitInstant} resolveId={resolveId} queueOrRun={queueOrRun} />
+              onClose={() => setShowAssigneePicker(false)} onDone={onRefresh} emitInstant={emitInstant} resolveId={resolveId} queueOrRun={queueOrRun} anchorRef={assigneeCellRef} />
           )}
         </div>
       )}
 
       {/* ── Due date ── */}
       {cols.dueDate && (
-        <div className="flex-1 min-w-[80px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
+        <div className="w-[120px] flex-shrink-0 px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
           {canEdit ? (
             <div className="relative cursor-pointer" onClick={() => dateRef.current?.showPicker?.()}>
               <input ref={dateRef} type="date" value={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
@@ -461,21 +505,21 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
 
       {/* ── Status ── */}
       {cols.status && (
-        <div className="flex-1 min-w-[80px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
+        <div ref={statusCellRef} className="w-[120px] flex-shrink-0 px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => canEdit && setShowStatusPicker(true)}
             className={`text-[10px] font-semibold px-2.5 py-1 rounded truncate ${statusCfg.cls}`}>
             {statusCfg.label}
           </button>
           {showStatusPicker && (
             <StatusPicker taskId={task.id} currentStatus={task.status}
-              onClose={() => setShowStatusPicker(false)} onDone={onRefresh} onCelebrate={onCelebrate} emitInstant={emitInstant} resolveId={resolveId} queueOrRun={queueOrRun} />
+              onClose={() => setShowStatusPicker(false)} onDone={onRefresh} onCelebrate={onCelebrate} emitInstant={emitInstant} resolveId={resolveId} queueOrRun={queueOrRun} anchorRef={statusCellRef} />
           )}
         </div>
       )}
 
       {/* ── Priority ── */}
       {cols.priority && (
-        <div className="flex-1 min-w-[70px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="w-[120px] flex-shrink-0 px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
           <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
             task.priority === 'HIGH' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' :
             task.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400' :
@@ -486,21 +530,21 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
 
       {/* ── Estimated time ── */}
       {cols.estimatedTime && (
-        <div className="flex-1 min-w-[75px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
-          <TimeCell taskId={task.id} field="estimatedTime" value={task.estimatedTime} canEdit={canEdit} onDone={onRefresh} queueOrRun={queueOrRun} />
+        <div className="w-[120px] flex-shrink-0 px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
+          <TimeCell taskId={task.id} field="estimatedTime" value={task.estimatedTime} canEdit={canEdit} onDone={onRefresh} queueOrRun={queueOrRun} emitInstant={emitInstant} resolveId={resolveId} />
         </div>
       )}
 
       {/* ── Actual time (Time Tracker) ── */}
       {cols.actualTime && (
-        <div className="flex-1 min-w-[75px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="w-[120px] flex-shrink-0 px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
           <TimeTracker taskId={resolveId(task.id)} initialTotal={task.actualTime || 0} timerStartedAt={task.timerStartedAt} canEdit={canEdit} emitInstant={emitInstant} />
         </div>
       )}
 
       {/* ── Dynamic custom field cells ── */}
       {customFields.map(cf => (
-        <div key={cf.id} className="flex-1 min-w-[80px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div key={cf.id} className={`${COL_W} px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center`} onClick={(e) => e.stopPropagation()}>
           <CustomFieldCell
             field={{ ...cf, _members: cf.type === 'PEOPLE' ? members : undefined }}
             taskId={task.id}
@@ -602,7 +646,7 @@ function FieldTypePicker({ onSelect, onClose }) {
       <>
         <div className="fixed inset-0 z-[90]" onClick={onClose} />
         <div className="fixed z-[91] w-56 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl animate-fade-in"
-          style={{ top: document.getElementById('add-field-btn')?.getBoundingClientRect().bottom + 4 || 200, left: Math.min(document.getElementById('add-field-btn')?.getBoundingClientRect().left || 200, window.innerWidth - 240) }}>
+          style={{ top: document.getElementById('add-field-btn')?.getBoundingClientRect().bottom + 4 || 200, right: Math.max(8, window.innerWidth - (document.getElementById('add-field-btn')?.getBoundingClientRect().right || window.innerWidth - 20)) }}>
           <div className="px-3 pt-2.5 pb-1">
             <p className="text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Field types</p>
           </div>
@@ -1178,7 +1222,8 @@ function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customField
         customFields={customFields} fieldValues={fieldValues} onSetFieldValue={onSetFieldValue}
         onTaskClick={onTaskClick} onRefresh={onRefresh}
         hasSubtasks={hasSubtasks} isExpanded={isExpanded} onToggle={() => toggleTask(task.id)}
-        depth={depth} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} resolveId={resolveId} queueOrRun={queueOrRun} />
+        depth={depth} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} resolveId={resolveId} queueOrRun={queueOrRun}
+        onAddSubtaskHere={() => { if (!expandedTasks[task.id]) toggleTask(task.id); setAddingSubtaskTo({ listId, taskId: task.id }); setNewSubtaskTitle(''); }} />
 
       {/* Recursively render subtasks */}
       {isExpanded && task.subtasks?.map((sub) => (
@@ -1194,7 +1239,7 @@ function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customField
 
       {/* Add subtask input */}
       {isExpanded && canEdit && (
-        <div className="border-b border-[var(--asana-border)]/30">
+        <div className="border-b border-[var(--asana-border)]/30 sticky left-0">
           {addingSubtaskTo?.taskId === task.id ? (
             <form onSubmit={(e) => handleAddSubtask(e, listId, task.id)} className="flex items-center py-[6px]"
               style={{ paddingLeft: `${(depth + 1) * 1.5 + 2.5}rem`, paddingRight: '1.5rem' }}>
@@ -1224,8 +1269,8 @@ function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customField
 /* ── Inline skeleton row for pending items ── */
 function PendingRow({ title, type, depth = 0 }) {
   return (
-    <div className="flex items-stretch border-b border-[var(--asana-border)]/30 animate-pulse">
-      <div className="w-[45%] min-w-[200px] flex-shrink-0 flex items-center py-[8px] border-r border-[var(--asana-border)]/40"
+    <div className="flex items-stretch border-b border-[var(--asana-border)]/30 animate-pulse w-max min-w-full">
+      <div className={`${NAME_COL} flex items-center py-[8px] border-r border-[var(--asana-border)]/40`}
         style={{ paddingLeft: `${depth * 1.5 + 1}rem`, paddingRight: '0.75rem' }}>
         <span className="w-[18px] mr-1.5 flex-shrink-0" />
         {type === 'section' ? (
@@ -1246,7 +1291,7 @@ function PendingRow({ title, type, depth = 0 }) {
   );
 }
 
-function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingItems = [], addPendingItem, clearPendingItems, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, addSectionTrigger = 0, customFieldEvent, setCustomFieldCallback }) {
+function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingItems = [], addPendingItem, clearPendingItems, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, addSectionTrigger = 0, customFieldEvent, setCustomFieldCallback, prefetchedCustomFields = null, prefetchedFieldValues = null }) {
   const cols = { assignee: true, dueDate: true, status: true, estimatedTime: true, actualTime: true, priority: false, ...columns };
   const dispatch = useAppDispatch();
   const { canEdit } = useRole();
@@ -1259,6 +1304,21 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
   const [addingSubtaskTo, setAddingSubtaskTo] = useState(null);
   const [addingSection, setAddingSection] = useState(false);
   const addSectionInputRef = useRef(null);
+  const headerScrollRef = useRef(null);
+  const contentScrollRef = useRef(null);
+
+  // Sync horizontal scroll between header and content
+  useEffect(() => {
+    const header = headerScrollRef.current;
+    const content = contentScrollRef.current;
+    if (!header || !content) return;
+    let syncing = false;
+    const syncHeader = () => { if (!syncing) { syncing = true; content.scrollLeft = header.scrollLeft; syncing = false; } };
+    const syncContent = () => { if (!syncing) { syncing = true; header.scrollLeft = content.scrollLeft; syncing = false; } };
+    header.addEventListener('scroll', syncHeader);
+    content.addEventListener('scroll', syncContent);
+    return () => { header.removeEventListener('scroll', syncHeader); content.removeEventListener('scroll', syncContent); };
+  }, []);
 
   // Respond to "Add Section" button from header
   useEffect(() => {
@@ -1274,8 +1334,8 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newSectionName, setNewSectionName] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [customFields, setCustomFields] = useState([]);
-  const [fieldValues, setFieldValues] = useState({}); // { `${fieldId}-${taskId}`: value }
+  const [customFields, setCustomFields] = useState(prefetchedCustomFields || []);
+  const [fieldValues, setFieldValues] = useState(prefetchedFieldValues || {}); // { `${fieldId}-${taskId}`: value }
   const [showFieldPicker, setShowFieldPicker] = useState(false);
 
   const projectId = currentProject?.id;
@@ -1295,12 +1355,17 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
     } catch (e) { /* project might not exist yet */ }
   }, [projectId]);
 
-  // Clear stale custom fields when project changes, then fetch fresh
+  // Use prefetched data if available, otherwise fetch
   useEffect(() => {
-    setCustomFields([]);
-    setFieldValues({});
-    fetchCustomFields();
-  }, [fetchCustomFields]);
+    if (prefetchedCustomFields && prefetchedFieldValues) {
+      setCustomFields(prefetchedCustomFields);
+      setFieldValues(prefetchedFieldValues);
+    } else {
+      setCustomFields([]);
+      setFieldValues({});
+      fetchCustomFields();
+    }
+  }, [fetchCustomFields, prefetchedCustomFields, prefetchedFieldValues]);
 
   // Handle custom field events from other users via direct callback (instant, no React state cycle)
   useEffect(() => {
@@ -1491,48 +1556,52 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
   };
 
   return (
-    <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)]/50 overflow-x-auto relative">
-      {/* + Add field — absolute top-right corner */}
-      {canEdit && (
-        <button id="add-field-btn" onClick={() => setShowFieldPicker(!showFieldPicker)}
-          className="absolute top-0 right-0 z-20 w-8 h-[33px] flex items-center justify-center bg-[var(--asana-surface)] border-l border-b border-[var(--asana-border)]/40 rounded-tr-lg rounded-bl-lg text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          title="Add field">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
-      )}
-      {/* ── Column headers ── */}
-      <div className="flex items-stretch border-b border-[var(--asana-border)]/60 bg-[var(--asana-surface)] sticky top-0 z-10">
-        <div className="w-[45%] min-w-[200px] px-4 py-2 border-r border-[var(--asana-border)]/40 flex-shrink-0">
+    <>
+    <div className="relative">
+    <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)]/50 relative">
+      {/* ── Column headers (sticky top for vertical scroll) ── */}
+      <div ref={headerScrollRef} className="sticky -top-3 sm:-top-6 z-30 bg-[var(--asana-surface)] rounded-t-lg overflow-x-auto scrollbar-none">
+        <div className="flex items-stretch border-b border-[var(--asana-border)]/60 w-max min-w-full">
+        <div className={`${NAME_COL} px-4 py-2 border-r border-[var(--asana-border)]/40 z-20`}>
           <span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Name</span>
         </div>
-        {cols.assignee && <div className="flex-1 min-w-[90px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Assignee</span></div>}
-        {cols.dueDate && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Due date</span></div>}
-        {cols.status && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Status</span></div>}
-        {cols.priority && <div className="flex-1 min-w-[70px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Priority</span></div>}
-        {cols.estimatedTime && <div className="flex-1 min-w-[75px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Estimated ti...</span></div>}
-        {cols.actualTime && <div className="flex-1 min-w-[75px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Actual time</span></div>}
+        {cols.assignee && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Assignee</span></div>}
+        {cols.dueDate && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Due date</span></div>}
+        {cols.status && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Status</span></div>}
+        {cols.priority && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Priority</span></div>}
+        {cols.estimatedTime && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Estimated ti...</span></div>}
+        {cols.actualTime && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Actual time</span></div>}
 
         {/* Dynamic custom field columns */}
         {customFields.map(cf => (
-          <div key={cf.id} className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center group/col">
-            <span className="text-[11px] font-semibold text-[var(--asana-text-secondary)] truncate flex-1">{cf.name}</span>
+          <div key={cf.id} className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center justify-between group/col overflow-hidden`}>
+            <span className="text-[11px] font-semibold text-[var(--asana-text-secondary)] truncate">{cf.name}</span>
               {canEdit && (
                 <button onClick={() => deleteCustomField(cf.id)}
-                  className="opacity-0 group-hover/col:opacity-100 p-0.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-[var(--asana-text-secondary)] hover:text-red-500 transition-all ml-1">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  className="opacity-0 group-hover/col:opacity-100 w-4 h-4 flex-shrink-0 flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-[var(--asana-text-secondary)] hover:text-red-500 transition-all ml-1">
+                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               )}
           </div>
         ))}
 
+        {/* + Add field — pinned to right edge */}
+        {canEdit && (
+          <button onClick={() => setShowFieldPicker(!showFieldPicker)}
+            className="sticky right-0 w-9 flex-shrink-0 flex items-center justify-center bg-[var(--asana-surface)] border-l border-[var(--asana-border)]/40 text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
+            title="Add field">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+        )}
+        </div>
       </div>
 
       {/* ── Sections ── */}
-      <div className="min-w-[900px]">
+      <div ref={contentScrollRef} className="overflow-x-auto">
         {lists.map((list) => {
           const estSum = getSectionSum(list.tasks, 'estimatedTime');
           const actSum = getSectionSum(list.tasks, 'actualTime');
@@ -1540,7 +1609,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
           return (
             <Fragment key={list.id}>
               {/* Section header — click arrow to collapse, double-click name to rename */}
-              <div className="flex items-center px-4 py-2 border-b border-[var(--asana-border)]/40 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors group/section">
+              <div className="flex items-center px-4 py-2 border-b border-[var(--asana-border)]/40 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors group/section sticky left-0 z-10 bg-[var(--asana-surface)]">
                 <button onClick={() => toggleSection(list.id)} className="mr-2 flex-shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
                   <svg className={`w-3 h-3 text-[var(--asana-text-secondary)] transition-transform ${collapsedSections[list.id] ? '-rotate-90' : ''}`}
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1600,7 +1669,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
 
                   {/* Add task row */}
                   {canEdit && (
-                    <div className="border-b border-[var(--asana-border)]/30">
+                    <div className="border-b border-[var(--asana-border)]/30 sticky left-0">
                       {addingTaskTo === list.id ? (
                         <form onSubmit={(e) => handleAddTask(e, list.id)} className="flex items-center px-4 py-[7px]">
                           <span className="w-[18px] mr-1.5 flex-shrink-0" />
@@ -1644,18 +1713,18 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                     const hasCfSums = Object.keys(cfSums).length > 0;
                     if (!(estSum > 0 || actSum > 0 || hasCfSums)) return null;
                     return (
-                      <div className="flex items-stretch border-b border-[var(--asana-border)]/30 bg-gray-50/50 dark:bg-gray-800/20">
-                        <div className="w-[45%] min-w-[200px] flex-shrink-0 px-4 py-1.5 border-r border-[var(--asana-border)]/40" />
-                        {cols.assignee && <div className="flex-1 min-w-[90px] px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
-                        {cols.dueDate && <div className="flex-1 min-w-[80px] px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
-                        {cols.status && <div className="flex-1 min-w-[80px] px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-[10px] font-semibold text-[var(--asana-text-secondary)] uppercase">SUM</span></div>}
-                        {cols.priority && <div className="flex-1 min-w-[70px] px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
-                        {cols.estimatedTime && <div className="flex-1 min-w-[75px] px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{estSum > 0 ? formatTime(estSum) : ''}</span></div>}
-                        {cols.actualTime && <div className="flex-1 min-w-[75px] px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{actSum > 0 ? formatTime(actSum) : ''}</span></div>}
+                      <div className="flex items-stretch border-b border-[var(--asana-border)]/30 bg-gray-50/50 dark:bg-gray-800/20 w-max min-w-full">
+                        <div className={`${NAME_COL} px-4 py-1.5 border-r border-[var(--asana-border)]/40`} />
+                        {cols.assignee && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
+                        {cols.dueDate && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
+                        {cols.status && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-[10px] font-semibold text-[var(--asana-text-secondary)] uppercase">SUM</span></div>}
+                        {cols.priority && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
+                        {cols.estimatedTime && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{estSum > 0 ? formatTime(estSum) : ''}</span></div>}
+                        {cols.actualTime && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{actSum > 0 ? formatTime(actSum) : ''}</span></div>}
                         {customFields.map(cf => {
                           const cfSum = cfSums[cf.id];
                           return (
-                            <div key={cf.id} className="flex-1 min-w-[80px] px-3 py-1.5 border-r border-[var(--asana-border)]/40">
+                            <div key={cf.id} className={`${COL_W} px-3 py-1.5 border-r border-[var(--asana-border)]/40`}>
                               {cfSum ? (
                                 <span className="text-xs font-semibold text-[var(--asana-text-primary)]">
                                   {cf.type === 'TIME_TRACKING' ? formatTime(cfSum) :
@@ -1678,30 +1747,21 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
           );
         })}
 
-        {/* Add section */}
-        {canEdit && (
-          <div className="px-4 py-2.5">
-            {addingSection ? (
-              <form onSubmit={handleAddSection} className="flex items-center space-x-2">
-                <input type="text" value={newSectionName}
-                  onChange={(e) => setNewSectionName(e.target.value)}
-                  ref={addSectionInputRef}
-                  placeholder="Section name, press Enter" autoFocus
-                  className="text-sm font-bold bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400 flex-1"
-                  onKeyDown={(e) => { if (e.key === 'Escape') { setAddingSection(false); setNewSectionName(''); } }}
-                  onBlur={() => { if (!newSectionName.trim()) { setAddingSection(false); setNewSectionName(''); } }} />
-              </form>
-            ) : (
-              <button onClick={() => { setAddingSection(true); setNewSectionName(''); }}
-                className="flex items-center text-[var(--asana-text-secondary)] hover:text-asana-blue text-xs transition-colors">
-                <svg className="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add section
-              </button>
-            )}
+        {/* Add section input — inside the table when active */}
+        {addingSection && canEdit && (
+          <div className="px-4 py-2.5 border-b border-[var(--asana-border)]/30 sticky left-0">
+            <form onSubmit={handleAddSection} className="flex items-center">
+              <input type="text" value={newSectionName}
+                onChange={(e) => setNewSectionName(e.target.value)}
+                ref={addSectionInputRef}
+                placeholder="Section name, press Enter" autoFocus
+                className="text-sm font-bold bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400 flex-1"
+                onKeyDown={(e) => { if (e.key === 'Escape') { setAddingSection(false); setNewSectionName(''); } }}
+                onBlur={() => { if (!newSectionName.trim()) { setAddingSection(false); setNewSectionName(''); } }} />
+            </form>
           </div>
         )}
+
         {/* ── Grand Total row (all sections combined) ── */}
       {(() => {
         const allTasks = lists.flatMap(l => l.tasks || []);
@@ -1729,26 +1789,26 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
         if (!hasTotals) return null;
 
         return (
-          <div className="flex items-stretch border-t border-[var(--asana-border)]/50 bg-gray-100/50 dark:bg-gray-800/40 font-semibold">
-            <div className="w-[45%] min-w-[200px] flex-shrink-0 px-4 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
+          <div className="flex items-stretch border-t border-[var(--asana-border)]/50 bg-gray-100/50 dark:bg-gray-800/40 font-semibold w-max min-w-full">
+            <div className={`${NAME_COL} px-4 py-2 border-r border-[var(--asana-border)]/40 flex items-center`}>
               <span className="text-xs font-bold text-[var(--asana-text-primary)] uppercase tracking-wider">Total</span>
             </div>
-            {cols.assignee && <div className="flex-1 min-w-[90px] px-3 py-2 border-r border-[var(--asana-border)]/40" />}
-            {cols.dueDate && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40" />}
-            {cols.status && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40" />}
-            {cols.priority && <div className="flex-1 min-w-[70px] px-3 py-2 border-r border-[var(--asana-border)]/40" />}
+            {cols.assignee && <div className="w-[120px] flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" />}
+            {cols.dueDate && <div className="w-[120px] flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" />}
+            {cols.status && <div className="w-[120px] flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" />}
+            {cols.priority && <div className="w-[120px] flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" />}
             {cols.estimatedTime && (
-              <div className="flex-1 min-w-[75px] px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
+              <div className="w-[120px] flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
                 <span className="text-xs font-bold text-[var(--asana-text-primary)]">{totalEst > 0 ? formatTime(totalEst) : ''}</span>
               </div>
             )}
             {cols.actualTime && (
-              <div className="flex-1 min-w-[75px] px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
+              <div className="w-[120px] flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
                 <span className="text-xs font-bold text-[var(--asana-text-primary)]">{totalAct > 0 ? formatTime(totalAct) : ''}</span>
               </div>
             )}
             {customFields.map(cf => (
-              <div key={cf.id} className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
+              <div key={cf.id} className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center`}>
                 {cfTotals[cf.id] ? (
                   <span className="text-xs font-bold text-[var(--asana-text-primary)]">
                     {cf.type === 'TIME_TRACKING' ? formatTime(cfTotals[cf.id]) :
@@ -1771,6 +1831,21 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
         <FieldTypePicker onSelect={addCustomField} onClose={() => setShowFieldPicker(false)} />
       )}
     </div>
+    </div>
+
+    {/* Add section button — outside table border, like real Asana */}
+    {canEdit && !addingSection && (
+      <div className="px-1 py-2 mt-1">
+        <button onClick={() => { setAddingSection(true); setNewSectionName(''); }}
+          className="flex items-center text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] text-sm transition-colors px-3 py-1">
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add section
+        </button>
+      </div>
+    )}
+  </>
   );
 }
 

@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
-import { logout } from './authSlice';
+import { logout, login } from './authSlice';
 
 export const fetchWorkspaces = createAsyncThunk(
   'workspace/fetchWorkspaces',
@@ -173,6 +173,18 @@ const workspaceSlice = createSlice({
       })
       .addCase(cancelInvite.fulfilled, (state, action) => {
         state.pendingInvites = state.pendingInvites.filter(i => i.id !== action.payload.inviteId);
+      })
+      // Pre-populate workspaces from login response (eliminates separate GET /workspaces call)
+      .addCase(login.fulfilled, (state, action) => {
+        const workspaces = action.payload.workspaces;
+        if (workspaces?.length) {
+          state.workspaces = workspaces;
+          state.loading = false;
+          // Auto-select first workspace if none selected
+          if (!state.currentWorkspace) {
+            state.currentWorkspace = workspaces[0];
+          }
+        }
       })
       // Reset all workspace state on logout
       .addCase(logout.fulfilled, () => initialState);

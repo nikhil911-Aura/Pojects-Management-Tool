@@ -97,7 +97,14 @@ export const useSocket = (projectId, boardId) => {
 
     socket.on('task_created', () => { try { setPendingItems([]); } catch {} });
     socket.on('task_deleted', () => {});
-    socket.on('task_updated', () => {});
+    socket.on('task_updated', (data) => {
+      // Apply field-level update from backend (sender excluded via x-socket-id)
+      try {
+        if (data?.id) {
+          dispatch(optimisticUpdateTask({ taskId: data.id, data }));
+        }
+      } catch {}
+    });
     socket.on('task_moved', () => { safetyRefetch(); });
     socket.on('section_created', () => {});
     socket.on('section_updated', () => {});
