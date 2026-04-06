@@ -23,12 +23,12 @@
 /* ── Dark mode variables ── */
 .dark {
   --asana-bg: #111827;
-  --asana-surface: #1F2937;
+  --asana-surface: #1F2124;
   --asana-border: rgba(255, 255, 255, 0.06);
   --asana-border-rgb: 45, 55, 72;
   --asana-text-primary: #F9FAFB;
   --asana-text-secondary: #9CA3AF;
-  --asana-sidebar-bg: #0D0D1A;
+  --asana-sidebar-bg: #313338;
   --asana-sidebar-hover: #1A1A2E;
   --asana-sidebar-active: #2A2A3E;
   --asana-sidebar-text: #D1D5DB;
@@ -51,7 +51,7 @@ body {
 .dark *,
 .dark *::before,
 .dark *::after {
-  border-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 /* ── Scrollbar ── */

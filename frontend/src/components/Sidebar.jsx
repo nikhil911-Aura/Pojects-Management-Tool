@@ -9,7 +9,7 @@ function Sidebar({ isOpen }) {
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
   const { currentWorkspace } = useAppSelector((state) => state.workspace);
-  const { projects, loading: projectsLoading, projectsLoaded } = useAppSelector((state) => state.project);
+  const { projects, projectsLoading, projectsLoaded } = useAppSelector((state) => state.project);
 
   const { canCreateProject, canManageWorkspace } = useRole();
 
@@ -92,7 +92,7 @@ function Sidebar({ isOpen }) {
               className="w-full flex items-center justify-between px-3 py-1 group"
               onClick={() => setShowProjects(!showProjects)}
             >
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--asana-sidebar-text-muted)]">
+              <span className="text-xs font-medium tracking-wide uppercase text-[var(--asana-sidebar-text-muted)]">
                 Projects
               </span>
               <svg
@@ -157,7 +157,7 @@ function Sidebar({ isOpen }) {
               className="w-full flex items-center justify-between px-3 py-1 group"
               onClick={() => setShowTeams(!showTeams)}
             >
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--asana-sidebar-text-muted)]">
+              <span className="text-xs font-medium tracking-wide uppercase text-[var(--asana-sidebar-text-muted)]">
                 Teams
               </span>
               <svg

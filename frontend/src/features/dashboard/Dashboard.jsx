@@ -1,19 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchWorkspaces, createWorkspace, setCurrentWorkspace } from '../../store/slices/workspaceSlice';
+import { createWorkspace, setCurrentWorkspace } from '../../store/slices/workspaceSlice';
 import CreateProjectWizard from '../projects/CreateProjectWizard';
 
 function ProjectCard({ project }) {
   const color = project.color || '#4573D2';
 
-  // Compute counts from board → lists → tasks
-  const allTasks = project.board?.lists?.flatMap(l => l.tasks || []) || [];
-  const sections = project.board?.lists?.length || 0;
-  const tasks = allTasks.filter(t => !t.parentId && t.taskType !== 'MILESTONE').length;
-  const milestones = allTasks.filter(t => t.taskType === 'MILESTONE').length;
-  const subtasks = allTasks.filter(t => t.parentId).length;
-  const total = allTasks.length;
+  // Use pre-computed stats from backend (or fallback to legacy board.lists.tasks)
+  const stats = project.stats;
+  const sections = stats?.sections ?? project.board?.lists?.length ?? 0;
+  const tasks = stats?.tasks ?? project.board?.lists?.flatMap(l => l.tasks || []).filter(t => !t.parentId && t.taskType !== 'MILESTONE').length ?? 0;
+  const milestones = stats?.milestones ?? 0;
+  const subtasks = stats?.subtasks ?? 0;
+  const total = stats?.total ?? 0;
 
   return (
     <Link
@@ -75,18 +75,14 @@ function Dashboard() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { workspaces, currentWorkspace, loading } = useAppSelector((state) => state.workspace);
-  const { projects, loading: projectsLoading, projectsLoaded } = useAppSelector((state) => state.project);
+  const { projects, projectsLoading, projectsLoaded } = useAppSelector((state) => state.project);
 
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [newWorkspace, setNewWorkspace] = useState({ name: '', description: '' });
   const [wsCreating, setWsCreating] = useState(false);
 
-  useEffect(() => {
-    dispatch(fetchWorkspaces());
-  }, [dispatch]);
-
-  // Projects are fetched centrally by Layout.jsx — no duplicate fetch here
+  // Workspaces and projects are fetched centrally by Layout.jsx — no duplicate fetch here
 
   const handleCreateWorkspace = (e) => {
     e.preventDefault();
