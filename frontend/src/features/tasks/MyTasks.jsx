@@ -60,7 +60,7 @@ function MyTasks() {
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 border-b border-[var(--asana-border)] mb-6">
+      <div className="flex space-x-1 border-b border-asana-border mb-6">
         {TABS.map(tab => (
           <button
             key={tab}
@@ -100,7 +100,7 @@ function MyTasks() {
           </p>
         </div>
       ) : (
-        <div className="bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-asana-lg divide-y divide-[var(--asana-border)] overflow-hidden">
+        <div className="bg-[var(--asana-surface)] border border-asana-border rounded-asana-lg divide-y divide-[var(--asana-border)] overflow-hidden">
           {filtered.map(task => {
             const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'DONE';
             return (

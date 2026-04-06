@@ -88,7 +88,7 @@ function InviteModal({ workspaceId, onClose }) {
             </div>
 
             <div className="flex space-x-3 pt-2">
-              <button type="button" onClick={onClose} disabled={loading} className="flex-1 py-2 text-sm font-medium border border-[var(--asana-border)] rounded-asana text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <button type="button" onClick={onClose} disabled={loading} className="flex-1 py-2 text-sm font-medium border border-asana-border rounded-asana text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 Cancel
               </button>
               <button type="submit" disabled={loading} className="flex-1 asana-button-primary py-2 text-sm font-medium disabled:opacity-50">

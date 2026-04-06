@@ -15,6 +15,7 @@ function formatMins(m) {
  * Shows total time, expandable popup with entries, timer, and add time.
  */
 export default function TimeTracker({ taskId, initialTotal = 0, timerStartedAt = null, canEdit, emitInstant }) {
+  const isTempId = taskId?.startsWith?.('temp-');
   const dispatch = useAppDispatch();
   const [total, setTotal] = useState(initialTotal);
   const [entries, setEntries] = useState(null);
@@ -63,6 +64,7 @@ export default function TimeTracker({ taskId, initialTotal = 0, timerStartedAt =
 
   // Fetch entries when popup opens
   const fetchEntries = async () => {
+    if (isTempId) { setEntries([]); return; }
     try {
       const res = await api.get(`/api/v1/time-tracking/task/${taskId}/entries`);
       setEntries(res.data.data);
@@ -90,7 +92,7 @@ export default function TimeTracker({ taskId, initialTotal = 0, timerStartedAt =
     const now = new Date();
     setTimerStart(now);
     emitInstant?.('timer_started', { taskId, startedAt: now.toISOString() });
-    try { await api.post(`/api/v1/time-tracking/task/${taskId}/timer/start`); } catch (e) { console.error(e); }
+    if (!isTempId) { try { await api.post(`/api/v1/time-tracking/task/${taskId}/timer/start`); } catch (e) { console.error(e); } }
   };
 
   // Stop timer
@@ -100,10 +102,10 @@ export default function TimeTracker({ taskId, initialTotal = 0, timerStartedAt =
     setTimerStart(null);
     updateTotal(newTotal);
     emitInstant?.('timer_stopped', { taskId, totalMinutes: newTotal });
-    try {
+    if (!isTempId) { try {
       await api.post(`/api/v1/time-tracking/task/${taskId}/timer/stop`);
       fetchEntries();
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); } }
   };
 
   // Add manual time
@@ -124,10 +126,10 @@ export default function TimeTracker({ taskId, initialTotal = 0, timerStartedAt =
     setAddInput('');
     setAddingTime(false);
     emitInstant?.('time_entry_added', { taskId, totalMinutes: newTotal });
-    try {
+    if (!isTempId) { try {
       await api.post(`/api/v1/time-tracking/task/${taskId}/entries`, { minutes: mins });
       fetchEntries();
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); } }
   };
 
   // Delete entry

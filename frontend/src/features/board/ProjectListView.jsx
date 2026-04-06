@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { createTask, createSubtask, updateTask, assignUser, deleteTask } from '../../store/slices/taskSlice';
-import { fetchLists, createList, updateList, deleteList, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticRenameSection } from '../../store/slices/boardSlice';
+import { fetchLists, createList, updateList, deleteList, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticRenameSection, optimisticReplaceItem } from '../../store/slices/boardSlice';
 import { useRole } from '../../hooks/useRole';
 import api from '../../services/api';
 import { useAutoSave, SaveIndicator } from '../../hooks/useAutoSave';
@@ -57,7 +57,7 @@ function useClickOutside(ref, handler) {
 /* ═══════════════════════════════════════════
    Assignee Picker
    ═══════════════════════════════════════════ */
-function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, emitInstant }) {
+function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, emitInstant, resolveId = (id) => id, queueOrRun = (_id, fn) => fn(_id) }) {
   const dispatch = useAppDispatch();
   const ref = useRef(null);
   const [search, setSearch] = useState('');
@@ -73,10 +73,10 @@ function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, em
     const user = (members || []).map(m => m.user || m).find(u => u.id === userId);
     if (user) {
       dispatch(optimisticAssignUser({ taskId, user }));
-      emitInstant?.('task_assigned', { taskId, user });
+      emitInstant?.('task_assigned', { taskId: resolveId(taskId), user });
     }
     onClose();
-    dispatch(assignUser({ taskId, userId }));
+    queueOrRun(taskId, (realId) => dispatch(assignUser({ taskId: realId, userId })));
   };
 
   return (
@@ -109,17 +109,17 @@ function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, em
 /* ═══════════════════════════════════════════
    Status Picker
    ═══════════════════════════════════════════ */
-function StatusPicker({ taskId, currentStatus, onClose, onDone, onCelebrate, emitInstant }) {
+function StatusPicker({ taskId, currentStatus, onClose, onDone, onCelebrate, emitInstant, resolveId = (id) => id, queueOrRun = (_id, fn) => fn(_id) }) {
   const dispatch = useAppDispatch();
   const ref = useRef(null);
   useClickOutside(ref, onClose);
 
   const handleChange = async (status) => {
     dispatch(optimisticUpdateTask({ taskId, data: { status } }));
-    emitInstant?.('task_completed', { taskId, status });
+    emitInstant?.('task_completed', { taskId: resolveId(taskId), status });
     if (status === 'DONE') onCelebrate?.();
     onClose();
-    dispatch(updateTask({ taskId, data: { status } }));
+    queueOrRun(taskId, (realId) => dispatch(updateTask({ taskId: realId, data: { status } })));
   };
 
   return (
@@ -142,7 +142,7 @@ function StatusPicker({ taskId, currentStatus, onClose, onDone, onCelebrate, emi
 /* ═══════════════════════════════════════════
    Editable Time Cell (for estimated/actual)
    ═══════════════════════════════════════════ */
-function TimeCell({ taskId, field, value, canEdit, onDone }) {
+function TimeCell({ taskId, field, value, canEdit, onDone, queueOrRun = (_id, fn) => fn(_id) }) {
   const dispatch = useAppDispatch();
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState('');
@@ -157,7 +157,7 @@ function TimeCell({ taskId, field, value, canEdit, onDone }) {
     const mins = parseTime(input);
     dispatch(optimisticUpdateTask({ taskId, data: { [field]: mins } }));
     setEditing(false);
-    dispatch(updateTask({ taskId, data: { [field]: mins } })).then(() => onDone());
+    queueOrRun(taskId, (realId) => dispatch(updateTask({ taskId: realId, data: { [field]: mins } })).then(() => onDone()));
   };
 
   if (editing) {
@@ -181,7 +181,7 @@ function TimeCell({ taskId, field, value, canEdit, onDone }) {
 /* ═══════════════════════════════════════════
    Task Row
    ═══════════════════════════════════════════ */
-function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSubtasks, isExpanded, onToggle, cols = {}, customFields = [], fieldValues = {}, onSetFieldValue, depth = 0, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock }) {
+function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSubtasks, isExpanded, onToggle, cols = {}, customFields = [], fieldValues = {}, onSetFieldValue, depth = 0, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, resolveId = (id) => id, queueOrRun = (_id, fn) => fn(_id) }) {
   const dispatch = useAppDispatch();
   const [showAssigneePicker, setShowAssigneePicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
@@ -192,7 +192,7 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
   const titleAutoSave = useAutoSave({
     initialValue: task.title,
     entityId: task.id,
-    onSave: async (val) => { await dispatch(updateTask({ taskId: task.id, data: { title: val } })).unwrap(); },
+    onSave: async (val) => { queueOrRun(task.id, (realId) => dispatch(updateTask({ taskId: realId, data: { title: val } }))); },
     onOptimistic: (val) => dispatch(optimisticUpdateTask({ taskId: task.id, data: { title: val } })),
     onBroadcast: (val) => emitLiveEdit?.({ entityType: 'task', entityId: task.id, field: 'title', value: val }),
     debounceMs: 400,
@@ -216,30 +216,30 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
     const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
     if (newStatus === 'DONE') { setJustCompleted(true); setTimeout(() => setJustCompleted(false), 600); onCelebrate?.(); }
     dispatch(optimisticUpdateTask({ taskId: task.id, data: { status: newStatus } }));
-    emitInstant?.('task_completed', { taskId: task.id, status: newStatus });
-    dispatch(updateTask({ taskId: task.id, data: { status: newStatus } }));
+    emitInstant?.('task_completed', { taskId: resolveId(task.id), status: newStatus });
+    queueOrRun(task.id, (realId) => dispatch(updateTask({ taskId: realId, data: { status: newStatus } })));
   };
 
   const handleDelete = (e) => {
     if (e?.stopPropagation) e.stopPropagation();
     if (!canEdit || busy) return;
     dispatch(optimisticDeleteTask(task.id));
-    emitInstant?.('task_deleted', { taskId: task.id });
-    dispatch(deleteTask(task.id));
+    emitInstant?.('task_deleted', { taskId: resolveId(task.id) });
+    queueOrRun(task.id, (realId) => dispatch(deleteTask(realId)));
   };
 
   const handleConvertTo = (type) => {
     setContextMenu(null);
     dispatch(optimisticUpdateTask({ taskId: task.id, data: { taskType: type } }));
-    emitInstant?.('task_field_updated', { taskId: task.id, field: 'taskType', value: type });
-    dispatch(updateTask({ taskId: task.id, data: { taskType: type } }));
+    emitInstant?.('task_field_updated', { taskId: resolveId(task.id), field: 'taskType', value: type });
+    queueOrRun(task.id, (realId) => dispatch(updateTask({ taskId: realId, data: { taskType: type } })));
   };
 
   const handleDateChange = (e) => {
     const val = e.target.value;
     dispatch(optimisticUpdateTask({ taskId: task.id, data: { dueDate: val || null } }));
-    emitInstant?.('task_field_updated', { taskId: task.id, field: 'dueDate', value: val || null });
-    dispatch(updateTask({ taskId: task.id, data: { dueDate: val || null } }));
+    emitInstant?.('task_field_updated', { taskId: resolveId(task.id), field: 'dueDate', value: val || null });
+    queueOrRun(task.id, (realId) => dispatch(updateTask({ taskId: realId, data: { dueDate: val || null } })));
   };
 
   const handleStopEditing = () => {
@@ -431,7 +431,7 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
           </button>
           {showAssigneePicker && (
             <AssigneePicker taskId={task.id} currentAssignees={task.assignees} members={members}
-              onClose={() => setShowAssigneePicker(false)} onDone={onRefresh} emitInstant={emitInstant} />
+              onClose={() => setShowAssigneePicker(false)} onDone={onRefresh} emitInstant={emitInstant} resolveId={resolveId} queueOrRun={queueOrRun} />
           )}
         </div>
       )}
@@ -468,7 +468,7 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
           </button>
           {showStatusPicker && (
             <StatusPicker taskId={task.id} currentStatus={task.status}
-              onClose={() => setShowStatusPicker(false)} onDone={onRefresh} onCelebrate={onCelebrate} emitInstant={emitInstant} />
+              onClose={() => setShowStatusPicker(false)} onDone={onRefresh} onCelebrate={onCelebrate} emitInstant={emitInstant} resolveId={resolveId} queueOrRun={queueOrRun} />
           )}
         </div>
       )}
@@ -487,14 +487,14 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
       {/* ── Estimated time ── */}
       {cols.estimatedTime && (
         <div className="flex-1 min-w-[75px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
-          <TimeCell taskId={task.id} field="estimatedTime" value={task.estimatedTime} canEdit={canEdit} onDone={onRefresh} />
+          <TimeCell taskId={task.id} field="estimatedTime" value={task.estimatedTime} canEdit={canEdit} onDone={onRefresh} queueOrRun={queueOrRun} />
         </div>
       )}
 
       {/* ── Actual time (Time Tracker) ── */}
       {cols.actualTime && (
         <div className="flex-1 min-w-[75px] px-3 py-[8px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
-          <TimeTracker taskId={task.id} initialTotal={task.actualTime || 0} timerStartedAt={task.timerStartedAt} canEdit={canEdit} emitInstant={emitInstant} />
+          <TimeTracker taskId={resolveId(task.id)} initialTotal={task.actualTime || 0} timerStartedAt={task.timerStartedAt} canEdit={canEdit} emitInstant={emitInstant} />
         </div>
       )}
 
@@ -938,6 +938,21 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, left: 0 });
   const cellBtnRef = useRef(null);
+  const debounceRef = useRef(null);
+
+  // Sync input from parent when not editing (e.g., live edits from other users)
+  useEffect(() => {
+    if (!editing) setInput(value || '');
+  }, [value, editing]);
+
+  // Debounced onChange for text/number — only saves + broadcasts after user pauses typing
+  const debouncedOnChange = useCallback((val) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { onChange(val); }, 400);
+  }, [onChange]);
+
+  // Cleanup debounce timer
+  useEffect(() => { return () => { if (debounceRef.current) clearTimeout(debounceRef.current); }; }, []);
 
   const openDropdown = () => {
     if (!canEdit) return;
@@ -961,7 +976,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [showDropdown]);
 
-  const save = () => { onChange(input); setEditing(false); };
+  const save = () => { if (debounceRef.current) clearTimeout(debounceRef.current); onChange(input); setEditing(false); };
   const opts = field.options ? (typeof field.options === 'string' ? JSON.parse(field.options) : field.options) : [];
   const parsedOpts = Array.isArray(opts) ? opts : [];
 
@@ -1102,14 +1117,14 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
     );
   }
 
-  // NUMBER — with format support (live update on every keystroke)
+  // NUMBER — with format support (debounced save — 400ms after last keystroke)
   if (field.type === 'NUMBER') {
     const fmt = parsedOpts[0]?.format || 'number';
     if (editing) {
       return (
-        <input type="number" value={input} onChange={(e) => { setInput(e.target.value); onChange(e.target.value); }} autoFocus
+        <input type="number" value={input} onChange={(e) => { setInput(e.target.value); debouncedOnChange(e.target.value); }} autoFocus
           className="text-xs bg-transparent border-none p-0 text-[var(--asana-text-primary)] outline-none w-full text-right"
-          onBlur={() => setEditing(false)} onKeyDown={(e) => { if (e.key === 'Enter') setEditing(false); if (e.key === 'Escape') setEditing(false); }} />
+          onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setInput(value || ''); setEditing(false); } }} />
       );
     }
     const display = value ? (fmt === 'currency' ? `$${value}` : fmt === 'percentage' ? `${value}%` : value) : '';
@@ -1133,12 +1148,12 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
     );
   }
 
-  // TEXT — inline text editing (live update on every keystroke)
+  // TEXT — inline text editing (debounced save — 400ms after last keystroke)
   if (editing) {
     return (
-      <input type="text" value={input} onChange={(e) => { setInput(e.target.value); onChange(e.target.value); }} autoFocus
+      <input type="text" value={input} onChange={(e) => { setInput(e.target.value); debouncedOnChange(e.target.value); }} autoFocus
         className="text-xs bg-transparent border-none p-0 text-[var(--asana-text-primary)] outline-none w-full"
-        onBlur={() => setEditing(false)} onKeyDown={(e) => { if (e.key === 'Enter') setEditing(false); if (e.key === 'Escape') setEditing(false); }} />
+        onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setInput(value || ''); setEditing(false); } }} />
     );
   }
 
@@ -1153,7 +1168,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
 /* ═══════════════════════════════════════════
    Recursive Task Tree Node — renders task + subtasks at any depth
    ═══════════════════════════════════════════ */
-function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customFields, fieldValues, onSetFieldValue, onTaskClick, onRefresh, expandedTasks, toggleTask, addingSubtaskTo, setAddingSubtaskTo, newSubtaskTitle, setNewSubtaskTitle, handleAddSubtask, pendingItems = [], onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock }) {
+function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customFields, fieldValues, onSetFieldValue, onTaskClick, onRefresh, expandedTasks, toggleTask, addingSubtaskTo, setAddingSubtaskTo, newSubtaskTitle, setNewSubtaskTitle, handleAddSubtask, pendingItems = [], onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, resolveId, queueOrRun }) {
   const hasSubtasks = task.subtasks?.length > 0;
   const isExpanded = expandedTasks[task.id];
 
@@ -1163,7 +1178,7 @@ function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customField
         customFields={customFields} fieldValues={fieldValues} onSetFieldValue={onSetFieldValue}
         onTaskClick={onTaskClick} onRefresh={onRefresh}
         hasSubtasks={hasSubtasks} isExpanded={isExpanded} onToggle={() => toggleTask(task.id)}
-        depth={depth} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} />
+        depth={depth} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} resolveId={resolveId} queueOrRun={queueOrRun} />
 
       {/* Recursively render subtasks */}
       {isExpanded && task.subtasks?.map((sub) => (
@@ -1174,12 +1189,12 @@ function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customField
           expandedTasks={expandedTasks} toggleTask={toggleTask}
           addingSubtaskTo={addingSubtaskTo} setAddingSubtaskTo={setAddingSubtaskTo}
           newSubtaskTitle={newSubtaskTitle} setNewSubtaskTitle={setNewSubtaskTitle}
-          handleAddSubtask={handleAddSubtask} pendingItems={pendingItems} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} />
+          handleAddSubtask={handleAddSubtask} pendingItems={pendingItems} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} resolveId={resolveId} queueOrRun={queueOrRun} />
       ))}
 
       {/* Add subtask input */}
       {isExpanded && canEdit && (
-        <div className="border-b border-[var(--asana-border)]">
+        <div className="border-b border-[var(--asana-border)]/30">
           {addingSubtaskTo?.taskId === task.id ? (
             <form onSubmit={(e) => handleAddSubtask(e, listId, task.id)} className="flex items-center py-[6px]"
               style={{ paddingLeft: `${(depth + 1) * 1.5 + 2.5}rem`, paddingRight: '1.5rem' }}>
@@ -1209,7 +1224,7 @@ function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customField
 /* ── Inline skeleton row for pending items ── */
 function PendingRow({ title, type, depth = 0 }) {
   return (
-    <div className="flex items-stretch border-b border-[var(--asana-border)] animate-pulse">
+    <div className="flex items-stretch border-b border-[var(--asana-border)]/30 animate-pulse">
       <div className="w-[45%] min-w-[200px] flex-shrink-0 flex items-center py-[8px] border-r border-[var(--asana-border)]/40"
         style={{ paddingLeft: `${depth * 1.5 + 1}rem`, paddingRight: '0.75rem' }}>
         <span className="w-[18px] mr-1.5 flex-shrink-0" />
@@ -1343,11 +1358,13 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
     // Optimistic local
     setFieldValues(prev => ({ ...prev, [`${fieldId}-${taskId}`]: value }));
     // Broadcast to others
-    emitInstant?.('custom_field_value_set', { fieldId, taskId, value });
-    // Background API
-    try {
-      await api.put(`/api/v1/custom-fields/${fieldId}/task/${taskId}`, { value });
-    } catch (e) { console.error('Failed to set field value:', e); }
+    emitInstant?.('custom_field_value_set', { fieldId, taskId: resolveId(taskId), value });
+    // Background API — queue if task still has temp ID
+    queueOrRun(taskId, async (realId) => {
+      try {
+        await api.put(`/api/v1/custom-fields/${fieldId}/task/${realId}`, { value });
+      } catch (e) { console.error('Failed to set field value:', e); }
+    });
   };
 
   const toggleSection = (id) => setCollapsedSections(p => ({ ...p, [id]: !p[id] }));
@@ -1361,7 +1378,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
 
     if (sectionSaveTimerRef.current) clearTimeout(sectionSaveTimerRef.current);
     sectionSaveTimerRef.current = setTimeout(() => {
-      if (name.trim()) dispatch(updateList({ listId, data: { name: name.trim() } }));
+      if (name.trim()) queueOrRun(listId, (realId) => dispatch(updateList({ listId: realId, data: { name: name.trim() } })));
     }, 400);
   };
 
@@ -1369,13 +1386,41 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
     if (sectionSaveTimerRef.current) clearTimeout(sectionSaveTimerRef.current);
     const name = editingSectionName.trim();
     if (name && name !== lists.find(l => l.id === listId)?.name) {
-      dispatch(updateList({ listId, data: { name } }));
+      queueOrRun(listId, (realId) => dispatch(updateList({ listId: realId, data: { name } })));
     }
     setEditingSectionId(null);
   };
   const toggleTask = (id) => setExpandedTasks(p => ({ ...p, [id]: !p[id] }));
-  const refetch = () => {
-    if (boardId) dispatch(fetchLists(boardId));
+  const refetch = () => { if (boardId) dispatch(fetchLists(boardId)); };
+
+  // ── Temp ID → Real ID mapping + pending operations queue ──
+  // When a task/subtask/section is created optimistically, it gets a temp ID.
+  // Any edits made before the API returns are queued and replayed once the real ID is available.
+  const idMapRef = useRef({}); // { 'temp-123': 'uuid-abc', ... }
+  const pendingOpsRef = useRef({}); // { 'temp-123': [() => dispatch(updateTask(...)), ...] }
+
+  const resolveId = (id) => idMapRef.current[id] || id;
+
+  // Queue an API operation for a temp ID — will execute immediately if real ID is ready
+  const queueOrRun = (tempOrRealId, makeApiCall) => {
+    const realId = idMapRef.current[tempOrRealId] || tempOrRealId;
+    if (!realId.startsWith('temp-')) {
+      // Real ID available — execute immediately
+      makeApiCall(realId);
+    } else {
+      // Still temp — queue for later
+      if (!pendingOpsRef.current[tempOrRealId]) pendingOpsRef.current[tempOrRealId] = [];
+      pendingOpsRef.current[tempOrRealId].push(makeApiCall);
+    }
+  };
+
+  // Flush all queued operations for a temp ID once its real ID is known
+  const flushPendingOps = (tempId, realId) => {
+    const ops = pendingOpsRef.current[tempId];
+    if (ops?.length) {
+      ops.forEach(fn => fn(realId));
+      delete pendingOpsRef.current[tempId];
+    }
   };
 
   const handleAddTask = (e, listId) => {
@@ -1385,15 +1430,14 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
     const tempId = `temp-${Date.now()}`;
     const task = { id: tempId, title, status: 'TODO', priority: 'LOW', taskType: 'DEFAULT_TASK', assignees: [], subtasks: [], position: 9999 };
 
-    // 1. Local optimistic
     dispatch(optimisticAddTask({ listId, task }));
-    // 2. Instant broadcast to other users (they see the task appear immediately)
     emitInstant?.('task_added', { listId, task });
-    // 3. Clear input, keep open
     setNewTaskTitle('');
-    // 4. Background DB save — then broadcast REAL task to replace temp on other users
     dispatch(createTask({ listId, taskData: { title } })).unwrap().then((realTask) => {
+      idMapRef.current[tempId] = realTask.id;
+      dispatch(optimisticReplaceItem({ tempId, item: realTask }));
       emitInstant?.('task_replaced', { tempId, listId, task: realTask });
+      flushPendingOps(tempId, realTask.id);
     }).catch(() => {});
   };
 
@@ -1408,9 +1452,18 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
     emitInstant?.('subtask_added', { listId, taskId, subtask });
     setNewSubtaskTitle('');
     setExpandedTasks(p => ({ ...p, [taskId]: true }));
-    dispatch(createSubtask({ listId, taskId, subtaskData: { title } })).unwrap().then((realSub) => {
-      emitInstant?.('subtask_replaced', { tempId, taskId, subtask: realSub });
-    }).catch(() => {});
+
+    // The parent task might have a temp ID — resolve it before API call
+    const doCreate = (resolvedParentId) => {
+      const resolvedListId = resolveId(listId);
+      dispatch(createSubtask({ listId: resolvedListId, taskId: resolvedParentId, subtaskData: { title } })).unwrap().then((realSub) => {
+        idMapRef.current[tempId] = realSub.id;
+        dispatch(optimisticReplaceItem({ tempId, item: realSub }));
+        emitInstant?.('subtask_replaced', { tempId, taskId, subtask: realSub });
+        flushPendingOps(tempId, realSub.id);
+      }).catch(() => {});
+    };
+    queueOrRun(taskId, doCreate);
   };
 
   const handleAddSection = (e) => {
@@ -1425,7 +1478,10 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
     setNewSectionName('');
     setAddingSection(false);
     dispatch(createList({ boardId, name })).unwrap().then((realSection) => {
+      idMapRef.current[tempId] = realSection.id;
+      dispatch(optimisticReplaceItem({ tempId, item: realSection }));
       emitInstant?.('section_replaced', { tempId, section: realSection });
+      flushPendingOps(tempId, realSection.id);
     }).catch(() => {});
   };
 
@@ -1435,7 +1491,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
   };
 
   return (
-    <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] overflow-x-auto relative">
+    <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)]/50 overflow-x-auto relative">
       {/* + Add field — absolute top-right corner */}
       {canEdit && (
         <button id="add-field-btn" onClick={() => setShowFieldPicker(!showFieldPicker)}
@@ -1448,15 +1504,15 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
       )}
       {/* ── Column headers ── */}
       <div className="flex items-stretch border-b border-[var(--asana-border)]/60 bg-[var(--asana-surface)] sticky top-0 z-10">
-        <div className="w-[45%] min-w-[200px] px-5 py-2 border-r border-[var(--asana-border)]/40 flex-shrink-0">
+        <div className="w-[45%] min-w-[200px] px-4 py-2 border-r border-[var(--asana-border)]/40 flex-shrink-0">
           <span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Name</span>
         </div>
         {cols.assignee && <div className="flex-1 min-w-[90px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Assignee</span></div>}
         {cols.dueDate && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Due date</span></div>}
-        {cols.status && <div className="flex-1 min-w-[75px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Status</span></div>}
+        {cols.status && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Status</span></div>}
         {cols.priority && <div className="flex-1 min-w-[70px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Priority</span></div>}
-        {cols.estimatedTime && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Estimated ti...</span></div>}
-        {cols.actualTime && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Actual time</span></div>}
+        {cols.estimatedTime && <div className="flex-1 min-w-[75px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Estimated ti...</span></div>}
+        {cols.actualTime && <div className="flex-1 min-w-[75px] px-3 py-2 border-r border-[var(--asana-border)]/40"><span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Actual time</span></div>}
 
         {/* Dynamic custom field columns */}
         {customFields.map(cf => (
@@ -1484,7 +1540,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
           return (
             <Fragment key={list.id}>
               {/* Section header — click arrow to collapse, double-click name to rename */}
-              <div className="flex items-center px-4 py-2 border-b border-[var(--asana-border)] hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors group/section">
+              <div className="flex items-center px-4 py-2 border-b border-[var(--asana-border)]/40 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors group/section">
                 <button onClick={() => toggleSection(list.id)} className="mr-2 flex-shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
                   <svg className={`w-3 h-3 text-[var(--asana-text-secondary)] transition-transform ${collapsedSections[list.id] ? '-rotate-90' : ''}`}
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1519,7 +1575,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete section "${list.name}" and all its tasks?`)) { emitInstant?.('section_deleted', { listId: list.id }); dispatch(deleteList(list.id)); } }}
+                    <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete section "${list.name}" and all its tasks?`)) { emitInstant?.('section_deleted', { listId: resolveId(list.id) }); dispatch({ type: 'board/deleteList/fulfilled', payload: list.id }); queueOrRun(list.id, (realId) => dispatch(deleteList(realId))); } }}
                       className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-[var(--asana-text-secondary)] hover:text-red-500" title="Delete">
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1539,12 +1595,12 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                       expandedTasks={expandedTasks} toggleTask={toggleTask}
                       addingSubtaskTo={addingSubtaskTo} setAddingSubtaskTo={setAddingSubtaskTo}
                       newSubtaskTitle={newSubtaskTitle} setNewSubtaskTitle={setNewSubtaskTitle}
-                      handleAddSubtask={handleAddSubtask} pendingItems={pendingItems} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} />
+                      handleAddSubtask={handleAddSubtask} pendingItems={pendingItems} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} resolveId={resolveId} queueOrRun={queueOrRun} />
                   ))}
 
                   {/* Add task row */}
                   {canEdit && (
-                    <div className="border-b border-[var(--asana-border)]">
+                    <div className="border-b border-[var(--asana-border)]/30">
                       {addingTaskTo === list.id ? (
                         <form onSubmit={(e) => handleAddTask(e, list.id)} className="flex items-center px-4 py-[7px]">
                           <span className="w-[18px] mr-1.5 flex-shrink-0" />
@@ -1588,11 +1644,11 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                     const hasCfSums = Object.keys(cfSums).length > 0;
                     if (!(estSum > 0 || actSum > 0 || hasCfSums)) return null;
                     return (
-                      <div className="flex items-stretch border-b border-[var(--asana-border)] bg-gray-50/50 dark:bg-gray-800/20">
+                      <div className="flex items-stretch border-b border-[var(--asana-border)]/30 bg-gray-50/50 dark:bg-gray-800/20">
                         <div className="w-[45%] min-w-[200px] flex-shrink-0 px-4 py-1.5 border-r border-[var(--asana-border)]/40" />
                         {cols.assignee && <div className="flex-1 min-w-[90px] px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
-                        {cols.dueDate && <div className="flex-1 min-w-[75px] px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
-                        {cols.status && <div className="flex-1 min-w-[75px] px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-[10px] font-semibold text-[var(--asana-text-secondary)] uppercase">SUM</span></div>}
+                        {cols.dueDate && <div className="flex-1 min-w-[80px] px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
+                        {cols.status && <div className="flex-1 min-w-[80px] px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-[10px] font-semibold text-[var(--asana-text-secondary)] uppercase">SUM</span></div>}
                         {cols.priority && <div className="flex-1 min-w-[70px] px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
                         {cols.estimatedTime && <div className="flex-1 min-w-[75px] px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{estSum > 0 ? formatTime(estSum) : ''}</span></div>}
                         {cols.actualTime && <div className="flex-1 min-w-[75px] px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{actSum > 0 ? formatTime(actSum) : ''}</span></div>}
@@ -1646,9 +1702,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
             )}
           </div>
         )}
-      </div>
-
-      {/* ── Grand Total row (all sections combined) ── */}
+        {/* ── Grand Total row (all sections combined) ── */}
       {(() => {
         const allTasks = lists.flatMap(l => l.tasks || []);
         const totalEst = allTasks.reduce((s, t) => s + (t.estimatedTime || 0), 0);
@@ -1675,26 +1729,26 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
         if (!hasTotals) return null;
 
         return (
-          <div className="flex items-stretch border-t-2 border-[var(--asana-border)] bg-gray-100/50 dark:bg-gray-800/40 font-semibold">
-            <div className="w-[45%] min-w-[200px] flex-shrink-0 px-5 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
+          <div className="flex items-stretch border-t border-[var(--asana-border)]/50 bg-gray-100/50 dark:bg-gray-800/40 font-semibold">
+            <div className="w-[45%] min-w-[200px] flex-shrink-0 px-4 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
               <span className="text-xs font-bold text-[var(--asana-text-primary)] uppercase tracking-wider">Total</span>
             </div>
             {cols.assignee && <div className="flex-1 min-w-[90px] px-3 py-2 border-r border-[var(--asana-border)]/40" />}
             {cols.dueDate && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40" />}
-            {cols.status && <div className="flex-1 min-w-[75px] px-3 py-2 border-r border-[var(--asana-border)]/40" />}
+            {cols.status && <div className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40" />}
             {cols.priority && <div className="flex-1 min-w-[70px] px-3 py-2 border-r border-[var(--asana-border)]/40" />}
             {cols.estimatedTime && (
-              <div className="w-[110px] px-3 py-2 flex-shrink-0 border-r border-[var(--asana-border)] flex items-center">
+              <div className="flex-1 min-w-[75px] px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
                 <span className="text-xs font-bold text-[var(--asana-text-primary)]">{totalEst > 0 ? formatTime(totalEst) : ''}</span>
               </div>
             )}
             {cols.actualTime && (
-              <div className="w-[110px] px-3 py-2 flex-shrink-0 border-r border-[var(--asana-border)] flex items-center">
+              <div className="flex-1 min-w-[75px] px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
                 <span className="text-xs font-bold text-[var(--asana-text-primary)]">{totalAct > 0 ? formatTime(totalAct) : ''}</span>
               </div>
             )}
             {customFields.map(cf => (
-              <div key={cf.id} className="w-[120px] px-3 py-2 flex-shrink-0 border-r border-[var(--asana-border)] flex items-center">
+              <div key={cf.id} className="flex-1 min-w-[80px] px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
                 {cfTotals[cf.id] ? (
                   <span className="text-xs font-bold text-[var(--asana-text-primary)]">
                     {cf.type === 'TIME_TRACKING' ? formatTime(cfTotals[cf.id]) :
@@ -1710,6 +1764,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
           </div>
         );
       })()}
+      </div>
 
       {/* Field picker rendered as fixed overlay (outside scroll container) */}
       {showFieldPicker && canEdit && (

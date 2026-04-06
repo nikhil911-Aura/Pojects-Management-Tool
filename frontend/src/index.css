@@ -10,6 +10,7 @@
   --asana-bg: #F8F9FA;
   --asana-surface: #FFFFFF;
   --asana-border: #E8ECEF;
+  --asana-border-rgb: 232, 236, 239;
   --asana-text-primary: #1E293B;
   --asana-text-secondary: #64748B;
   --asana-sidebar-bg: #1D1B2E;
@@ -23,7 +24,8 @@
 .dark {
   --asana-bg: #111827;
   --asana-surface: #1F2937;
-  --asana-border: #374151;
+  --asana-border: rgba(255, 255, 255, 0.06);
+  --asana-border-rgb: 45, 55, 72;
   --asana-text-primary: #F9FAFB;
   --asana-text-secondary: #9CA3AF;
   --asana-sidebar-bg: #0D0D1A;
@@ -44,6 +46,13 @@ body {
 }
 
 * { box-sizing: border-box; }
+
+/* ── Dark mode: force subtle borders everywhere ── */
+.dark *,
+.dark *::before,
+.dark *::after {
+  border-color: rgba(255, 255, 255, 0.06);
+}
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
