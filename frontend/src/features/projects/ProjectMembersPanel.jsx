@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import { useAppDispatch } from '../../store/hooks';
 import { updateProjectMemberRole, removeProjectMember } from '../../store/slices/projectSlice';
 
@@ -7,38 +8,108 @@ const ROLE_CONFIG = {
   EDITOR: {
     label: 'Editor',
     desc: 'Can add, edit, and delete anything in the project',
-    color: 'text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400',
+    color: 'text-blue-700 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300',
   },
   COMMENTER: {
     label: 'Commenter',
     desc: 'Can comment, but can\'t edit anything in the project',
-    color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400',
+    color: 'text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300',
   },
   VIEWER: {
     label: 'Viewer',
     desc: 'Can view, but can\'t add comments or edit the project',
-    color: 'text-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-gray-400',
+    color: 'text-gray-600 bg-gray-100 dark:bg-gray-700 dark:text-gray-300',
   },
 };
 
-function ProjectMembersPanel({ project, onClose, onOpenShare }) {
+/* Custom role dropdown — replaces native <select> for consistent styling */
+function RoleDropdown({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const ref = useRef(null);
+  const btnRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target) && !btnRef.current?.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const dropdownHeight = 180;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < dropdownHeight) {
+        setPos({ top: rect.top - dropdownHeight - 4, left: rect.right - 220 });
+      } else {
+        setPos({ top: rect.bottom + 4, left: rect.right - 220 });
+      }
+    }
+    setOpen(!open);
+  };
+
+  const current = ROLE_CONFIG[value] || ROLE_CONFIG.EDITOR;
+
+  return (
+    <>
+      <button ref={btnRef} onClick={handleOpen}
+        className={`flex items-center space-x-1.5 text-[11px] font-bold rounded-lg px-2.5 py-1.5 transition-colors hover:ring-1 hover:ring-[var(--asana-border)] ${current.color}`}>
+        <span>{current.label}</span>
+        <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div ref={ref} className="fixed z-[200] w-56 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1 animate-fade-in"
+          style={{ top: pos.top, left: Math.max(8, pos.left) }}>
+          {Object.entries(ROLE_CONFIG).map(([key, { label, desc, color }]) => {
+            const isActive = value === key;
+            return (
+              <button key={key} onClick={() => { onChange(key); setOpen(false); }}
+                className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${isActive ? 'bg-asana-blue/5' : ''}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className={`text-xs font-bold inline-block px-2 py-0.5 rounded ${color}`}>{label}</span>
+                    <p className="text-[10px] text-[var(--asana-text-secondary)] mt-0.5 ml-0.5">{desc}</p>
+                  </div>
+                  {isActive && (
+                    <svg className="w-4 h-4 text-asana-blue flex-shrink-0 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
+function ProjectMembersPanel({ project, onClose, onOpenShare, emitInstant }) {
   const dispatch = useAppDispatch();
   const members = project?.members || [];
 
   const handleRoleChange = (userId, projectRole) => {
-    dispatch(updateProjectMemberRole({
-      projectId: project.id,
-      userId,
-      projectRole,
-    }));
+    // Optimistic
+    dispatch({ type: 'project/updateProjectMemberRole/fulfilled', payload: { projectId: project.id, member: { userId, projectRole } } });
+    emitInstant?.('member_role_changed_instant', { userId, projectRole });
+    // Background API
+    dispatch(updateProjectMemberRole({ projectId: project.id, memberId: userId, projectRole }));
   };
 
   const handleRemove = (userId, userName) => {
     if (confirm(`Remove ${userName} from this project?`)) {
-      dispatch(removeProjectMember({
-        projectId: project.id,
-        userId,
-      }));
+      // Optimistic
+      dispatch({ type: 'project/removeProjectMember/fulfilled', payload: { projectId: project.id, memberId: userId } });
+      emitInstant?.('member_removed_instant', { userId });
+      // Background API
+      dispatch(removeProjectMember({ projectId: project.id, memberId: userId }));
     }
   };
 
@@ -115,22 +186,9 @@ function ProjectMembersPanel({ project, onClose, onOpenShare }) {
                     <span className="text-xs text-[var(--asana-text-secondary)] truncate block">{member.user?.email}</span>
                   </div>
 
-                  {/* Role selector */}
+                  {/* Role selector + remove */}
                   <div className="flex items-center space-x-2">
-                    <select
-                      value={member.projectRole || 'EDITOR'}
-                      onChange={(e) => handleRoleChange(member.userId, e.target.value)}
-                      className={`text-[11px] font-semibold uppercase px-2 py-1 rounded-lg border-0 cursor-pointer focus:ring-1 focus:ring-asana-blue ${role.color} appearance-none bg-no-repeat bg-right pr-6`}
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
-                        backgroundSize: '12px',
-                        backgroundPosition: 'right 4px center',
-                      }}
-                    >
-                      <option value="EDITOR">Editor</option>
-                      <option value="COMMENTER">Commenter</option>
-                      <option value="VIEWER">Viewer</option>
-                    </select>
+                    <RoleDropdown value={member.projectRole || 'EDITOR'} onChange={(val) => handleRoleChange(member.userId, val)} />
 
                     {/* Remove button */}
                     <button

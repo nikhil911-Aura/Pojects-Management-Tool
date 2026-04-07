@@ -45,22 +45,7 @@ export const workspaceService = {
       include: {
         workspace: {
           include: {
-            members: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    avatar: true
-                  }
-                }
-              }
-            },
-            projects: {
-              take: 5,
-              orderBy: { updatedAt: 'desc' }
-            }
+            _count: { select: { members: true, projects: true } }
           }
         }
       },

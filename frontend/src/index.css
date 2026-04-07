@@ -10,6 +10,7 @@
   --asana-bg: #F8F9FA;
   --asana-surface: #FFFFFF;
   --asana-border: #E8ECEF;
+  --asana-border-rgb: 232, 236, 239;
   --asana-text-primary: #1E293B;
   --asana-text-secondary: #64748B;
   --asana-sidebar-bg: #1D1B2E;
@@ -22,11 +23,12 @@
 /* ── Dark mode variables ── */
 .dark {
   --asana-bg: #111827;
-  --asana-surface: #1F2937;
-  --asana-border: #374151;
+  --asana-surface: #1F2124;
+  --asana-border: rgba(255, 255, 255, 0.06);
+  --asana-border-rgb: 45, 55, 72;
   --asana-text-primary: #F9FAFB;
   --asana-text-secondary: #9CA3AF;
-  --asana-sidebar-bg: #0D0D1A;
+  --asana-sidebar-bg: #313338;
   --asana-sidebar-hover: #1A1A2E;
   --asana-sidebar-active: #2A2A3E;
   --asana-sidebar-text: #D1D5DB;
@@ -44,6 +46,13 @@ body {
 }
 
 * { box-sizing: border-box; }
+
+/* ── Dark mode: force subtle borders everywhere ── */
+.dark *,
+.dark *::before,
+.dark *::after {
+  border-color: rgba(255, 255, 255, 0.08);
+}
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -72,4 +81,248 @@ body {
 
 .asana-modal {
   @apply bg-white dark:bg-gray-800 rounded-asana-lg shadow-2xl w-full max-w-md border border-asana-border dark:border-gray-700;
+}
+
+/* ═══════════════════════════════════════════
+   Task completion animations (like real Asana)
+   ═══════════════════════════════════════════ */
+
+/* Checkbox pop + fill animation */
+@keyframes checkPop {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.35); }
+  50%  { transform: scale(0.9); }
+  70%  { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* Checkmark draw animation */
+@keyframes checkDraw {
+  0%   { stroke-dashoffset: 20; opacity: 0; }
+  30%  { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+
+/* Strikethrough slide animation */
+@keyframes strikeSlide {
+  0%   { width: 0%; }
+  100% { width: 100%; }
+}
+
+/* Celebration burst particles */
+@keyframes burstParticle {
+  0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+}
+
+/* Row fade when completed */
+@keyframes rowCompleteFade {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+.check-pop { animation: checkPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+.check-draw {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 0;
+  animation: checkDraw 0.35s ease-out 0.1s both;
+}
+
+.strike-animate {
+  position: relative;
+}
+.strike-animate::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 1.5px;
+  background: currentColor;
+  animation: strikeSlide 0.3s ease-out 0.15s both;
+  width: 100%;
+}
+
+.row-complete-flash {
+  animation: rowCompleteFade 0.5s ease-out;
+}
+
+/* Celebration burst container */
+.celebrate-burst {
+  position: relative;
+}
+.celebrate-burst::before,
+.celebrate-burst::after,
+.celebrate-burst .burst-1,
+.celebrate-burst .burst-2,
+.celebrate-burst .burst-3,
+.celebrate-burst .burst-4 {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.celebrate-burst::before {
+  background: #22c55e;
+  --tx: -12px; --ty: -14px;
+  animation: burstParticle 0.5s ease-out forwards;
+}
+.celebrate-burst::after {
+  background: #4573D2;
+  --tx: 14px; --ty: -10px;
+  animation: burstParticle 0.5s ease-out 0.05s forwards;
+}
+
+/* ═══════════════════════════════════════════
+   Celebration overlay (Asana unicorn/pegasus)
+   ═══════════════════════════════════════════ */
+@keyframes flyAcross {
+  0%   { transform: translate(-80px, 30px) rotate(-5deg) scale(0.8); opacity: 0; }
+  10%  { opacity: 1; }
+  50%  { transform: translate(50vw, -20px) rotate(3deg) scale(1); }
+  90%  { opacity: 1; }
+  100% { transform: translate(105vw, 10px) rotate(-2deg) scale(0.9); opacity: 0; }
+}
+
+@keyframes rainbowTrail {
+  0%   { width: 0; opacity: 0; }
+  15%  { opacity: 1; }
+  100% { width: 100%; opacity: 0; }
+}
+
+@keyframes sparkle {
+  0%   { transform: scale(0) rotate(0deg); opacity: 1; }
+  50%  { transform: scale(1.2) rotate(180deg); opacity: 1; }
+  100% { transform: scale(0) rotate(360deg); opacity: 0; }
+}
+
+@keyframes confettiFall {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--cx), var(--cy)) rotate(var(--cr)); opacity: 0; }
+}
+
+.celebration-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.pegasus {
+  position: absolute;
+  top: 45%;
+  left: -80px;
+  font-size: 48px;
+  animation: flyAcross 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+  z-index: 2;
+}
+
+.rainbow-trail {
+  position: absolute;
+  top: calc(45% + 20px);
+  left: 0;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg,
+    #ef4444 0%, #f97316 15%, #eab308 30%, #22c55e 45%,
+    #3b82f6 60%, #6366f1 75%, #a855f7 90%, transparent 100%);
+  animation: rainbowTrail 1.8s ease-out forwards;
+  z-index: 1;
+}
+
+.rainbow-trail-2 {
+  position: absolute;
+  top: calc(45% + 28px);
+  left: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg,
+    #f97316 0%, #eab308 20%, #22c55e 40%,
+    #3b82f6 60%, #a855f7 80%, transparent 100%);
+  animation: rainbowTrail 1.8s ease-out 0.08s forwards;
+  opacity: 0.7;
+  z-index: 1;
+}
+
+.rainbow-trail-3 {
+  position: absolute;
+  top: calc(45% + 34px);
+  left: 0;
+  height: 3px;
+  border-radius: 1.5px;
+  background: linear-gradient(90deg,
+    #eab308 0%, #22c55e 25%, #3b82f6 50%,
+    #a855f7 75%, transparent 100%);
+  animation: rainbowTrail 1.8s ease-out 0.15s forwards;
+  opacity: 0.5;
+  z-index: 1;
+}
+
+.sparkle-star {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  z-index: 3;
+}
+
+/* ═══════════════════════════════════════════
+   Responsive overrides — mobile-first fixes
+   ═══════════════════════════════════════════ */
+
+/* Sidebar overlay on mobile */
+@media (max-width: 768px) {
+  .sidebar-mobile-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  .sidebar-mobile-open {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 51;
+    width: 280px !important;
+    overflow: hidden !important;
+  }
+}
+
+/* Task detail full-width on mobile */
+@media (max-width: 640px) {
+  .task-detail-panel {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}
+
+/* Prevent body scroll when modal open on mobile */
+.body-no-scroll { overflow: hidden !important; }
+
+/* Touch-friendly tap targets */
+@media (max-width: 768px) {
+  button, a, select, input[type="date"] {
+    min-height: 36px;
+  }
+}
+
+/* Hide scrollbar utility */
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Mobile-friendly modals */
+@media (max-width: 640px) {
+  .asana-modal-overlay { padding: 0.5rem; }
+  .asana-modal { max-width: 100%; border-radius: 12px; }
+}
+
+/* Responsive table cells on mobile */
+@media (max-width: 640px) {
+  .responsive-hide-sm { display: none !important; }
 }

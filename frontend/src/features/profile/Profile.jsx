@@ -35,9 +35,9 @@ function Profile() {
         <p className="text-sm text-[var(--asana-text-secondary)] mt-1">Manage your personal information</p>
       </div>
 
-      <div className="bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-asana-lg overflow-hidden">
+      <div className="bg-[var(--asana-surface)] border border-asana-border rounded-asana-lg overflow-hidden">
         {/* Avatar section */}
-        <div className="px-8 py-8 border-b border-[var(--asana-border)] flex items-center space-x-6">
+        <div className="px-8 py-8 border-b border-asana-border flex items-center space-x-6">
           <div
             className="w-20 h-20 rounded-full flex items-center justify-center text-white font-bold text-3xl shadow-lg"
             style={{ backgroundColor: avatarColor }}

@@ -66,10 +66,24 @@ export const authService = {
     // Generate tokens
     const tokens = await this.generateTokens(user.id);
 
+    // Fetch workspaces inline (eliminates a separate API call after login)
+    const memberships = await prisma.workspaceMember.findMany({
+      where: { userId: user.id },
+      include: {
+        workspace: {
+          include: {
+            _count: { select: { members: true, projects: true } }
+          }
+        }
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+    const workspaces = memberships.map(m => ({ ...m.workspace, role: m.role }));
+
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
 
-    return { user: userWithoutPassword, ...tokens };
+    return { user: userWithoutPassword, ...tokens, workspaces };
   },
 
   // Refresh token

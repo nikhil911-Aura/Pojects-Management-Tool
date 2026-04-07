@@ -1,5 +1,6 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
+import { emitToProject } from '../../core/socket.js';
 
 function isWorkspaceAdmin(workspaceRole) {
   return workspaceRole === 'OWNER' || workspaceRole === 'ADMIN';
@@ -80,7 +81,7 @@ async function getContextFromList(listId, userId) {
 
 export const listService = {
   // Create list — EDITOR or workspace Admin
-  async create(boardId, userId, listData) {
+  async create(boardId, userId, listData, excludeSocketId) {
     const { name } = listData;
     const { board, workspaceMember, projectRole } = await getContextFromBoard(boardId, userId);
 
@@ -94,10 +95,12 @@ export const listService = {
     });
     const position = lastList ? lastList.position + 1 : 0;
 
-    return prisma.list.create({
+    const list = await prisma.list.create({
       data: { name, boardId, position },
       include: { tasks: { orderBy: { position: 'asc' } } }
     });
+    emitToProject(board.project.id, 'section_created', { list, boardId }, excludeSocketId);
+    return list;
   },
 
   // Get all lists — any project-accessible member
@@ -110,11 +113,32 @@ export const listService = {
       orderBy: { position: 'asc' },
       include: {
         tasks: {
+          where: { parentId: null }, // only top-level tasks
           orderBy: { position: 'asc' },
           include: {
             assignees: {
               include: {
                 user: { select: { id: true, name: true, avatar: true } }
+              }
+            },
+            subtasks: {
+              orderBy: { position: 'asc' },
+              include: {
+                assignees: {
+                  include: {
+                    user: { select: { id: true, name: true, avatar: true } }
+                  }
+                },
+                subtasks: {
+                  orderBy: { position: 'asc' },
+                  include: {
+                    assignees: {
+                      include: {
+                        user: { select: { id: true, name: true, avatar: true } }
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -124,7 +148,7 @@ export const listService = {
   },
 
   // Update list — EDITOR or workspace Admin
-  async update(listId, userId, updateData) {
+  async update(listId, userId, updateData, excludeSocketId) {
     const { list, workspaceMember, projectRole } = await getContextFromList(listId, userId);
 
     if (!canEditProject(workspaceMember.role, projectRole)) {
@@ -132,24 +156,27 @@ export const listService = {
     }
 
     const { name, position } = updateData;
-    return prisma.list.update({
+    const updated = await prisma.list.update({
       where: { id: listId },
       data: {
         ...(name && { name }),
         ...(position !== undefined && { position })
       }
     });
+    emitToProject(list.board.project.id, 'section_updated', { list: updated }, excludeSocketId);
+    return updated;
   },
 
   // Delete list — EDITOR or workspace Admin
-  async delete(listId, userId) {
-    const { list, workspaceMember, projectRole } = await getContextFromList(listId, userId);
+  async delete(listId, userId, excludeSocketId) {
+    const { list: listCtx, workspaceMember, projectRole } = await getContextFromList(listId, userId);
 
     if (!canEditProject(workspaceMember.role, projectRole)) {
       throw ApiError.forbidden('You need Editor access to delete sections');
     }
 
     await prisma.list.delete({ where: { id: listId } });
+    emitToProject(listCtx.board.project.id, 'section_deleted', { listId }, excludeSocketId);
     return true;
   },
 

@@ -24,6 +24,18 @@ export const createTaskValidation = [
     .optional()
     .isISO8601()
     .withMessage('Invalid due date'),
+  body('estimatedTime')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Estimated time must be a positive number (minutes)'),
+  body('actualTime')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Actual time must be a positive number (minutes)'),
+  body('taskType')
+    .optional()
+    .isIn(['DEFAULT_TASK', 'MILESTONE', 'APPROVAL'])
+    .withMessage('Invalid task type'),
   body('parentId')
     .optional()
     .isUUID()
@@ -50,9 +62,21 @@ export const updateTaskValidation = [
     .isIn(['LOW', 'MEDIUM', 'HIGH'])
     .withMessage('Invalid priority (must be LOW, MEDIUM, or HIGH)'),
   body('dueDate')
-    .optional()
+    .optional({ values: 'null' })
     .isISO8601()
     .withMessage('Invalid due date'),
+  body('estimatedTime')
+    .optional({ values: 'null' })
+    .isInt({ min: 0 })
+    .withMessage('Estimated time must be a positive number (minutes)'),
+  body('actualTime')
+    .optional({ values: 'null' })
+    .isInt({ min: 0 })
+    .withMessage('Actual time must be a positive number (minutes)'),
+  body('taskType')
+    .optional()
+    .isIn(['DEFAULT_TASK', 'MILESTONE', 'APPROVAL'])
+    .withMessage('Invalid task type'),
   body('parentId')
     .optional()
     .isUUID()

@@ -1,12 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchWorkspaces, createWorkspace, setCurrentWorkspace } from '../../store/slices/workspaceSlice';
+import { createWorkspace, setCurrentWorkspace } from '../../store/slices/workspaceSlice';
 import CreateProjectWizard from '../projects/CreateProjectWizard';
 
 function ProjectCard({ project }) {
-  const taskCount = project._count?.tasks ?? 0;
   const color = project.color || '#4573D2';
+
+  // Use pre-computed stats from backend (or fallback to legacy board.lists.tasks)
+  const stats = project.stats;
+  const sections = stats?.sections ?? project.board?.lists?.length ?? 0;
+  const tasks = stats?.tasks ?? project.board?.lists?.flatMap(l => l.tasks || []).filter(t => !t.parentId && t.taskType !== 'MILESTONE').length ?? 0;
+  const milestones = stats?.milestones ?? 0;
+  const subtasks = stats?.subtasks ?? 0;
+  const total = stats?.total ?? 0;
 
   return (
     <Link
@@ -32,16 +39,32 @@ function ProjectCard({ project }) {
           {project.name}
         </h3>
         {project.description && (
-          <p className="text-xs text-[var(--asana-text-secondary)] line-clamp-2 mb-4">{project.description}</p>
+          <p className="text-xs text-[var(--asana-text-secondary)] line-clamp-2 mb-3">{project.description}</p>
         )}
 
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-[var(--asana-border)]">
-          <span className="text-xs text-[var(--asana-text-secondary)]">
-            {taskCount} {taskCount === 1 ? 'task' : 'tasks'}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 pt-3 border-t border-[var(--asana-border)]">
+          <span className="text-[11px] text-[var(--asana-text-secondary)] flex items-center">
+            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+            {tasks} task{tasks !== 1 ? 's' : ''}
           </span>
-          <svg className="w-4 h-4 text-[var(--asana-text-secondary)] group-hover:text-asana-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          {sections > 0 && (
+            <span className="text-[11px] text-[var(--asana-text-secondary)] flex items-center">
+              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+              {sections} section{sections !== 1 ? 's' : ''}
+            </span>
+          )}
+          {milestones > 0 && (
+            <span className="text-[11px] text-[var(--asana-text-secondary)] flex items-center">
+              <svg className="w-3 h-3 mr-1" viewBox="0 0 12 12"><rect x="6" y="0" width="7" height="7" rx="1" transform="rotate(45 6 0)" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+              {milestones} milestone{milestones !== 1 ? 's' : ''}
+            </span>
+          )}
+          {subtasks > 0 && (
+            <span className="text-[11px] text-[var(--asana-text-secondary)] flex items-center">
+              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+              {subtasks} subtask{subtasks !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
       </div>
     </Link>
@@ -52,18 +75,14 @@ function Dashboard() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { workspaces, currentWorkspace, loading } = useAppSelector((state) => state.workspace);
-  const { projects, loading: projectsLoading, projectsLoaded } = useAppSelector((state) => state.project);
+  const { projects, projectsLoading, projectsLoaded } = useAppSelector((state) => state.project);
 
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [newWorkspace, setNewWorkspace] = useState({ name: '', description: '' });
   const [wsCreating, setWsCreating] = useState(false);
 
-  useEffect(() => {
-    dispatch(fetchWorkspaces());
-  }, [dispatch]);
-
-  // Projects are fetched centrally by Layout.jsx — no duplicate fetch here
+  // Workspaces and projects are fetched centrally by Layout.jsx — no duplicate fetch here
 
   const handleCreateWorkspace = (e) => {
     e.preventDefault();
@@ -142,7 +161,7 @@ function Dashboard() {
   if (!currentWorkspace) return null;
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
+    <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
       {/* ── Page header ── */}
       <div className="flex items-center justify-between mb-8">
         <div>

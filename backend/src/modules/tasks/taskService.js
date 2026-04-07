@@ -108,8 +108,8 @@ async function getContextFromTask(taskId, userId) {
 export const taskService = {
 
   // Create task — EDITOR or workspace Admin
-  async create(listId, userId, taskData) {
-    const { title, description, status, priority, dueDate, parentId } = taskData;
+  async create(listId, userId, taskData, excludeSocketId) {
+    const { title, description, status, priority, dueDate, estimatedTime, actualTime, taskType, parentId } = taskData;
 
     const { list, workspaceMember, projectRole, projectId } = await getContextFromList(listId, userId);
 
@@ -126,10 +126,13 @@ export const taskService = {
     const task = await prisma.task.create({
       data: {
         title,
-        description,
+        description: description || null,
+        taskType: taskType || 'DEFAULT_TASK',
         status: status || 'TODO',
         priority: priority || 'LOW',
         dueDate: dueDate ? new Date(dueDate) : null,
+        estimatedTime: estimatedTime != null ? parseInt(estimatedTime) : null,
+        actualTime: actualTime != null ? parseInt(actualTime) : null,
         listId,
         parentId: parentId || null,
         position
@@ -137,16 +140,19 @@ export const taskService = {
       include: {
         list: { select: { id: true, name: true } },
         assignees: { include: { user: { select: { id: true, name: true, avatar: true } } } },
-        subtasks: true,
-        tags: true
+        subtasks: true
       }
     });
 
-    await prisma.activityLog.create({
-      data: { action: parentId ? 'SUBTASK_CREATED' : 'TASK_CREATED', details: { title, parentId }, userId, taskId: task.id }
-    });
+    try {
+      await prisma.activityLog.create({
+        data: { action: parentId ? 'SUBTASK_CREATED' : 'TASK_CREATED', details: { title, parentId: parentId || null }, userId, taskId: task.id }
+      });
+    } catch (e) {
+      // Don't fail task creation if activity log fails
+    }
 
-    emitToProject(projectId, 'task_created', { task, listId });
+    emitToProject(projectId, 'task_created', { task, listId }, excludeSocketId);
     return task;
   },
 
@@ -164,7 +170,7 @@ export const taskService = {
           orderBy: { position: 'asc' }
         },
         assignees: { include: { user: { select: { id: true, name: true, avatar: true } } } },
-        tags: true,
+        tags: { select: { id: true, name: true, color: true } },
         comments: {
           include: { user: { select: { id: true, name: true, avatar: true } } },
           orderBy: { createdAt: 'desc' }
@@ -183,43 +189,49 @@ export const taskService = {
   },
 
   // Update task — EDITOR or workspace Admin
-  async update(taskId, userId, updateData) {
+  async update(taskId, userId, updateData, excludeSocketId) {
     const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
 
     if (!canEditProject(workspaceMember.role, projectRole)) {
       throw ApiError.forbidden('You need Editor access to edit tasks');
     }
 
-    const { title, description, status, priority, dueDate, parentId } = updateData;
+    const { title, description, status, priority, dueDate, estimatedTime, actualTime, taskType, parentId } = updateData;
 
     const updated = await prisma.task.update({
       where: { id: taskId },
       data: {
         ...(title && { title }),
         ...(description !== undefined && { description }),
+        ...(taskType && { taskType }),
         ...(status && { status }),
         ...(priority && { priority }),
         ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
+        ...(estimatedTime !== undefined && { estimatedTime: estimatedTime != null ? parseInt(estimatedTime) : null }),
+        ...(actualTime !== undefined && { actualTime: actualTime != null ? parseInt(actualTime) : null }),
         ...(parentId !== undefined && { parentId: parentId || null })
       },
       include: {
         assignees: { include: { user: { select: { id: true, name: true, avatar: true } } } },
         subtasks: true,
-        tags: true,
         parent: true
       }
     });
 
-    await prisma.activityLog.create({
-      data: { action: 'TASK_UPDATED', details: { changed: Object.keys(updateData) }, userId, taskId }
-    });
+    try {
+      await prisma.activityLog.create({
+        data: { action: 'TASK_UPDATED', details: { changed: Object.keys(updateData) }, userId, taskId }
+      });
+    } catch (e) {
+      // Don't fail task update if activity log fails
+    }
 
-    emitToProject(projectId, 'task_updated', updated);
+    emitToProject(projectId, 'task_updated', updated, excludeSocketId);
     return updated;
   },
 
   // Delete task — workspace Admin always; EDITOR who created the task
-  async delete(taskId, userId) {
+  async delete(taskId, userId, excludeSocketId) {
     const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
 
     if (!canEditProject(workspaceMember.role, projectRole)) {
@@ -237,12 +249,12 @@ export const taskService = {
     }
 
     await prisma.task.delete({ where: { id: taskId } });
-    emitToProject(projectId, 'task_deleted', taskId);
+    emitToProject(projectId, 'task_deleted', taskId, excludeSocketId);
     return true;
   },
 
   // Move task — EDITOR or workspace Admin
-  async moveTask(taskId, userId, moveData) {
+  async moveTask(taskId, userId, moveData, excludeSocketId) {
     const { listId, position } = moveData;
     const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
 
@@ -263,12 +275,12 @@ export const taskService = {
       data: { action: 'TASK_MOVED', details: { fromList: task.listId, toList: listId }, userId, taskId }
     });
 
-    emitToProject(projectId, 'task_moved', { taskId, fromList: task.listId, toList: listId, position });
+    emitToProject(projectId, 'task_moved', { taskId, fromList: task.listId, toList: listId, position }, excludeSocketId);
     return updated;
   },
 
   // Assign user — EDITOR or workspace Admin
-  async assignUser(taskId, userId, assigneeId) {
+  async assignUser(taskId, userId, assigneeId, excludeSocketId) {
     const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
 
     if (!canEditProject(workspaceMember.role, projectRole)) {
@@ -280,12 +292,12 @@ export const taskService = {
       include: { user: true }
     });
 
-    emitToProject(projectId, 'user_assigned', { taskId, assignee });
+    emitToProject(projectId, 'user_assigned', { taskId, assignee }, excludeSocketId);
     return assignee;
   },
 
   // Remove assignee — EDITOR or workspace Admin
-  async removeAssignee(taskId, userId, assigneeId) {
+  async removeAssignee(taskId, userId, assigneeId, excludeSocketId) {
     const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
 
     if (!canEditProject(workspaceMember.role, projectRole)) {
@@ -293,7 +305,7 @@ export const taskService = {
     }
 
     await prisma.taskAssignee.delete({ where: { userId_taskId: { userId: assigneeId, taskId } } });
-    emitToProject(projectId, 'user_removed', { taskId, assigneeId });
+    emitToProject(projectId, 'user_removed', { taskId, assigneeId }, excludeSocketId);
     return true;
   },
 
@@ -341,38 +353,58 @@ export const taskService = {
     });
     if (!membership) throw ApiError.forbidden('You are not a member of this workspace');
 
-    const where = {
-      list: { board: { project: { workspaceId } } },
-      parentId: null
-    };
+    const isAdmin = membership.role === 'OWNER' || membership.role === 'ADMIN';
+    const isGuest = membership.role === 'GUEST';
 
-    if (query && query.trim()) {
-      where.OR = [
-        { title: { contains: query, mode: 'insensitive' } },
-        { description: { contains: query, mode: 'insensitive' } }
-      ];
-    }
-
-    // Guests only see tasks from projects they're explicitly in
-    if (membership.role === 'GUEST') {
-      where.list = {
-        board: {
-          project: {
-            workspaceId,
-            members: { some: { userId } }
-          }
-        }
+    // Build project-level filter based on role
+    let projectFilter = { workspaceId };
+    if (!isAdmin) {
+      // Members: see tasks from PUBLIC projects + projects they're added to
+      // Guests: see tasks ONLY from projects they're added to
+      projectFilter = {
+        workspaceId,
+        OR: [
+          ...(isGuest ? [] : [{ visibility: 'PUBLIC' }]),
+          { members: { some: { userId } } }
+        ]
       };
     }
+
+    // Build search conditions
+    const searchConditions = query?.trim()
+      ? [
+          { title: { contains: query.trim(), mode: 'insensitive' } },
+          { description: { contains: query.trim(), mode: 'insensitive' } }
+        ]
+      : [];
+
+    const where = {
+      parentId: null, // only top-level tasks
+      list: { board: { project: projectFilter } },
+      ...(searchConditions.length > 0 && { OR: searchConditions })
+    };
 
     return prisma.task.findMany({
       where,
       include: {
-        list: { include: { board: { include: { project: true } } } },
-        assignees: { include: { user: true } },
-        subtasks: true
+        list: {
+          select: {
+            id: true,
+            name: true,
+            board: {
+              select: {
+                id: true,
+                project: { select: { id: true, name: true, color: true } }
+              }
+            }
+          }
+        },
+        assignees: {
+          include: { user: { select: { id: true, name: true, avatar: true } } }
+        }
       },
-      take: 50
+      orderBy: { updatedAt: 'desc' },
+      take: 20
     });
   }
 };

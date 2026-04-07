@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchProject, addProjectMember, updateProjectMemberRole, removeProjectMember } from '../../store/slices/projectSlice';
 import { useRole } from '../../hooks/useRole';
@@ -11,11 +11,79 @@ const PROJECT_ROLE_LABELS = {
 
 const PROJECT_ROLE_STYLE = {
   EDITOR:    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  COMMENTER: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  COMMENTER: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
   VIEWER:    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
 };
 
-function ShareModal({ projectId, onClose }) {
+/* Custom role dropdown — no native <select> ugliness */
+function RoleDropdown({ value, onChange, compact = false }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const ref = useRef(null);
+  const btnRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target) && !btnRef.current?.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const dropdownHeight = 180;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < dropdownHeight) {
+        setPos({ top: rect.top - dropdownHeight - 4, left: rect.right - 208 });
+      } else {
+        setPos({ top: rect.bottom + 4, left: rect.right - 208 });
+      }
+    }
+    setOpen(!open);
+  };
+
+  const current = PROJECT_ROLE_LABELS[value] || PROJECT_ROLE_LABELS.EDITOR;
+  const style = PROJECT_ROLE_STYLE[value] || PROJECT_ROLE_STYLE.EDITOR;
+
+  return (
+    <>
+      <button ref={btnRef} onClick={handleOpen}
+        className={`flex items-center space-x-1.5 text-xs font-bold rounded-lg px-2.5 py-1.5 transition-colors hover:ring-1 hover:ring-[var(--asana-border)] ${style} ${compact ? '' : 'min-w-[100px]'}`}>
+        <span>{current.label}</span>
+        <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div ref={ref} className="fixed z-[200] w-52 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1 animate-fade-in"
+          style={{ top: pos.top, left: Math.max(8, pos.left) }}>
+          {Object.entries(PROJECT_ROLE_LABELS).map(([key, { label, desc }]) => {
+            const isActive = value === key;
+            return (
+              <button key={key} onClick={() => { onChange(key); setOpen(false); }}
+                className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${isActive ? 'bg-asana-blue/5' : ''}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className={`text-xs font-bold inline-block px-2 py-0.5 rounded ${PROJECT_ROLE_STYLE[key]}`}>{label}</span>
+                    <p className="text-[10px] text-[var(--asana-text-secondary)] mt-0.5 ml-0.5">{desc}</p>
+                  </div>
+                  {isActive && (
+                    <svg className="w-4 h-4 text-asana-blue flex-shrink-0 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
+function ShareModal({ projectId, onClose, emitInstant }) {
   const dispatch = useAppDispatch();
   const { currentProject } = useAppSelector(state => state.project);
   const { currentWorkspace } = useAppSelector(state => state.workspace);
@@ -40,36 +108,42 @@ function ShareModal({ projectId, onClose }) {
     (m.user?.email || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleAdd = async () => {
+  const handleAdd = () => {
     if (!selectedUserId) return;
-    setAdding(true);
     setError('');
-    try {
-      await dispatch(addProjectMember({ projectId, userId: selectedUserId, projectRole: selectedRole })).unwrap();
-      setSelectedUserId('');
-      setSearch('');
-    } catch (err) {
-      setError(err || 'Failed to add member');
-    } finally {
-      setAdding(false);
-    }
+
+    // Find the user from workspace members for optimistic display
+    const wsm = availableMembers.find(m => (m.userId || m.user?.id) === selectedUserId);
+    const user = wsm?.user || { id: selectedUserId, name: 'Member', email: '' };
+    const tempMember = { userId: selectedUserId, projectRole: selectedRole, user };
+
+    // Optimistic: add to Redux project members instantly
+    dispatch({ type: 'project/addProjectMember/fulfilled', payload: { projectId, member: tempMember } });
+    // Broadcast to other users
+    emitInstant?.('member_added_instant', { member: tempMember });
+
+    setSelectedUserId('');
+    setSearch('');
+
+    // Background API
+    dispatch(addProjectMember({ projectId, userId: selectedUserId, projectRole: selectedRole }));
   };
 
-  const handleRoleChange = async (memberId, newRole) => {
-    try {
-      await dispatch(updateProjectMemberRole({ projectId, memberId, projectRole: newRole })).unwrap();
-    } catch (err) {
-      // silently fail — role reverts visually
-    }
+  const handleRoleChange = (memberId, newRole) => {
+    // Optimistic: update in Redux instantly
+    dispatch({ type: 'project/updateProjectMemberRole/fulfilled', payload: { projectId, member: { userId: memberId, projectRole: newRole } } });
+    emitInstant?.('member_role_changed_instant', { userId: memberId, projectRole: newRole });
+    // Background API
+    dispatch(updateProjectMemberRole({ projectId, memberId, projectRole: newRole }));
   };
 
-  const handleRemove = async (memberId) => {
+  const handleRemove = (memberId) => {
     if (!window.confirm('Remove this person from the project?')) return;
-    try {
-      await dispatch(removeProjectMember({ projectId, memberId })).unwrap();
-    } catch (err) {
-      // silently fail
-    }
+    // Optimistic: remove from Redux instantly
+    dispatch({ type: 'project/removeProjectMember/fulfilled', payload: { projectId, memberId } });
+    emitInstant?.('member_removed_instant', { userId: memberId });
+    // Background API
+    dispatch(removeProjectMember({ projectId, memberId }));
   };
 
   return (
@@ -124,15 +198,7 @@ function ShareModal({ projectId, onClose }) {
                     </div>
                   )}
                 </div>
-                <select
-                  value={selectedRole}
-                  onChange={e => setSelectedRole(e.target.value)}
-                  className="asana-input text-sm w-32"
-                >
-                  {Object.entries(PROJECT_ROLE_LABELS).map(([val, { label }]) => (
-                    <option key={val} value={val}>{label}</option>
-                  ))}
-                </select>
+                <RoleDropdown value={selectedRole} onChange={setSelectedRole} />
                 <button
                   onClick={handleAdd}
                   disabled={!selectedUserId || adding}
@@ -173,15 +239,7 @@ function ShareModal({ projectId, onClose }) {
                     <div className="flex items-center space-x-2 flex-shrink-0 ml-3">
                       {isWorkspaceAdmin && !isYou ? (
                         <>
-                          <select
-                            value={m.projectRole || 'EDITOR'}
-                            onChange={e => handleRoleChange(uid, e.target.value)}
-                            className={`text-xs font-bold rounded-full px-2.5 py-1 border-none focus:ring-1 focus:ring-asana-blue/30 cursor-pointer transition-colors ${PROJECT_ROLE_STYLE[m.projectRole] || PROJECT_ROLE_STYLE.EDITOR}`}
-                          >
-                            {Object.entries(PROJECT_ROLE_LABELS).map(([val, { label }]) => (
-                              <option key={val} value={val}>{label}</option>
-                            ))}
-                          </select>
+                          <RoleDropdown value={m.projectRole || 'EDITOR'} onChange={(val) => handleRoleChange(uid, val)} compact />
                           <button
                             onClick={() => handleRemove(uid)}
                             className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all"

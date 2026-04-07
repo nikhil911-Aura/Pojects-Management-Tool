@@ -101,8 +101,9 @@ export const removeProjectMember = createAsyncThunk(
 const initialState = {
   projects: [],
   currentProject: null,
-  loading: false,
-  projectsLoaded: false, // tracks if initial fetch completed for current workspace
+  projectsLoading: false,  // sidebar: fetching all projects for workspace
+  projectLoading: false,   // main view: fetching a single project
+  projectsLoaded: false,   // tracks if initial fetch completed for current workspace
   error: null
 };
 
@@ -124,19 +125,19 @@ const projectSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchProjects.pending, (state) => {
-        state.loading = true;
+        state.projectsLoading = true;
         // Clear stale projects from previous workspace/user immediately
         // so they never flash on screen
         state.projects = [];
         state.projectsLoaded = false;
       })
       .addCase(fetchProjects.fulfilled, (state, action) => {
-        state.loading = false;
+        state.projectsLoading = false;
         state.projects = action.payload;
         state.projectsLoaded = true;
       })
       .addCase(fetchProjects.rejected, (state, action) => {
-        state.loading = false;
+        state.projectsLoading = false;
         state.projectsLoaded = true; // mark loaded even on error so we don't show spinner forever
         state.error = action.payload;
       })
@@ -144,14 +145,14 @@ const projectSlice = createSlice({
         state.projects.unshift(action.payload);
       })
       .addCase(fetchProject.pending, (state) => {
-        state.loading = true;
+        state.projectLoading = true;
       })
       .addCase(fetchProject.fulfilled, (state, action) => {
-        state.loading = false;
+        state.projectLoading = false;
         state.currentProject = action.payload;
       })
       .addCase(fetchProject.rejected, (state, action) => {
-        state.loading = false;
+        state.projectLoading = false;
         state.error = action.payload;
       })
       .addCase(updateProject.fulfilled, (state, action) => {
@@ -171,10 +172,11 @@ const projectSlice = createSlice({
       })
       .addCase(addProjectMember.fulfilled, (state, action) => {
         if (state.currentProject?.id === action.payload.projectId) {
-          state.currentProject.members = [
-            ...(state.currentProject.members || []),
-            action.payload.member
-          ];
+          const members = state.currentProject.members || [];
+          const exists = members.some(m => m.userId === action.payload.member.userId);
+          if (!exists) {
+            state.currentProject.members = [...members, action.payload.member];
+          }
         }
       })
       .addCase(updateProjectMemberRole.fulfilled, (state, action) => {

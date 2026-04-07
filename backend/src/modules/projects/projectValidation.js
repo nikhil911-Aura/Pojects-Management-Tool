@@ -21,6 +21,10 @@ export const createProjectValidation = [
     .trim()
     .isLength({ max: 20 })
     .withMessage('Color must be less than 20 characters'),
+  body('views')
+    .optional()
+    .isArray()
+    .withMessage('Views must be an array'),
   body('visibility')
     .optional()
     .isIn(['PUBLIC', 'PRIVATE'])

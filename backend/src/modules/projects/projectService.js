@@ -1,10 +1,11 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
+import { emitToWorkspace, emitToProject } from '../../core/socket.js';
 
 export const projectService = {
   // Create project
-  async create(workspaceId, userId, projectData) {
-    const { name, description, icon, color, visibility } = projectData;
+  async create(workspaceId, userId, projectData, excludeSocketId) {
+    const { name, description, icon, color, visibility, views } = projectData;
 
     // Check workspace membership — all roles can create projects (like real Asana)
     // Guests are forced to PRIVATE visibility
@@ -29,6 +30,7 @@ export const projectService = {
         description,
         icon,
         color,
+        views: views?.length > 0 ? views : ['overview', 'list', 'board', 'timeline', 'dashboard'],
         visibility: visibility || 'PRIVATE',
         workspaceId,
         board: {
@@ -72,6 +74,7 @@ export const projectService = {
       }
     });
 
+    emitToWorkspace(workspaceId, 'project_created', { project }, excludeSocketId);
     return project;
   },
 
@@ -101,7 +104,9 @@ export const projectService = {
         })
       },
       include: {
-        board: true,
+        board: {
+          select: { id: true }
+        },
         workspace: { select: { id: true, name: true } },
         members: {
           include: {
@@ -115,7 +120,65 @@ export const projectService = {
       orderBy: { updatedAt: 'desc' }
     });
 
-    return projects;
+    // Compute lightweight stats per project (replaces fetching all tasks)
+    const projectIds = projects.map(p => p.id);
+    const boardIds = projects.map(p => p.board?.id).filter(Boolean);
+
+    // Batch count queries — single DB call for all projects
+    const [sectionCounts, taskStats] = await Promise.all([
+      // Count sections (lists) per board
+      boardIds.length ? prisma.list.groupBy({
+        by: ['boardId'],
+        where: { boardId: { in: boardIds } },
+        _count: true
+      }) : [],
+      // Count tasks by type per board (via list relation)
+      boardIds.length ? prisma.task.groupBy({
+        by: ['listId'],
+        where: { list: { boardId: { in: boardIds } } },
+        _count: true
+      }).then(async () => {
+        // Get task stats in one raw-ish query via aggregation
+        return prisma.task.findMany({
+          where: { list: { boardId: { in: boardIds } } },
+          select: {
+            taskType: true,
+            parentId: true,
+            list: { select: { boardId: true } }
+          }
+        });
+      }) : []
+    ]);
+
+    // Build stats lookup by boardId
+    const sectionCountMap = {};
+    (Array.isArray(sectionCounts) ? sectionCounts : []).forEach(s => {
+      sectionCountMap[s.boardId] = s._count;
+    });
+
+    const taskStatsMap = {};
+    (Array.isArray(taskStats) ? taskStats : []).forEach(t => {
+      const bid = t.list?.boardId;
+      if (!bid) return;
+      if (!taskStatsMap[bid]) taskStatsMap[bid] = { tasks: 0, milestones: 0, subtasks: 0, total: 0 };
+      taskStatsMap[bid].total++;
+      if (t.parentId) { taskStatsMap[bid].subtasks++; }
+      else if (t.taskType === 'MILESTONE') { taskStatsMap[bid].milestones++; }
+      else { taskStatsMap[bid].tasks++; }
+    });
+
+    // Attach stats to each project (flat structure for frontend)
+    return projects.map(p => {
+      const bid = p.board?.id;
+      const stats = taskStatsMap[bid] || { tasks: 0, milestones: 0, subtasks: 0, total: 0 };
+      return {
+        ...p,
+        stats: {
+          sections: sectionCountMap[bid] || 0,
+          ...stats
+        }
+      };
+    });
   },
 
   // Get project by ID
@@ -124,34 +187,17 @@ export const projectService = {
       where: { id: projectId },
       include: {
         board: {
-          include: {
-            lists: {
-              orderBy: { position: 'asc' },
-              include: {
-                tasks: {
-                  orderBy: { position: 'asc' },
-                  include: {
-                    assignees: {
-                      include: {
-                        user: {
-                          select: {
-                            id: true,
-                            name: true,
-                            avatar: true
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
+          select: { id: true }
         },
         workspace: {
           select: {
             id: true,
-            name: true
+            name: true,
+            members: {
+              where: { userId },
+              select: { role: true },
+              take: 1
+            }
           }
         },
         members: {
@@ -173,10 +219,8 @@ export const projectService = {
       throw ApiError.notFound('Project not found');
     }
 
-    // Check workspace membership
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { workspaceId: project.workspaceId, userId }
-    });
+    // Check workspace membership (fetched inline — no extra DB call)
+    const membership = project.workspace.members?.[0];
 
     if (!membership) {
       throw ApiError.forbidden('You do not have access to this project');
@@ -193,11 +237,13 @@ export const projectService = {
       }
     }
 
-    return project;
+    // Strip internal workspace.members from response (only needed for auth check)
+    const { members: _wm, ...workspaceData } = project.workspace;
+    return { ...project, workspace: workspaceData };
   },
 
   // Update project
-  async update(projectId, userId, updateData) {
+  async update(projectId, userId, updateData, excludeSocketId) {
     const project = await prisma.project.findUnique({
       where: { id: projectId }
     });
@@ -219,7 +265,7 @@ export const projectService = {
       throw ApiError.forbidden('You do not have permission to update this project');
     }
 
-    const { name, description, icon, visibility } = updateData;
+    const { name, description, icon, color, visibility } = updateData;
 
     const updated = await prisma.project.update({
       where: { id: projectId },
@@ -227,18 +273,27 @@ export const projectService = {
         ...(name && { name }),
         ...(description !== undefined && { description }),
         ...(icon !== undefined && { icon }),
+        ...(color !== undefined && { color }),
         ...(visibility && { visibility })
       },
       include: {
-        board: true
+        board: true,
+        members: {
+          include: {
+            user: { select: { id: true, name: true, email: true, avatar: true } }
+          }
+        },
+        workspace: { select: { id: true, name: true } }
       }
     });
 
+    emitToWorkspace(project.workspaceId, 'project_updated', { project: updated }, excludeSocketId);
+    emitToProject(projectId, 'project_settings_changed', { project: updated }, excludeSocketId);
     return updated;
   },
 
   // Delete project
-  async delete(projectId, userId) {
+  async delete(projectId, userId, excludeSocketId) {
     const project = await prisma.project.findUnique({
       where: { id: projectId }
     });
@@ -264,11 +319,13 @@ export const projectService = {
       where: { id: projectId }
     });
 
+    emitToWorkspace(project.workspaceId, 'project_deleted', { projectId }, excludeSocketId);
+    emitToProject(projectId, 'project_deleted', { projectId }, excludeSocketId);
     return true;
   },
 
   // Add member to project
-  async addMember(projectId, userId, memberData) {
+  async addMember(projectId, userId, memberData, excludeSocketId) {
     const { userId: newMemberId, role = 'MEMBER', projectRole = 'EDITOR' } = memberData;
 
     const project = await prisma.project.findUnique({
@@ -325,11 +382,12 @@ export const projectService = {
       }
     });
 
+    emitToProject(projectId, 'member_added', { member, projectId }, excludeSocketId);
     return member;
   },
 
   // Remove member from project
-  async removeMember(projectId, userId, memberIdToRemove) {
+  async removeMember(projectId, userId, memberIdToRemove, excludeSocketId) {
     const project = await prisma.project.findUnique({
       where: { id: projectId }
     });
@@ -360,11 +418,12 @@ export const projectService = {
       }
     });
 
+    emitToProject(projectId, 'member_removed', { userId: memberIdToRemove, projectId }, excludeSocketId);
     return true;
   },
 
   // Update a project member's role (Editor / Commenter / Viewer)
-  async updateMemberRole(projectId, userId, memberData) {
+  async updateMemberRole(projectId, userId, memberData, excludeSocketId) {
     const { userId: targetUserId, projectRole } = memberData;
 
     const project = await prisma.project.findUnique({ where: { id: projectId } });
@@ -382,6 +441,7 @@ export const projectService = {
       include: { user: { select: { id: true, name: true, email: true, avatar: true } } }
     });
 
+    emitToProject(projectId, 'member_role_changed', { member: updated, projectId }, excludeSocketId);
     return updated;
   }
 };
