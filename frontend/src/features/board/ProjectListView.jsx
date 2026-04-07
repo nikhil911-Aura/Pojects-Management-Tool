@@ -1365,17 +1365,23 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
     return () => { header.removeEventListener('scroll', syncHeader); content.removeEventListener('scroll', syncContent); };
   }, []);
 
-  // Global keyboard shortcut: T → quick-add task in first section
+  // Track which section the cursor is currently over (for T shortcut)
+  const hoveredSectionRef = useRef(null);
+
+  // Global keyboard shortcut: T → quick-add task in hovered section (fallback: first)
   useEffect(() => {
     const onKey = (e) => {
       if (e.target?.tagName === 'INPUT' || e.target?.tagName === 'TEXTAREA' || e.target?.isContentEditable) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === 't' || e.key === 'T') {
         if (!canEdit) return;
-        const firstList = lists?.[0];
-        if (firstList) {
+        const targetId = hoveredSectionRef.current
+          && lists?.some(l => l.id === hoveredSectionRef.current)
+            ? hoveredSectionRef.current
+            : lists?.[0]?.id;
+        if (targetId) {
           e.preventDefault();
-          setAddingTaskTo(firstList.id);
+          setAddingTaskTo(targetId);
           setNewTaskTitle('');
         }
       }
@@ -1678,7 +1684,8 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                 const done = (list.tasks || []).filter(t => t.status === 'DONE').length;
                 const pct = total > 0 ? Math.round((done / total) * 100) : 0;
                 return (
-              <div className="flex items-center px-4 py-3 border-b border-[var(--asana-border)]/60 bg-gradient-to-b from-gray-50/90 to-gray-50/40 dark:from-[#1a1f2b]/95 dark:to-[#151a23]/80 backdrop-blur-sm hover:from-gray-100/80 dark:hover:from-[#1f2533]/95 transition-all duration-180 group/section sticky top-0 left-0 z-20 shadow-[0_1px_0_0_rgba(15,23,42,0.04)]">
+              <div onMouseEnter={() => { hoveredSectionRef.current = list.id; }}
+                className="flex items-center px-4 py-3 border-b border-[var(--asana-border)]/60 bg-gradient-to-b from-gray-50/90 to-gray-50/40 dark:from-[#1a1f2b]/95 dark:to-[#151a23]/80 backdrop-blur-sm hover:from-gray-100/80 dark:hover:from-[#1f2533]/95 transition-all duration-180 group/section sticky top-0 left-0 z-20 shadow-[0_1px_0_0_rgba(15,23,42,0.04)]">
                 <button onClick={() => toggleSection(list.id)} className="mr-2.5 flex-shrink-0 p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700/70 transition-colors">
                   <svg className={`w-3.5 h-3.5 text-[var(--asana-text-secondary)] transition-transform duration-180 ${collapsedSections[list.id] ? '-rotate-90' : ''}`}
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1745,7 +1752,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
               })()}
 
               {!collapsedSections[list.id] && (
-                <>
+                <div onMouseEnter={() => { hoveredSectionRef.current = list.id; }}>
                   {list.tasks?.map((task) => (
                     <TaskTreeNode key={task.id} task={task} depth={0} listId={list.id}
                       members={members} canEdit={canEdit} cols={cols}
@@ -1835,7 +1842,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                       </div>
                     );
                   })()}
-                </>
+                </div>
               )}
             </Fragment>
           );
