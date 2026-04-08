@@ -51,8 +51,8 @@ function Sidebar({ isOpen }) {
         className={`${isOpen ? 'w-64' : 'w-0 overflow-hidden'} flex-shrink-0 flex flex-col h-full transition-all duration-300 ease-in-out z-40`}
         style={{ backgroundColor: 'var(--asana-sidebar-bg)', borderRight: '1px solid rgba(255,255,255,0.05)' }}
       >
-        {/* ── Logo / Workspace ── */}
-        <div className="px-4 py-3 flex items-center space-x-3 border-b border-white/5">
+        {/* ── Logo / Workspace ── (h-14 to match the main header height exactly) */}
+        <div className="h-14 px-4 flex items-center space-x-3 border-b border-white/5 flex-shrink-0">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-asana-coral to-[#e04030] flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-lg">
             A
           </div>

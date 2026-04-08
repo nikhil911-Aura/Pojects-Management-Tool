@@ -51,9 +51,11 @@ export const deleteTask = createAsyncThunk(
 
 export const moveTask = createAsyncThunk(
   'task/moveTask',
-  async ({ taskId, listId, position }, { rejectWithValue }) => {
+  async ({ taskId, listId, position, parentId }, { rejectWithValue }) => {
     try {
-      const response = await api.put(`/api/v1/tasks/${taskId}/move`, { listId, position });
+      const body = { listId, position };
+      if (parentId !== undefined) body.parentId = parentId;
+      const response = await api.put(`/api/v1/tasks/${taskId}/move`, body);
       return response.data.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to move task');

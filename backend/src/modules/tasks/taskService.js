@@ -254,28 +254,134 @@ export const taskService = {
   },
 
   // Move task — EDITOR or workspace Admin
+  // Reshuffles sibling positions in a single transaction so that:
+  //   • the moved task lands at the EXACT requested index in the destination container
+  //   • all sibling positions are dense, unique, and stable across reloads
+  //   • cross-container moves clean up the source container too
   async moveTask(taskId, userId, moveData, excludeSocketId) {
-    const { listId, position } = moveData;
+    const { listId, position, parentId } = moveData;
+    const targetIndex = Number.isFinite(position) ? Math.max(0, Math.floor(position)) : 0;
+    const newParentId = parentId === undefined ? undefined : (parentId || null);
+    console.log('[moveTask v2/transactional]', { taskId, listId, targetIndex, parentId: newParentId });
+
     const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
 
     if (!canEditProject(workspaceMember.role, projectRole)) {
       throw ApiError.forbidden('You need Editor access to move tasks');
     }
 
-    const updated = await prisma.task.update({
-      where: { id: taskId },
-      data: { listId, position: position || 0 },
-      include: {
-        list: { select: { id: true, name: true } },
-        assignees: { include: { user: { select: { id: true, name: true, avatar: true } } } }
+    // Guard: prevent setting a task as its own ancestor (direct cycle)
+    if (newParentId && newParentId === taskId) {
+      throw ApiError.badRequest('A task cannot be its own parent');
+    }
+
+    // Capture source container BEFORE the move so we can reshuffle it too
+    const sourceListId = task.listId;
+    const sourceParentId = task.parentId || null;
+    const destinationParentId = newParentId === undefined ? sourceParentId : newParentId;
+    const sameContainer = sourceListId === listId && sourceParentId === destinationParentId;
+
+    // Deeper cycle guard: walk up the destination parent chain to ensure
+    // we're not nesting a task inside one of its own descendants.
+    if (destinationParentId) {
+      let cursor = destinationParentId;
+      const visited = new Set();
+      while (cursor && !visited.has(cursor)) {
+        if (cursor === taskId) {
+          throw ApiError.badRequest('Cannot move a task inside its own subtree');
+        }
+        visited.add(cursor);
+        const parent = await prisma.task.findUnique({ where: { id: cursor }, select: { parentId: true } });
+        cursor = parent?.parentId || null;
       }
+    }
+
+    // Helper: rewrite an ordered list of task IDs to dense positions.
+    // Uses sequential prisma.task.update inside the transaction — slow for very
+    // large lists but bulletproof. The 15s transaction timeout below covers it.
+    const STEP = 1024;
+    const bulkRepositioned = async (tx, idsInOrder) => {
+      for (let i = 0; i < idsInOrder.length; i++) {
+        await tx.task.update({
+          where: { id: idsInOrder[i] },
+          data: { position: (i + 1) * STEP },
+        });
+      }
+    };
+
+    const updated = await prisma.$transaction(
+      async (tx) => {
+        // 1. Detach the moved task: update its listId/parentId and park it at sentinel position -1.
+        await tx.task.update({
+          where: { id: taskId },
+          data: {
+            listId,
+            position: -1,
+            ...(newParentId !== undefined && { parentId: newParentId }),
+          },
+        });
+
+        // 2. Fetch destination siblings (excluding the moved task) in current order.
+        const destSiblings = await tx.task.findMany({
+          where: { listId, parentId: destinationParentId, NOT: { id: taskId } },
+          orderBy: { position: 'asc' },
+          select: { id: true },
+        });
+
+        // 3. Splice the moved task in at the requested index.
+        const destOrderedIds = destSiblings.map((s) => s.id);
+        const insertAt = Math.min(targetIndex, destOrderedIds.length);
+        destOrderedIds.splice(insertAt, 0, taskId);
+
+        // 4. Single-statement bulk reposition of the destination container.
+        await bulkRepositioned(tx, destOrderedIds);
+
+        // 5. If the source container changed, re-densify it too in one statement.
+        if (!sameContainer) {
+          const sourceSiblings = await tx.task.findMany({
+            where: { listId: sourceListId, parentId: sourceParentId },
+            orderBy: { position: 'asc' },
+            select: { id: true },
+          });
+          await bulkRepositioned(tx, sourceSiblings.map((s) => s.id));
+        }
+
+        // 6. Return the moved task with its joined data.
+        return tx.task.findUnique({
+          where: { id: taskId },
+          include: {
+            list: { select: { id: true, name: true } },
+            assignees: { include: { user: { select: { id: true, name: true, avatar: true } } } },
+          },
+        });
+      },
+      { timeout: 15000, maxWait: 5000 }
+    ).catch((err) => {
+      console.error('[moveTask] transaction failed', {
+        taskId, listId, targetIndex, parentId: newParentId,
+        sourceListId, sourceParentId, sameContainer,
+        error: err?.message,
+        code: err?.code,
+        meta: err?.meta,
+      });
+      throw err;
     });
 
-    await prisma.activityLog.create({
-      data: { action: 'TASK_MOVED', details: { fromList: task.listId, toList: listId }, userId, taskId }
-    });
+    // Activity log is non-critical — never let it fail the move.
+    try {
+      await prisma.activityLog.create({
+        data: { action: 'TASK_MOVED', details: { fromList: task.listId, toList: listId }, userId, taskId },
+      });
+    } catch (logErr) {
+      console.warn('[moveTask] activityLog write failed (non-fatal)', logErr?.message);
+    }
 
-    emitToProject(projectId, 'task_moved', { taskId, fromList: task.listId, toList: listId, position }, excludeSocketId);
+    emitToProject(
+      projectId,
+      'task_moved',
+      { taskId, fromList: task.listId, toList: listId, position: targetIndex, parentId: destinationParentId },
+      excludeSocketId
+    );
     return updated;
   },
 

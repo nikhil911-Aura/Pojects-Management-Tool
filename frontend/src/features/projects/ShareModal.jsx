@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchProject, addProjectMember, updateProjectMemberRole, removeProjectMember } from '../../store/slices/projectSlice';
+import { fetchWorkspace } from '../../store/slices/workspaceSlice';
 import { useRole } from '../../hooks/useRole';
 
 const PROJECT_ROLE_LABELS = {
@@ -95,6 +96,16 @@ function ShareModal({ projectId, onClose, emitInstant }) {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
+
+  // Ensure the workspace has its full member list loaded.
+  // After login, currentWorkspace is populated from the lightweight `getAll`
+  // response (which uses _count and excludes the members[] array). Without this
+  // refetch, `currentWorkspace.members` is undefined and the suggestion list is empty.
+  useEffect(() => {
+    if (currentWorkspace?.id && !Array.isArray(currentWorkspace.members)) {
+      dispatch(fetchWorkspace(currentWorkspace.id));
+    }
+  }, [currentWorkspace?.id, currentWorkspace?.members, dispatch]);
 
   const projectMembers = currentProject?.members || [];
   const projectMemberIds = new Set(projectMembers.map(m => m.userId));

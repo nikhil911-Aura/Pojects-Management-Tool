@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useAppDispatch } from '../store/hooks';
-import { fetchLists, optimisticUpdateTask, optimisticRenameSection, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticDeleteTask, optimisticAssignUser, optimisticReplaceItem } from '../store/slices/boardSlice';
+import { fetchLists, optimisticUpdateTask, optimisticRenameSection, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticDeleteTask, optimisticAssignUser, optimisticReplaceItem, optimisticMoveTaskAnywhere } from '../store/slices/boardSlice';
 import { fetchTask } from '../store/slices/taskSlice';
 import { fetchProject } from '../store/slices/projectSlice';
 import { setApiSocketId } from '../services/api';
@@ -52,8 +52,12 @@ export const useSocket = (projectId, boardId) => {
   }, [projectId, acquireEditLock]);
 
   const emitInstant = useCallback((event, data) => {
-    if (socketRef.current?.connected) {
+    const connected = socketRef.current?.connected;
+    console.log('[socket emit] instant_change', { event, projectId, connected, socketId: socketRef.current?.id });
+    if (connected) {
       socketRef.current.emit('instant_change', { projectId, event, ...data });
+    } else {
+      console.warn('[socket emit] DROPPED — socket not connected', { event });
     }
   }, [projectId]);
 
@@ -71,11 +75,18 @@ export const useSocket = (projectId, boardId) => {
     socketRef.current = socket;
 
     socket.on('connect', () => {
+      console.log('[socket] connected', { socketId: socket.id, projectId, transport: socket.io.engine.transport.name });
       socket.emit('join_project', projectId);
       setApiSocketId(socket.id);
     });
 
-    socket.on('connect_error', () => {});
+    socket.on('disconnect', (reason) => {
+      console.warn('[socket] disconnected', { reason });
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('[socket] connect_error', err?.message);
+    });
 
     // ── Backend events — long-delay safety net only ──
     // instant_change already handles all real-time UI updates.
@@ -105,7 +116,24 @@ export const useSocket = (projectId, boardId) => {
         }
       } catch {}
     });
-    socket.on('task_moved', () => { safetyRefetch(); });
+    // Backend emits this AFTER persisting the move. Apply it immediately as a
+    // primary live-update path (the instant_change channel is also used, but
+    // this is the authoritative server emission). safetyRefetch is still
+    // scheduled as a long-delay consistency check.
+    socket.on('task_moved', (data) => {
+      try {
+        console.log('[socket recv] backend task_moved ←', data);
+        if (data?.taskId && data?.toList) {
+          dispatch(optimisticMoveTaskAnywhere({
+            taskId: data.taskId,
+            destListId: data.toList,
+            destParentId: data.parentId || null,
+            destinationIndex: typeof data.position === 'number' ? data.position : 0,
+          }));
+        }
+      } catch (err) { console.error('[socket recv] task_moved handler error', err); }
+      safetyRefetch();
+    });
     socket.on('section_created', () => {});
     socket.on('section_updated', () => {});
     socket.on('section_deleted', () => {});
@@ -166,6 +194,18 @@ export const useSocket = (projectId, boardId) => {
         }
         if (event === 'task_assigned' && data.taskId && data.user) {
           dispatch(optimisticAssignUser({ taskId: data.taskId, user: data.user }));
+        }
+
+        // Drag-and-drop move from another user — apply instantly via the same
+        // recursive reducer used by the local drag (handles all 5 move cases).
+        if (event === 'task_moved' && data.taskId && data.destinationListId) {
+          console.log('[socket recv] instant_change task_moved ←', data);
+          dispatch(optimisticMoveTaskAnywhere({
+            taskId: data.taskId,
+            destListId: data.destinationListId,
+            destParentId: data.parentId || null,
+            destinationIndex: typeof data.position === 'number' ? data.position : 0,
+          }));
         }
 
         // Custom fields

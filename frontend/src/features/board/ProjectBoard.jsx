@@ -574,8 +574,11 @@ function ProjectBoard() {
         />
       )}
 
-      {/* ── View content ── */}
-      <div className="flex-1 overflow-auto p-3 sm:p-6 bg-[var(--asana-bg)]">
+      {/* ── View content ──
+          List view manages its own internal scroll container; other views (overview,
+          timeline, dashboard, gantt, workload) rely on this wrapper to scroll. We toggle
+          overflow on activeView so @hello-pangea/dnd never sees nested scroll parents. */}
+      <div className={`flex-1 ${activeView === 'list' ? 'overflow-hidden' : 'overflow-auto'} p-3 sm:p-6 bg-[var(--asana-bg)]`}>
         {activeView === 'board' ? (
           <div className="h-full overflow-x-auto pb-4">
             <DragDropContext onDragEnd={handleDragEnd}>
@@ -750,6 +753,7 @@ function ProjectBoard() {
             </DragDropContext>
           </div>
         ) : activeView === 'list' ? (
+          <div className="h-full flex flex-col min-h-0 overflow-hidden">
           <ProjectListView
             lists={(() => {
               let processed = listGroupBy ? applyGrouping(lists, listGroupBy) : lists;
@@ -776,6 +780,7 @@ function ProjectBoard() {
             prefetchedCustomFields={prefetchedCF.fields}
             prefetchedFieldValues={prefetchedCF.values}
           />
+          </div>
         ) : activeView === 'overview' ? (
           <OverviewView project={currentProject} lists={lists} members={members} />
         ) : activeView === 'timeline' ? (

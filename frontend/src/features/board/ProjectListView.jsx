@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { createTask, createSubtask, updateTask, assignUser, deleteTask } from '../../store/slices/taskSlice';
-import { fetchLists, createList, updateList, deleteList, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticRenameSection, optimisticReplaceItem } from '../../store/slices/boardSlice';
+import { createTask, createSubtask, updateTask, assignUser, deleteTask, moveTask as moveTaskAction } from '../../store/slices/taskSlice';
+import { fetchLists, createList, updateList, deleteList, moveTask as moveTaskOptimistic, optimisticMoveTaskAnywhere, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticRenameSection, optimisticReplaceItem } from '../../store/slices/boardSlice';
 import { useRole } from '../../hooks/useRole';
 import api from '../../services/api';
 import { useAutoSave, SaveIndicator } from '../../hooks/useAutoSave';
@@ -251,7 +252,7 @@ function TimeCell({ taskId, field, value, canEdit, onDone, queueOrRun = (_id, fn
 /* ═══════════════════════════════════════════
    Task Row
    ═══════════════════════════════════════════ */
-function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSubtasks, isExpanded, onToggle, cols = {}, customFields = [], fieldValues = {}, onSetFieldValue, depth = 0, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, resolveId = (id) => id, queueOrRun = (_id, fn) => fn(_id), onAddSubtaskHere }) {
+function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSubtasks, isExpanded, onToggle, cols = {}, customFields = [], fieldValues = {}, onSetFieldValue, depth = 0, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, resolveId = (id) => id, queueOrRun = (_id, fn) => fn(_id), onAddSubtaskHere, dragHandleProps = null, isDragging = false }) {
   const dispatch = useAppDispatch();
   const [showAssigneePicker, setShowAssigneePicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
@@ -323,8 +324,39 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
     if (!canEdit) return;
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY });
+    // Estimated menu size — refined after mount via the measurement effect below.
+    const MENU_W = 208; // w-52
+    const MENU_H = 380; // ~10 rows + dividers
+    const PAD = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let x = e.clientX;
+    let y = e.clientY;
+    if (x + MENU_W + PAD > vw) x = vw - MENU_W - PAD;
+    if (y + MENU_H + PAD > vh) y = vh - MENU_H - PAD;
+    if (x < PAD) x = PAD;
+    if (y < PAD) y = PAD;
+    setContextMenu({ x, y });
   };
+
+  // After the menu mounts, measure its actual size and re-clamp if the
+  // estimate above was off (e.g., user is admin and sees more rows).
+  useEffect(() => {
+    if (!contextMenu || !contextRef.current) return;
+    const rect = contextRef.current.getBoundingClientRect();
+    const PAD = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let { x, y } = contextMenu;
+    let changed = false;
+    if (x + rect.width + PAD > vw) { x = vw - rect.width - PAD; changed = true; }
+    if (y + rect.height + PAD > vh) { y = vh - rect.height - PAD; changed = true; }
+    if (x < PAD) { x = PAD; changed = true; }
+    if (y < PAD) { y = PAD; changed = true; }
+    if (changed) setContextMenu({ x, y });
+    // Intentionally only depend on the open/close transition, not x/y, to avoid loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextMenu?.x === undefined ? null : 'open']);
 
   const statusCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.TODO;
 
@@ -398,8 +430,29 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
       )}
 
       {/* ── Name ── */}
-      <div className={`${NAME_COL} flex items-center py-[11px] border-r border-[var(--asana-border)]/40`}
-        style={{ paddingLeft: `${depth * 1.5 + 1}rem`, paddingRight: '0.75rem' }}>
+      <div className={`${isDragging ? 'w-[400px] flex-shrink-0 bg-[var(--asana-surface)]' : NAME_COL} flex items-center py-[11px] border-r border-[var(--asana-border)]/40`}
+        style={{ paddingLeft: `${depth * 1.5 + 0.25}rem`, paddingRight: '0.75rem' }}>
+        {/* Drag handle (six-dot grip) — only on top-level draggable rows */}
+        {dragHandleProps ? (
+          <div
+            {...dragHandleProps}
+            onClick={(e) => e.stopPropagation()}
+            title="Drag to move"
+            className="w-4 h-5 mr-1 flex items-center justify-center rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-gray-200/80 dark:hover:bg-gray-700/70 cursor-grab active:cursor-grabbing transition-opacity flex-shrink-0"
+            style={{ touchAction: 'none' }}
+          >
+            <svg width="8" height="12" viewBox="0 0 8 12" fill="none" className="text-[var(--asana-text-secondary)]">
+              <circle cx="1.5" cy="2" r="1" fill="currentColor" />
+              <circle cx="1.5" cy="6" r="1" fill="currentColor" />
+              <circle cx="1.5" cy="10" r="1" fill="currentColor" />
+              <circle cx="6.5" cy="2" r="1" fill="currentColor" />
+              <circle cx="6.5" cy="6" r="1" fill="currentColor" />
+              <circle cx="6.5" cy="10" r="1" fill="currentColor" />
+            </svg>
+          </div>
+        ) : (
+          <span className="w-4 mr-1 flex-shrink-0" />
+        )}
         {/* Expand arrow — shows for any task with subtasks at any depth */}
         {hasSubtasks ? (
           <button onClick={(e) => { e.stopPropagation(); onToggle(); }}
@@ -599,6 +652,8 @@ function TaskRow({ task, indent, members, canEdit, onTaskClick, onRefresh, hasSu
           />
         </div>
       ))}
+      {/* Trailing spacer aligning with column header's "+ Add field" button on the right */}
+      {canEdit && <div className="w-9 flex-shrink-0" />}
     </div>
   );
 }
@@ -1257,36 +1312,59 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
 /* ═══════════════════════════════════════════
    Recursive Task Tree Node — renders task + subtasks at any depth
    ═══════════════════════════════════════════ */
-function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customFields, fieldValues, onSetFieldValue, onTaskClick, onRefresh, expandedTasks, toggleTask, addingSubtaskTo, setAddingSubtaskTo, newSubtaskTitle, setNewSubtaskTitle, handleAddSubtask, pendingItems = [], onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, resolveId, queueOrRun }) {
+/**
+ * Flatten a tree of tasks into a single ordered list of visible rows.
+ * Only descends into children of expanded tasks (so collapsed parents hide their subtree).
+ * Each entry carries depth + parentId so the renderer can indent and the
+ * drag handler can compute the new parent on drop.
+ */
+function flattenTaskTree(tasks, expandedTasks, depth = 0, parentId = null) {
+  const out = [];
+  (tasks || []).forEach((t) => {
+    out.push({ task: t, depth, parentId });
+    if (expandedTasks[t.id] && t.subtasks?.length) {
+      out.push(...flattenTaskTree(t.subtasks, expandedTasks, depth + 1, t.id));
+    }
+  });
+  return out;
+}
+
+function TaskTreeNode({ task, depth, parentId, members, canEdit, cols, customFields, fieldValues, onSetFieldValue, onTaskClick, onRefresh, expandedTasks, toggleTask, addingSubtaskTo, setAddingSubtaskTo, newSubtaskTitle, setNewSubtaskTitle, handleAddSubtask, pendingItems = [], onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, resolveId, queueOrRun, listId, dragProvided, dragSnapshot }) {
   const hasSubtasks = task.subtasks?.length > 0;
   const isExpanded = expandedTasks[task.id];
 
   return (
-    <Fragment>
+    <div
+      ref={dragProvided.innerRef}
+      {...dragProvided.draggableProps}
+      data-just-created={task.id}
+      className={`${dragSnapshot.isDragging ? 'shadow-[0_8px_24px_-6px_rgba(15,23,42,0.18),0_2px_6px_-2px_rgba(15,23,42,0.12)] dark:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)] bg-[var(--asana-surface)] dark:bg-[#1f2937]' : 'w-max min-w-full'}`}
+      style={{
+        ...dragProvided.draggableProps.style,
+        ...(dragSnapshot.isDragging ? { borderRadius: 6, zIndex: 9999 } : {}),
+      }}
+    >
       <TaskRow task={task} indent={depth > 0} members={members} canEdit={canEdit} cols={cols}
         customFields={customFields} fieldValues={fieldValues} onSetFieldValue={onSetFieldValue}
         onTaskClick={onTaskClick} onRefresh={onRefresh}
         hasSubtasks={hasSubtasks} isExpanded={isExpanded} onToggle={() => toggleTask(task.id)}
         depth={depth} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} resolveId={resolveId} queueOrRun={queueOrRun}
+        dragHandleProps={dragProvided.dragHandleProps}
+        isDragging={dragSnapshot.isDragging}
         onAddSubtaskHere={() => { if (!expandedTasks[task.id]) toggleTask(task.id); setAddingSubtaskTo({ listId, taskId: task.id }); setNewSubtaskTitle(''); }} />
+    </div>
+  );
+}
 
-      {/* Recursively render subtasks */}
-      {isExpanded && task.subtasks?.map((sub) => (
-        <TaskTreeNode key={sub.id} task={sub} depth={depth + 1} listId={listId}
-          members={members} canEdit={canEdit} cols={cols}
-          customFields={customFields} fieldValues={fieldValues} onSetFieldValue={onSetFieldValue}
-          onTaskClick={onTaskClick} onRefresh={onRefresh}
-          expandedTasks={expandedTasks} toggleTask={toggleTask}
-          addingSubtaskTo={addingSubtaskTo} setAddingSubtaskTo={setAddingSubtaskTo}
-          newSubtaskTitle={newSubtaskTitle} setNewSubtaskTitle={setNewSubtaskTitle}
-          handleAddSubtask={handleAddSubtask} pendingItems={pendingItems} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} resolveId={resolveId} queueOrRun={queueOrRun} />
-      ))}
-
-      {/* Add subtask input */}
-      {isExpanded && canEdit && (
-        <div className="border-b border-[var(--asana-border)]/30 sticky left-0">
+/* Inline-rendered "Add subtask" footer for the flat list */
+function AddSubtaskFooter({ task, depth, listId, addingSubtaskTo, setAddingSubtaskTo, newSubtaskTitle, setNewSubtaskTitle, handleAddSubtask, canEdit }) {
+  const hasSubtasks = task.subtasks?.length > 0;
+  return (
+    <Fragment>
+      {canEdit && (hasSubtasks || addingSubtaskTo?.taskId === task.id) && (
+        <div className="border-b border-[var(--asana-border)]/30 w-max min-w-full">
           {addingSubtaskTo?.taskId === task.id ? (
-            <form onSubmit={(e) => handleAddSubtask(e, listId, task.id)} className="flex items-center py-[6px]"
+            <form onSubmit={(e) => handleAddSubtask(e, listId, task.id)} className="sticky left-0 inline-flex items-center py-[6px] w-[400px] bg-[var(--asana-surface)]"
               style={{ paddingLeft: `${(depth + 1) * 1.5 + 2.5}rem`, paddingRight: '1.5rem' }}>
               <div className="w-[16px] h-[16px] rounded-full border-2 border-gray-200 dark:border-gray-700 flex-shrink-0 mr-3" />
               <input type="text" value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)}
@@ -1297,7 +1375,7 @@ function TaskTreeNode({ task, depth, listId, members, canEdit, cols, customField
             </form>
           ) : (
             <button onClick={() => setAddingSubtaskTo({ listId, taskId: task.id })}
-              className="flex items-center py-[6px] w-full text-left text-[var(--asana-text-secondary)] hover:text-asana-blue text-xs transition-colors"
+              className="sticky left-0 inline-flex items-center py-[6px] w-[400px] text-left text-[var(--asana-text-secondary)] hover:text-asana-blue bg-[var(--asana-surface)] text-xs transition-colors"
               style={{ paddingLeft: `${(depth + 1) * 1.5 + 2.5}rem`, paddingRight: '1.5rem' }}>
               Add subtask...
             </button>
@@ -1349,21 +1427,9 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
   const [addingSubtaskTo, setAddingSubtaskTo] = useState(null);
   const [addingSection, setAddingSection] = useState(false);
   const addSectionInputRef = useRef(null);
-  const headerScrollRef = useRef(null);
-  const contentScrollRef = useRef(null);
-
-  // Sync horizontal scroll between header and content
-  useEffect(() => {
-    const header = headerScrollRef.current;
-    const content = contentScrollRef.current;
-    if (!header || !content) return;
-    let syncing = false;
-    const syncHeader = () => { if (!syncing) { syncing = true; content.scrollLeft = header.scrollLeft; syncing = false; } };
-    const syncContent = () => { if (!syncing) { syncing = true; header.scrollLeft = content.scrollLeft; syncing = false; } };
-    header.addEventListener('scroll', syncHeader);
-    content.addEventListener('scroll', syncContent);
-    return () => { header.removeEventListener('scroll', syncHeader); content.removeEventListener('scroll', syncContent); };
-  }, []);
+  // Single unified scroll container — handles BOTH horizontal AND vertical scroll.
+  // hello-pangea/dnd auto-detects this as the scroll parent for autoscroll & manual-scroll tracking.
+  const scrollContainerRef = useRef(null);
 
   // Track which section the cursor is currently over (for T shortcut)
   const hoveredSectionRef = useRef(null);
@@ -1558,6 +1624,13 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
     }
   };
 
+  // Track the most recently created item so we can scroll it into view after the next paint.
+  const justCreatedRef = useRef(null);
+  // Holds the flattened visible-row layout per section, refreshed on every render.
+  // handleDragEnd reads this to compute the new parentId for a drop based on the
+  // depth of the row immediately before/after the drop position.
+  const flatRowsBySectionRef = useRef({});
+
   const handleAddTask = (e, listId) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
@@ -1567,6 +1640,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
 
     dispatch(optimisticAddTask({ listId, task }));
     emitInstant?.('task_added', { listId, task });
+    justCreatedRef.current = tempId;
     setNewTaskTitle('');
     dispatch(createTask({ listId, taskData: { title } })).unwrap().then((realTask) => {
       idMapRef.current[tempId] = realTask.id;
@@ -1610,6 +1684,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
 
     dispatch(optimisticAddSection({ section }));
     emitInstant?.('section_added', { section });
+    justCreatedRef.current = tempId;
     setNewSectionName('');
     setAddingSection(false);
     dispatch(createList({ boardId, name })).unwrap().then((realSection) => {
@@ -1620,18 +1695,205 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
     }).catch(() => {});
   };
 
-  // Calculate section sums
+  // Whenever lists change AND we just created something, scroll the new item into view.
+  // We look up the just-created element by data-just-created attribute on the next paint.
+  useEffect(() => {
+    if (!justCreatedRef.current) return;
+    const id = justCreatedRef.current;
+    // Wait two frames so the optimistic update has actually been rendered to the DOM.
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        const el = scrollContainerRef.current?.querySelector(`[data-just-created="${id}"]`);
+        if (el && scrollContainerRef.current) {
+          // Use scrollIntoView with block:'nearest' so we don't scroll if it's already visible.
+          el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+        } else if (scrollContainerRef.current) {
+          // Fallback: scroll to the bottom of the container (new sections always appended at the end).
+          scrollContainerRef.current.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: 'smooth' });
+        }
+        justCreatedRef.current = null;
+      });
+      return () => cancelAnimationFrame(raf2);
+    });
+    return () => cancelAnimationFrame(raf1);
+  }, [lists]);
+
+  // Recursively walk every task + subtask in the subtree.
+  const walkTree = (tasks, fn) => {
+    (tasks || []).forEach((t) => {
+      fn(t);
+      if (t.subtasks?.length) walkTree(t.subtasks, fn);
+    });
+  };
+
+  // Sum a numeric field across all tasks AND nested subtasks in a section.
+  // Previously this only counted top-level tasks, so subtask times were lost.
   const getSectionSum = (tasks, field) => {
-    return (tasks || []).reduce((sum, t) => sum + (t[field] || 0), 0);
+    let sum = 0;
+    walkTree(tasks, (t) => { sum += (t[field] || 0); });
+    return sum;
+  };
+
+  // Sum a custom-field value across all tasks + subtasks in a tree.
+  // Returns null if there are no contributing values.
+  const getCustomFieldSum = (tasks, cf) => {
+    let sum = 0;
+    let any = false;
+    walkTree(tasks, (t) => {
+      const val = fieldValues[`${cf.id}-${t.id}`];
+      if (val) {
+        if (cf.type === 'TIME_TRACKING') {
+          try { sum += (JSON.parse(val).total || 0); any = true; }
+          catch { const n = parseInt(val); if (!isNaN(n)) { sum += n; any = true; } }
+        } else if (cf.type === 'NUMBER') {
+          const n = parseFloat(val);
+          if (!isNaN(n)) { sum += n; any = true; }
+        }
+      }
+    });
+    return any ? sum : null;
+  };
+
+  // ── Drag-and-drop: move task/subtask between/within sections or parents (Asana-style)
+  // droppableId formats (use "::" as separator since UUIDs contain "-"):
+  //   "section::{listId}"               → top-level task list inside a section
+  //   "parent::{taskId}::{listId}"      → subtask list under a parent task
+  // Section droppable ids look like "section::{listId}". The flat-list refactor
+  // means there is one Droppable per section that holds every visible row,
+  // so we no longer need a 'parent' droppable id format.
+  const parseSectionId = (id) => {
+    const parts = id.split('::');
+    return parts[0] === 'section' && parts.length === 2 ? parts[1] : null;
+  };
+
+  // Compute (parentId, indexAmongSiblings) at the destination position from the
+  // flat layout. Uses neighbor depth disambiguation:
+  //   • If the row ABOVE the drop is deeper than the row AT the drop, the drop
+  //     is at the END of the deeper subtree → use the above row's parent.
+  //   • Otherwise the drop is between siblings of the AT row → use AT's parent.
+  // This matches Asana/Linear/Notion behavior.
+  const resolveDestinationParent = (destListId, destIndex, draggedTaskId) => {
+    const flat = (flatRowsBySectionRef.current[destListId] || []).filter(
+      (r) => r.task.id !== draggedTaskId
+    );
+    const before = destIndex > 0 ? flat[destIndex - 1] : null;
+    const at = destIndex < flat.length ? flat[destIndex] : null;
+
+    let parentId = null;
+    if (!at && !before) {
+      parentId = null;                          // empty section
+    } else if (!at) {
+      parentId = before.parentId;               // dropped at very end → same parent as last row
+    } else if (!before) {
+      parentId = at.parentId;                   // dropped at very top → same parent as first row
+    } else if (before.depth > at.depth) {
+      parentId = before.parentId;               // end of deeper subtree
+    } else {
+      parentId = at.parentId;                   // between siblings (or jumping shallower)
+    }
+
+    // Position within the chosen parent's children: count how many of the
+    // remaining flat rows that share `parentId` come BEFORE the drop point.
+    let positionAmongSiblings = 0;
+    for (let i = 0; i < destIndex && i < flat.length; i++) {
+      if (flat[i].parentId === parentId) positionAmongSiblings++;
+    }
+    return { parentId, position: positionAmongSiblings };
+  };
+
+  const handleDragEnd = (result) => {
+    const { destination, source, draggableId, type } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+    if (type !== 'task') return;
+
+    const srcListId = parseSectionId(source.droppableId);
+    const dstListId = parseSectionId(destination.droppableId);
+    if (!dstListId) return;
+
+    const { parentId: destParentId, position: destSiblingIndex } = resolveDestinationParent(
+      dstListId,
+      destination.index,
+      draggableId
+    );
+
+    // Cycle protection — block dropping a task into its own descendant chain.
+    if (destParentId) {
+      const flat = flatRowsBySectionRef.current[dstListId] || [];
+      let cursor = destParentId;
+      const guard = new Set();
+      while (cursor && !guard.has(cursor)) {
+        if (cursor === draggableId) return;
+        guard.add(cursor);
+        const row = flat.find((r) => r.task.id === cursor);
+        cursor = row?.parentId || null;
+      }
+    }
+
+    // ── Optimistic update — works for every move type because we resolved
+    // destParentId from the flat layout above.
+    dispatch(optimisticMoveTaskAnywhere({
+      taskId: draggableId,
+      destListId: dstListId,
+      destParentId,
+      destinationIndex: destSiblingIndex,
+    }));
+
+    // ── Broadcast to other clients via the existing instant_change channel.
+    const emitPayload = {
+      taskId: resolveId(draggableId),
+      sourceListId: resolveId(srcListId),
+      destinationListId: resolveId(dstListId),
+      position: destSiblingIndex,
+      parentId: destParentId ? resolveId(destParentId) : null,
+    };
+    console.log('[drag] emitInstant task_moved →', emitPayload);
+    emitInstant?.('task_moved', emitPayload);
+
+    // ── Persist via API (queued if the task still has a temp ID).
+    queueOrRun(draggableId, (realTaskId) => {
+      dispatch(moveTaskAction({
+        taskId: realTaskId,
+        listId: resolveId(dstListId),
+        position: destSiblingIndex,
+        parentId: destParentId ? resolveId(destParentId) : null,
+      })).then((action) => {
+        if (action?.error && boardId) {
+          dispatch(fetchLists(boardId));
+        }
+      });
+    });
   };
 
   return (
     <>
-    <div className="relative">
-    <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)]/50 relative">
-      {/* ── Column headers (sticky top for vertical scroll) ── */}
-      <div ref={headerScrollRef} className="sticky -top-3 sm:-top-6 z-30 bg-[var(--asana-surface)] rounded-t-lg overflow-x-auto scrollbar-none">
-        <div className="flex items-stretch border-b border-[var(--asana-border)]/60 w-max min-w-full">
+    <DragDropContext
+      onDragEnd={handleDragEnd}
+      autoScrollerOptions={{
+        // Start auto-scrolling earlier (when within 18% of edge instead of default 25%)
+        startFromPercentage: 0.18,
+        // Reach max scroll speed sooner (within 8% of edge)
+        maxScrollAtPercentage: 0.08,
+        // Faster max scroll (default 28 px/frame)
+        maxPixelScroll: 56,
+        // Acceleration ramps up quickly so dragging to bottom feels responsive
+        ease: (percentage) => Math.pow(percentage, 2),
+        durationDampening: { stopDampeningAt: 1000, accelerateAt: 280 },
+      }}
+    >
+    <div className="relative flex-1 flex flex-col min-h-0">
+    <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)]/50 relative flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* ── Single unified scroll viewport: header + body live inside one scroll container.
+           This is the only element @hello-pangea/dnd needs to find — both axes scroll here,
+           so autoscroll-on-drag and manual-scroll-during-drag both work correctly.
+           Uses flex-1 + min-h-0 so it fills the parent's available height exactly. ── */}
+      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-auto">
+      {/* ── Column headers (sticky top inside the scroll viewport).
+           Background must live on the inner w-max element so it covers the FULL
+           content width (not just the scroll container's visible viewport),
+           otherwise newly-added columns scroll into a transparent area. ── */}
+      <div className="sticky top-0 z-30 rounded-t-lg">
+        <div className="flex items-stretch border-b border-[var(--asana-border)]/60 w-max min-w-full bg-[var(--asana-surface)]">
         <div className={`${NAME_COL} px-4 py-2 border-r border-[var(--asana-border)]/40 z-20`}>
           <span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Name</span>
         </div>
@@ -1660,7 +1922,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
         {/* + Add field — pinned to right edge */}
         {canEdit && (
           <button onClick={() => setShowFieldPicker(!showFieldPicker)}
-            className="sticky right-0 w-9 flex-shrink-0 flex items-center justify-center bg-[var(--asana-surface)] border-l border-[var(--asana-border)]/40 text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
+            className="sticky right-0 w-9 flex-shrink-0 flex items-center justify-center bg-[var(--asana-surface)] text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
             title="Add field">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1670,8 +1932,13 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
         </div>
       </div>
 
-      {/* ── Sections ── */}
-      <div ref={contentScrollRef} className="overflow-x-auto">
+      {/* ── Sections (rendered directly inside the unified scroll viewport).
+           w-max + min-w-full so the wrapper grows to match the widest data row,
+           which makes `min-w-full` on every section header / add-task / sum row
+           resolve to the FULL table content width (not just the visible viewport).
+           Without this, section headers stop short on the right when many columns
+           are present and the user has to horizontal-scroll to see them. ── */}
+      <div className="w-max min-w-full">
         {lists.map((list) => {
           const estSum = getSectionSum(list.tasks, 'estimatedTime');
           const actSum = getSectionSum(list.tasks, 'actualTime');
@@ -1685,7 +1952,11 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                 const pct = total > 0 ? Math.round((done / total) * 100) : 0;
                 return (
               <div onMouseEnter={() => { hoveredSectionRef.current = list.id; }}
-                className="flex items-center px-4 py-3 border-b border-[var(--asana-border)]/60 bg-gradient-to-b from-gray-50/90 to-gray-50/40 dark:from-[#1a1f2b]/95 dark:to-[#151a23]/80 backdrop-blur-sm hover:from-gray-100/80 dark:hover:from-[#1f2533]/95 transition-all duration-180 group/section sticky top-0 left-0 z-20 shadow-[0_1px_0_0_rgba(15,23,42,0.04)]">
+                data-just-created={list.id}
+                className="flex items-stretch border-b border-[var(--asana-border)]/60 bg-gradient-to-b from-gray-50/90 to-gray-50/40 dark:from-[#1a1f2b]/95 dark:to-[#151a23]/80 hover:from-gray-100/80 dark:hover:from-[#1f2533]/95 transition-all duration-180 group/section shadow-[0_1px_0_0_rgba(15,23,42,0.04)] w-max min-w-full">
+                {/* Name cell — holds collapse arrow, title, count, progress bar (bg overrides parent gradient so frozen-left looks clean) */}
+                <div className={`${NAME_COL} flex items-center px-4 py-3 border-r border-[var(--asana-border)]/40`}
+                  style={{ background: 'inherit' }}>
                 <button onClick={() => toggleSection(list.id)} className="mr-2.5 flex-shrink-0 p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700/70 transition-colors">
                   <svg className={`w-3.5 h-3.5 text-[var(--asana-text-secondary)] transition-transform duration-180 ${collapsedSections[list.id] ? '-rotate-90' : ''}`}
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1747,28 +2018,85 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                     </button>
                   </div>
                 )}
+                </div>
+                {/* Empty placeholder cells — draw the same vertical column dividers as task rows.
+                    `border-black/10` for light mode (dark divider on light gradient) and
+                    `dark:border-white/10` for dark mode (light divider on dark gradient).
+                    These contrast against ANY surface color, unlike the gray-700 we tried before
+                    which blended into the section header's dark gradient. */}
+                {cols.assignee && <div className={`${COL_W} border-r border-black/10 dark:border-white/10`} />}
+                {cols.dueDate && <div className={`${COL_W} border-r border-black/10 dark:border-white/10`} />}
+                {cols.status && <div className={`${COL_W} border-r border-black/10 dark:border-white/10`} />}
+                {cols.priority && <div className={`${COL_W} border-r border-black/10 dark:border-white/10`} />}
+                {cols.estimatedTime && <div className={`${COL_W} border-r border-black/10 dark:border-white/10`} />}
+                {cols.actualTime && <div className={`${COL_W} border-r border-black/10 dark:border-white/10`} />}
+                {customFields.map(cf => (
+                  <div key={cf.id} className={`${COL_W} border-r border-black/10 dark:border-white/10`} />
+                ))}
+                {/* Trailing spacer to match the column header's "+ Add field" button area on the right */}
+                {canEdit && <div className="w-9 flex-shrink-0" />}
               </div>
                 );
               })()}
 
-              {!collapsedSections[list.id] && (
+              {!collapsedSections[list.id] && (() => {
+                // Flatten all visible rows (tasks + expanded subtasks) into a single
+                // ordered list. This is the only way @hello-pangea/dnd can reliably
+                // handle hierarchical drag-and-drop — same-type nested Droppables
+                // are not supported by the library, so we use ONE Droppable per
+                // section and compute parentId on drop based on neighbor depth.
+                const flatRows = flattenTaskTree(list.tasks, expandedTasks, 0, null);
+                // Stash for handleDragEnd lookup (keyed by section listId).
+                flatRowsBySectionRef.current[list.id] = flatRows;
+                return (
                 <div onMouseEnter={() => { hoveredSectionRef.current = list.id; }}>
-                  {list.tasks?.map((task) => (
-                    <TaskTreeNode key={task.id} task={task} depth={0} listId={list.id}
-                      members={members} canEdit={canEdit} cols={cols}
-                      customFields={customFields} fieldValues={fieldValues} onSetFieldValue={setFieldValue}
-                      onTaskClick={onTaskClick} onRefresh={refetch}
-                      expandedTasks={expandedTasks} toggleTask={toggleTask}
-                      addingSubtaskTo={addingSubtaskTo} setAddingSubtaskTo={setAddingSubtaskTo}
-                      newSubtaskTitle={newSubtaskTitle} setNewSubtaskTitle={setNewSubtaskTitle}
-                      handleAddSubtask={handleAddSubtask} pendingItems={pendingItems} onCelebrate={onCelebrate} liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock} resolveId={resolveId} queueOrRun={queueOrRun} />
-                  ))}
+                  <Droppable droppableId={`section::${list.id}`} type="task" ignoreContainerClipping>
+                    {(dropProvided, dropSnapshot) => (
+                      <div
+                        ref={dropProvided.innerRef}
+                        {...dropProvided.droppableProps}
+                        className={`min-h-[8px] transition-colors duration-180 ${dropSnapshot.isDraggingOver ? 'bg-blue-50/50 dark:bg-[#1f2937]/60 ring-1 ring-inset ring-asana-blue/30' : ''}`}
+                      >
+                        {flatRows.map(({ task, depth, parentId }, flatIndex) => {
+                          const isTemp = typeof task.id === 'string' && task.id.startsWith('temp-');
+                          return (
+                            <Fragment key={task.id}>
+                              <Draggable draggableId={String(task.id)} index={flatIndex} isDragDisabled={!canEdit || isTemp}>
+                                {(dragProvided, dragSnapshot) => (
+                                  <TaskTreeNode task={task} depth={depth} parentId={parentId} listId={list.id}
+                                    members={members} canEdit={canEdit} cols={cols}
+                                    customFields={customFields} fieldValues={fieldValues} onSetFieldValue={setFieldValue}
+                                    onTaskClick={onTaskClick} onRefresh={refetch}
+                                    expandedTasks={expandedTasks} toggleTask={toggleTask}
+                                    addingSubtaskTo={addingSubtaskTo} setAddingSubtaskTo={setAddingSubtaskTo}
+                                    newSubtaskTitle={newSubtaskTitle} setNewSubtaskTitle={setNewSubtaskTitle}
+                                    handleAddSubtask={handleAddSubtask} pendingItems={pendingItems} onCelebrate={onCelebrate}
+                                    liveEdits={liveEdits} emitLiveEdit={emitLiveEdit} emitInstant={emitInstant} releaseEditLock={releaseEditLock}
+                                    resolveId={resolveId} queueOrRun={queueOrRun}
+                                    dragProvided={dragProvided} dragSnapshot={dragSnapshot} />
+                                )}
+                              </Draggable>
+                              {/* Add-subtask footer is rendered as a sibling of the Draggable so
+                                  it doesn't break the section's flat Draggable indexing. */}
+                              {expandedTasks[task.id] && (
+                                <AddSubtaskFooter task={task} depth={depth} listId={list.id} canEdit={canEdit}
+                                  addingSubtaskTo={addingSubtaskTo} setAddingSubtaskTo={setAddingSubtaskTo}
+                                  newSubtaskTitle={newSubtaskTitle} setNewSubtaskTitle={setNewSubtaskTitle}
+                                  handleAddSubtask={handleAddSubtask} />
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                        {dropProvided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
 
-                  {/* Add task row */}
+                  {/* Add task row — outer is full width for the bottom border, inner is sticky-left so the button never moves with horizontal scroll */}
                   {canEdit && (
-                    <div className="border-b border-[var(--asana-border)]/30 sticky left-0">
+                    <div className="border-b border-[var(--asana-border)]/30 w-max min-w-full">
                       {addingTaskTo === list.id ? (
-                        <form onSubmit={(e) => handleAddTask(e, list.id)} className="flex items-center px-4 py-[7px]">
+                        <form onSubmit={(e) => handleAddTask(e, list.id)} className="sticky left-0 inline-flex items-center px-4 py-[7px] w-[400px] bg-[var(--asana-surface)]">
                           <span className="w-[18px] mr-1.5 flex-shrink-0" />
                           <div className="w-[18px] h-[18px] rounded-full border-2 border-gray-200 dark:border-gray-700 flex-shrink-0 mr-3" />
                           <input type="text" value={newTaskTitle}
@@ -1780,7 +2108,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                         </form>
                       ) : (
                         <button onClick={() => { setAddingTaskTo(list.id); setNewTaskTitle(''); }}
-                          className="group/add flex items-center px-4 py-[10px] w-full text-left text-[var(--asana-text-secondary)] hover:text-asana-blue hover:bg-blue-50/40 dark:hover:bg-[#1f2937]/60 text-xs font-medium transition-all duration-180">
+                          className="group/add sticky left-0 inline-flex items-center px-4 py-[10px] w-[400px] text-left text-[var(--asana-text-secondary)] hover:text-asana-blue hover:bg-blue-50/40 dark:hover:bg-[#1f2937]/60 bg-[var(--asana-surface)] text-xs font-medium transition-all duration-180">
                           <span className="w-[18px] mr-1.5 flex-shrink-0" />
                           <span className="w-[18px] h-[18px] rounded-full border border-dashed border-gray-300 dark:border-gray-600 group-hover/add:border-asana-blue flex items-center justify-center mr-3 transition-colors">
                             <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -1794,21 +2122,13 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                     </div>
                   )}
 
-                  {/* Section summary row (SUM) */}
+                  {/* Section summary row (SUM) — recursive across subtasks */}
                   {(() => {
                     const cfSums = {};
                     customFields.forEach(cf => {
                       if (cf.type === 'TIME_TRACKING' || cf.type === 'NUMBER') {
-                        let sum = 0;
-                        (list.tasks || []).forEach(t => {
-                          const val = fieldValues[`${cf.id}-${t.id}`];
-                          if (val) {
-                            if (cf.type === 'TIME_TRACKING') {
-                              try { sum += (JSON.parse(val).total || 0); } catch { sum += (parseInt(val) || 0); }
-                            } else { sum += (parseFloat(val) || 0); }
-                          }
-                        });
-                        if (sum > 0) cfSums[cf.id] = sum;
+                        const s = getCustomFieldSum(list.tasks, cf);
+                        if (s != null && s > 0) cfSums[cf.id] = s;
                       }
                     });
                     const hasCfSums = Object.keys(cfSums).length > 0;
@@ -1839,11 +2159,14 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
                             </div>
                           );
                         })}
+                        {/* Trailing 36px spacer to align with column header's "+ Add field" button */}
+                        {canEdit && <div className="w-9 flex-shrink-0" />}
                       </div>
                     );
                   })()}
                 </div>
-              )}
+                );
+              })()}
             </Fragment>
           );
         })}
@@ -1863,24 +2186,24 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
           </div>
         )}
 
-        {/* ── Grand Total row (all sections combined) ── */}
+        {/* ── Grand Total row (all sections + all nested subtasks) ── */}
       {(() => {
-        const allTasks = lists.flatMap(l => l.tasks || []);
-        const totalEst = allTasks.reduce((s, t) => s + (t.estimatedTime || 0), 0);
-        const totalAct = allTasks.reduce((s, t) => s + (t.actualTime || 0), 0);
+        // Recursive sum across every section AND every subtask at any depth.
+        let totalEst = 0;
+        let totalAct = 0;
+        lists.forEach((l) => walkTree(l.tasks, (t) => {
+          totalEst += (t.estimatedTime || 0);
+          totalAct += (t.actualTime || 0);
+        }));
 
-        // Custom field totals
+        // Custom field totals — also recursive across the full tree of every section.
         const cfTotals = {};
         customFields.forEach(cf => {
           if (cf.type === 'TIME_TRACKING' || cf.type === 'NUMBER') {
             let sum = 0;
-            allTasks.forEach(t => {
-              const val = fieldValues[`${cf.id}-${t.id}`];
-              if (val) {
-                if (cf.type === 'TIME_TRACKING') {
-                  try { sum += (JSON.parse(val).total || 0); } catch { sum += (parseInt(val) || 0); }
-                } else { sum += (parseFloat(val) || 0); }
-              }
+            lists.forEach((l) => {
+              const s = getCustomFieldSum(l.tasks, cf);
+              if (s != null) sum += s;
             });
             if (sum > 0) cfTotals[cf.id] = sum;
           }
@@ -1926,6 +2249,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
         );
       })()}
       </div>
+      </div>
 
       {/* Field picker rendered as fixed overlay (outside scroll container) */}
       {showFieldPicker && canEdit && (
@@ -1946,6 +2270,7 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
         </button>
       </div>
     )}
+    </DragDropContext>
   </>
   );
 }
