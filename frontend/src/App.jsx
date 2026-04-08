@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from './store/hooks';
 import { getCurrentUser } from './store/slices/authSlice';
@@ -18,7 +18,11 @@ import Layout from './components/Layout';
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const location = useLocation();
-  if (!isAuthenticated) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  if (!isAuthenticated) {
+    // Preserve full path INCLUDING query string + hash, otherwise the redirect
+    // chain (/?workspace=B → /login → /) drops the workspace param.
+    return <Navigate to="/login" state={{ from: location.pathname + location.search + location.hash }} replace />;
+  }
   return children;
 }
 
@@ -26,15 +30,22 @@ function App() {
   const dispatch = useAppDispatch();
   const location = useLocation();
   const { isAuthenticated, loading } = useAppSelector((state) => state.auth);
+  // True until we've at least *attempted* to restore auth from a stored token.
+  // Without this, the first render would render <Routes>, ProtectedRoute would
+  // redirect to /login, and the original URL (with query string) is lost.
+  const [authBootstrapped, setAuthBootstrapped] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (token && !isAuthenticated) {
-      dispatch(getCurrentUser());
+      dispatch(getCurrentUser()).finally(() => setAuthBootstrapped(true));
+    } else {
+      setAuthBootstrapped(true);
     }
-  }, [dispatch, isAuthenticated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  if (loading && !isAuthenticated) {
+  if (!authBootstrapped || (loading && !isAuthenticated)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[var(--asana-bg)]">
         <div className="flex flex-col items-center space-y-3">

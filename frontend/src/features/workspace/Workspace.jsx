@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchWorkspace, fetchInvites, resendInvite, cancelInvite } from '../../store/slices/workspaceSlice';
+import { fetchWorkspace, fetchInvites, resendInvite, cancelInvite, updateWorkspace } from '../../store/slices/workspaceSlice';
 import InviteModal from './InviteModal';
 
 const ROLE_STYLE = {
@@ -11,29 +11,186 @@ const ROLE_STYLE = {
   GUEST: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
 };
 
+/**
+ * Full-page skeleton mirroring the Workspace layout so the user sees the
+ * structure immediately on navigation. Replaced atomically with real content
+ * once fetchWorkspace, fetchInvites, and fetchProjects (for this workspaceId)
+ * have all resolved.
+ */
+function WorkspaceSkeleton() {
+  return (
+    <div className="h-full flex flex-col overflow-hidden animate-pulse">
+      {/* Header strip */}
+      <div className="bg-[var(--asana-surface)] border-b border-[var(--asana-border)]">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="flex items-center justify-between py-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700" />
+              <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded" />
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700" />
+              <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700" />
+              <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700" />
+              <div className="h-7 w-16 bg-gray-200 dark:bg-gray-700 rounded-md" />
+            </div>
+          </div>
+          <div className="flex space-x-1 pb-1">
+            <div className="h-6 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+            <div className="h-6 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+          </div>
+        </div>
+      </div>
+
+      {/* Content area */}
+      <div className="flex-1 overflow-y-auto bg-[var(--asana-bg)]">
+        <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+          {/* Hero card */}
+          <div className="bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] overflow-hidden">
+            <div className="h-24 bg-gray-200 dark:bg-gray-700" />
+            <div className="px-6 pb-6 -mt-8">
+              <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 border-4 border-[var(--asana-surface)]" />
+              <div className="h-5 w-56 bg-gray-200 dark:bg-gray-700 rounded mt-3" />
+              <div className="h-3 w-72 bg-gray-200 dark:bg-gray-700 rounded mt-2" />
+            </div>
+          </div>
+
+          {/* Projects + sidebar grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+            {/* Projects card */}
+            <div className="lg:col-span-2 bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] p-5">
+              <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded mb-4" />
+              <div className="space-y-2">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex items-center space-x-3 px-3 py-2.5 rounded-lg">
+                    <div className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700" />
+                    <div className="h-3.5 bg-gray-200 dark:bg-gray-700 rounded flex-1" style={{ maxWidth: `${50 + (i * 10) % 40}%` }} />
+                    <div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right sidebar */}
+            <div className="space-y-6">
+              {/* Members card */}
+              <div className="bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+                  <div className="h-3 w-14 bg-gray-200 dark:bg-gray-700 rounded" />
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700" />
+                  ))}
+                </div>
+              </div>
+
+              {/* Stats card */}
+              <div className="bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] p-5">
+                <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded mb-3" />
+                <div className="space-y-2.5">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+                      <div className="h-3 w-6 bg-gray-200 dark:bg-gray-700 rounded" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Workspace() {
   const { workspaceId } = useParams();
   const dispatch = useAppDispatch();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const { currentWorkspace, pendingInvites, loading } = useAppSelector((state) => state.workspace);
-  const { projects } = useAppSelector((state) => state.project);
+  const { currentWorkspace, pendingInvites } = useAppSelector((state) => state.workspace);
+  const { projects, projectsForWorkspaceId } = useAppSelector((state) => state.project);
   const { user: currentUser } = useAppSelector((state) => state.auth);
 
+  // Inline-edit state for the team description on the Overview tab.
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState('');
+  const [savingDescription, setSavingDescription] = useState(false);
+  const descriptionInputRef = useRef(null);
+
+  // Track per-workspaceId readiness for both async dependencies so the page
+  // shows a single skeleton until everything is loaded — no partial flashes.
+  const [workspaceReady, setWorkspaceReady] = useState(false);
+  const [invitesReady, setInvitesReady] = useState(false);
+
   useEffect(() => {
-    dispatch(fetchWorkspace(workspaceId));
-    dispatch(fetchInvites(workspaceId));
+    // Reset readiness when the workspaceId changes so the skeleton reappears
+    // for the new workspace's load.
+    setWorkspaceReady(false);
+    setInvitesReady(false);
+    let cancelled = false;
+    Promise.resolve(dispatch(fetchWorkspace(workspaceId))).finally(() => {
+      if (!cancelled) setWorkspaceReady(true);
+    });
+    Promise.resolve(dispatch(fetchInvites(workspaceId))).finally(() => {
+      if (!cancelled) setInvitesReady(true);
+    });
+    return () => { cancelled = true; };
   }, [workspaceId, dispatch]);
+
+  // The Workspace.members list and current-workspace identity must match the
+  // requested URL — guards against the brief moment after navigation when
+  // currentWorkspace still points at the previous workspace.
+  const workspaceMatches = currentWorkspace?.id === workspaceId;
+  const projectsMatch = projectsForWorkspaceId === workspaceId;
+  const allReady = workspaceReady && invitesReady && workspaceMatches && projectsMatch;
+
+  // Keep the draft in sync with the current workspace whenever it changes
+  // (e.g., after fetchWorkspace resolves or after another admin edits it).
+  useEffect(() => {
+    if (!editingDescription) {
+      setDescriptionDraft(currentWorkspace?.description || '');
+    }
+  }, [currentWorkspace?.description, editingDescription]);
+
+  const startEditingDescription = () => {
+    if (!isAdmin) return;
+    setDescriptionDraft(currentWorkspace?.description || '');
+    setEditingDescription(true);
+    setTimeout(() => descriptionInputRef.current?.focus(), 0);
+  };
+
+  const saveDescription = async () => {
+    const next = descriptionDraft.trim();
+    // No-op if unchanged
+    if (next === (currentWorkspace?.description || '').trim()) {
+      setEditingDescription(false);
+      return;
+    }
+    setSavingDescription(true);
+    try {
+      await dispatch(updateWorkspace({ workspaceId, data: { description: next } })).unwrap();
+      setEditingDescription(false);
+    } catch (e) {
+      // keep edit mode open on failure so user can retry
+    } finally {
+      setSavingDescription(false);
+    }
+  };
+
+  const cancelEditingDescription = () => {
+    setDescriptionDraft(currentWorkspace?.description || '');
+    setEditingDescription(false);
+  };
 
   const currentMember = currentWorkspace?.members?.find(m => m.userId === currentUser?.id || m.user?.id === currentUser?.id);
   const isAdmin = currentMember?.role === 'OWNER' || currentMember?.role === 'ADMIN';
 
-  if (loading && !currentWorkspace) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-asana-blue" />
-      </div>
-    );
+  if (!allReady) {
+    return <WorkspaceSkeleton />;
   }
 
   if (!currentWorkspace) {
@@ -119,9 +276,54 @@ function Workspace() {
                     {currentWorkspace.name?.charAt(0).toUpperCase()}
                   </div>
                   <h2 className="text-xl font-bold text-[var(--asana-text-primary)] mt-3">{currentWorkspace.name}</h2>
-                  <p className="text-sm text-[var(--asana-text-secondary)] mt-1">
-                    {currentWorkspace.description || 'Click to add team description...'}
-                  </p>
+                  {editingDescription ? (
+                    <div className="mt-2">
+                      <textarea
+                        ref={descriptionInputRef}
+                        value={descriptionDraft}
+                        onChange={(e) => setDescriptionDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') { e.preventDefault(); cancelEditingDescription(); }
+                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveDescription(); }
+                        }}
+                        rows={2}
+                        placeholder="Describe what this team is about..."
+                        disabled={savingDescription}
+                        className="w-full text-sm bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-md px-3 py-2 text-[var(--asana-text-primary)] placeholder-[var(--asana-text-muted)] outline-none focus:border-asana-blue resize-none disabled:opacity-50"
+                      />
+                      <div className="mt-2 flex items-center space-x-2">
+                        <button
+                          onClick={saveDescription}
+                          disabled={savingDescription}
+                          className="asana-button-primary text-xs px-3 py-1.5 inline-flex items-center disabled:opacity-50"
+                        >
+                          {savingDescription ? (
+                            <svg className="animate-spin w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24">
+                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                              <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                            </svg>
+                          ) : null}
+                          {savingDescription ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={cancelEditingDescription}
+                          disabled={savingDescription}
+                          className="text-xs px-3 py-1.5 rounded text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <span className="text-[10px] text-[var(--asana-text-muted)]">⌘+Enter to save · Esc to cancel</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p
+                      onClick={startEditingDescription}
+                      className={`text-sm mt-1 ${currentWorkspace.description ? 'text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-muted)] italic'} ${isAdmin ? 'cursor-pointer hover:text-[var(--asana-text-primary)] transition-colors' : ''}`}
+                      title={isAdmin ? 'Click to edit description' : undefined}
+                    >
+                      {currentWorkspace.description || (isAdmin ? 'Click to add team description...' : 'No description yet.')}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -199,6 +401,61 @@ function Workspace() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Pending Invitations card — admin-only, dedicated section like the old layout */}
+                  {isAdmin && invites.length > 0 && (
+                    <div className="bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-bold text-[var(--asana-text-primary)]">Pending Invitations</h3>
+                        <span className="text-[10px] font-bold text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-0.5 rounded-full">
+                          {invites.length}
+                        </span>
+                      </div>
+                      <div className="space-y-2 max-h-72 overflow-y-auto">
+                        {invites.map((inv) => (
+                          <div key={inv.id} className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors group/inv">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-7 h-7 rounded-full bg-yellow-100 dark:bg-yellow-900/40 flex items-center justify-center flex-shrink-0">
+                                <svg className="w-3.5 h-3.5 text-yellow-700 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-medium text-[var(--asana-text-primary)] truncate">{inv.email}</p>
+                                <p className="text-[10px] text-[var(--asana-text-secondary)]">
+                                  {inv.role} · invited{inv.invitedBy ? ` by ${inv.invitedBy}` : ''}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button
+                                onClick={() => dispatch(resendInvite(inv.id))}
+                                className="p-1.5 rounded text-[var(--asana-text-secondary)] hover:bg-asana-blue/10 hover:text-asana-blue opacity-0 group-hover/inv:opacity-100 transition-all"
+                                title="Resend invitation"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Cancel the invitation for ${inv.email}? The link sent in their email will no longer work.`)) {
+                                    dispatch(cancelInvite(inv.id));
+                                  }
+                                }}
+                                className="p-1.5 rounded text-[var(--asana-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover/inv:opacity-100 transition-all"
+                                title="Delete invitation"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -252,8 +509,28 @@ function Workspace() {
                           <span className="text-[10px] font-bold uppercase tracking-wider bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded-full">Pending</span>
                           {isAdmin && (
                             <div className="flex items-center space-x-1">
-                              <button onClick={() => dispatch(resendInvite(person.id))} className="text-xs text-asana-blue hover:underline px-2 py-1">Resend</button>
-                              <button onClick={() => confirm('Cancel this invitation?') && dispatch(cancelInvite(person.id))} className="text-xs text-red-500 hover:underline px-2 py-1">Cancel</button>
+                              <button
+                                onClick={() => dispatch(resendInvite(person.id))}
+                                className="p-1.5 rounded-md text-[var(--asana-text-secondary)] hover:bg-asana-blue/10 hover:text-asana-blue transition-colors"
+                                title="Resend invitation"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Cancel the invitation for ${person.email}? The link sent in their email will no longer work.`)) {
+                                    dispatch(cancelInvite(person.id));
+                                  }
+                                }}
+                                className="p-1.5 rounded-md text-[var(--asana-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                title="Delete invitation"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
                             </div>
                           )}
                         </>

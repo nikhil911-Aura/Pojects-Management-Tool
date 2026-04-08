@@ -97,6 +97,30 @@ function AcceptInvite() {
   }
 
   if (error) {
+    // Detect specific backend error states from validateToken so we can show
+    // a friendly title/icon instead of a generic "problem".
+    const lower = String(error).toLowerCase();
+    const isCancelled = lower.includes('cancelled') || lower.includes('canceled');
+    const isExpired = lower.includes('expired');
+    const isAccepted = lower.includes('already been accepted');
+    const isInvalid = lower.includes('invalid');
+
+    let title = 'Invitation Problem';
+    let body = error;
+    if (isCancelled) {
+      title = 'Invitation Cancelled';
+      body = 'The workspace administrator cancelled this invitation. Please contact them to request a new one.';
+    } else if (isExpired) {
+      title = 'Invitation Expired';
+      body = 'This invitation link has expired. Ask the workspace administrator to send you a new one.';
+    } else if (isAccepted) {
+      title = 'Already Accepted';
+      body = 'This invitation has already been accepted. You can sign in to access the workspace.';
+    } else if (isInvalid) {
+      title = 'Invalid Invitation';
+      body = 'This invitation link is not valid. It may have been removed or mistyped.';
+    }
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
@@ -105,8 +129,8 @@ function AcceptInvite() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Invitation Problem</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{title}</h2>
+          <p className="text-gray-600 mb-6">{body}</p>
           <Link to="/" className="inline-block bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition-colors">
             Go to Dashboard
           </Link>

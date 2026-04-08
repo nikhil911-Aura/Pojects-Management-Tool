@@ -143,14 +143,29 @@ const workspaceSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(createWorkspace.fulfilled, (state, action) => {
-        state.workspaces.unshift(action.payload);
+        // The create endpoint returns the raw workspace object without a `role`
+        // field (role lives on the WorkspaceMember join row, only spread in by
+        // getAll). The user who just created the workspace is always its OWNER,
+        // so inject that here — otherwise the sidebar splits this workspace
+        // into "Joined Workspaces" until the next page reload re-fetches via getAll.
+        state.workspaces.unshift({ ...action.payload, role: 'OWNER' });
       })
       .addCase(fetchWorkspace.pending, (state) => {
         state.loading = true;
       })
       .addCase(fetchWorkspace.fulfilled, (state, action) => {
         state.loading = false;
-        state.currentWorkspace = action.payload;
+        // Update the cached entry in workspaces[] so the sidebar list stays fresh.
+        const idx = state.workspaces.findIndex(w => w.id === action.payload.id);
+        if (idx !== -1) {
+          state.workspaces[idx] = { ...state.workspaces[idx], ...action.payload };
+        }
+        // Only replace currentWorkspace if the fetched one IS the active one.
+        // This prevents accidental workspace switching when something
+        // (e.g. ShareModal's lazy member-list refetch) loads workspace data.
+        if (state.currentWorkspace?.id === action.payload.id) {
+          state.currentWorkspace = action.payload;
+        }
       })
       .addCase(fetchWorkspace.rejected, (state, action) => {
         state.loading = false;

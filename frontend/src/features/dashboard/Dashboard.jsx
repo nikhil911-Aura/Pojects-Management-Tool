@@ -197,19 +197,35 @@ function Dashboard() {
       {/* ── Workspace switcher if multiple ── */}
       {workspaces.length > 1 && (
         <div className="flex items-center space-x-2 mb-6 overflow-x-auto pb-1">
-          {workspaces.map((ws) => (
-            <button
-              key={ws.id}
-              onClick={() => dispatch(setCurrentWorkspace(ws))}
-              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                ws.id === currentWorkspace.id
-                  ? 'bg-asana-blue text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-[var(--asana-text-secondary)] hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              {ws.name}
-            </button>
-          ))}
+          {workspaces.map((ws) => {
+            const isActive = ws.id === currentWorkspace?.id;
+            // Use an anchor with target="_blank" so:
+            //  • clicking opens the workspace in a new tab (Layout's URL bootstrap reads ?workspace=)
+            //  • middle-click and Cmd/Ctrl+click work natively
+            //  • the active workspace stays put in this tab
+            // The active workspace is rendered as a non-link button so it doesn't open a duplicate tab.
+            if (isActive) {
+              return (
+                <button
+                  key={ws.id}
+                  className="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-asana-blue text-white cursor-default"
+                >
+                  {ws.name}
+                </button>
+              );
+            }
+            return (
+              <a
+                key={ws.id}
+                href={`/?workspace=${ws.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors bg-gray-100 dark:bg-gray-700 text-[var(--asana-text-secondary)] hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                {ws.name}
+              </a>
+            );
+          })}
         </div>
       )}
 

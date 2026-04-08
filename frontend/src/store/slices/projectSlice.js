@@ -104,6 +104,7 @@ const initialState = {
   projectsLoading: false,  // sidebar: fetching all projects for workspace
   projectLoading: false,   // main view: fetching a single project
   projectsLoaded: false,   // tracks if initial fetch completed for current workspace
+  projectsForWorkspaceId: null, // which workspace the current projects[] belongs to
   error: null
 };
 
@@ -124,17 +125,22 @@ const projectSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchProjects.pending, (state) => {
+      .addCase(fetchProjects.pending, (state, action) => {
         state.projectsLoading = true;
-        // Clear stale projects from previous workspace/user immediately
-        // so they never flash on screen
-        state.projects = [];
-        state.projectsLoaded = false;
+        // Only wipe the existing projects[] when SWITCHING workspaces.
+        // For same-workspace refetches (e.g. socket-driven project_created),
+        // keep the current list visible so the sidebar doesn't flash.
+        const requestedWorkspaceId = action.meta.arg;
+        if (requestedWorkspaceId !== state.projectsForWorkspaceId) {
+          state.projects = [];
+          state.projectsLoaded = false;
+        }
       })
       .addCase(fetchProjects.fulfilled, (state, action) => {
         state.projectsLoading = false;
         state.projects = action.payload;
         state.projectsLoaded = true;
+        state.projectsForWorkspaceId = action.meta.arg;
       })
       .addCase(fetchProjects.rejected, (state, action) => {
         state.projectsLoading = false;

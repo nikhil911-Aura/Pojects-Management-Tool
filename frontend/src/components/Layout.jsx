@@ -18,6 +18,7 @@ function Layout() {
   const { user } = useAppSelector((state) => state.auth);
   const { workspaces, currentWorkspace } = useAppSelector((state) => state.workspace);
   const { searchResults } = useAppSelector((state) => state.task);
+  const projectsForWorkspaceId = useAppSelector((state) => state.project.projectsForWorkspaceId);
 
   // Workspace-level socket for live sidebar updates
   useWorkspaceSocket();
@@ -39,18 +40,44 @@ function Layout() {
     }
   }, [dispatch]);
 
+  // URL → workspace bootstrap. If `?workspace={id}` is present, prefer it over
+  // the auto-select-first-workspace fallback. This makes "open in new tab"
+  // (which sets ?workspace=X) land on the correct workspace, and also makes
+  // the active workspace survive a page reload.
   useEffect(() => {
-    if (workspaces.length > 0 && !currentWorkspace) {
+    if (!workspaces.length) return;
+    const params = new URLSearchParams(window.location.search);
+    const urlWsId = params.get('workspace');
+    if (urlWsId) {
+      const requested = workspaces.find(w => w.id === urlWsId);
+      if (requested && currentWorkspace?.id !== requested.id) {
+        dispatch(setCurrentWorkspace(requested));
+        return;
+      }
+      // If the URL points at a workspace the user can't access, fall through
+      // to the default selection below and strip the bad param.
+      if (!requested) {
+        params.delete('workspace');
+        const qs = params.toString();
+        window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+      }
+    }
+    if (!currentWorkspace) {
       dispatch(setCurrentWorkspace(workspaces[0]));
     }
   }, [workspaces, currentWorkspace, dispatch]);
 
-  // Single source: fetch projects whenever workspace changes
+  // Single source: fetch projects whenever the workspace ID changes.
+  // IMPORTANT: depend on the ID, not the whole object — otherwise lazy enrichment
+  // (e.g. ShareModal's fetchWorkspace) produces a new object reference and
+  // re-fetches projects unnecessarily, causing the sidebar to flash.
+  // Also skip the fetch if the projects array already belongs to this workspace
+  // (e.g. user navigated away and back, or component remounted).
   useEffect(() => {
-    if (currentWorkspace?.id) {
-      dispatch(fetchProjects(currentWorkspace.id));
-    }
-  }, [currentWorkspace, dispatch]);
+    if (!currentWorkspace?.id) return;
+    if (projectsForWorkspaceId === currentWorkspace.id) return;
+    dispatch(fetchProjects(currentWorkspace.id));
+  }, [currentWorkspace?.id, projectsForWorkspaceId, dispatch]);
 
   // Close menus on outside click
   useEffect(() => {
