@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { fetchProjects } from '../store/slices/projectSlice';
+import { fetchProjects, socketProjectAdded, socketProjectRemoved } from '../store/slices/projectSlice';
 
 /**
  * Workspace-level socket — listens for project CRUD events
@@ -10,6 +10,7 @@ import { fetchProjects } from '../store/slices/projectSlice';
 export const useWorkspaceSocket = () => {
   const dispatch = useAppDispatch();
   const { currentWorkspace } = useAppSelector((state) => state.workspace);
+  const { user: currentUser } = useAppSelector((state) => state.auth);
   const workspaceId = currentWorkspace?.id;
   const socketRef = useRef(null);
 
@@ -51,6 +52,23 @@ export const useWorkspaceSocket = () => {
       dispatch(fetchProjects(workspaceId));
     });
 
+    // A member was added to a project in this workspace. If the added member
+    // is the CURRENT user, add the project to our sidebar instantly. Critical
+    // for private projects that weren't visible before being invited.
+    socket.on('project_member_added', (data) => {
+      if (data?.userId === currentUser?.id && data?.project?.id) {
+        dispatch(socketProjectAdded(data.project));
+      }
+    });
+
+    // A member was removed from a project. If it's us, remove the project
+    // from sidebar (we lost access to a private project).
+    socket.on('project_member_removed', (data) => {
+      if (data?.userId === currentUser?.id && data?.projectId) {
+        dispatch(socketProjectRemoved(data.projectId));
+      }
+    });
+
     return () => {
       socket.emit('leave_workspace', workspaceId);
       socket.off('connect');
@@ -58,9 +76,11 @@ export const useWorkspaceSocket = () => {
       socket.off('project_created');
       socket.off('project_updated');
       socket.off('project_deleted');
+      socket.off('project_member_added');
+      socket.off('project_member_removed');
       socket.disconnect();
     };
-  }, [workspaceId, dispatch]);
+  }, [workspaceId, currentUser?.id, dispatch]);
 
   return socketRef.current;
 };

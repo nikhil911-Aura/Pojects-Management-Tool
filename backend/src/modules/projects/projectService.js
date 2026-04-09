@@ -383,6 +383,24 @@ export const projectService = {
     });
 
     emitToProject(projectId, 'member_added', { member, projectId }, excludeSocketId);
+
+    // Also emit to the WORKSPACE room so the newly-invited user (who isn't in
+    // the project room yet) gets notified. Their sidebar can then add the project
+    // to their project list without a full reload. This is critical for private
+    // projects which aren't visible until the user is a member.
+    emitToWorkspace(project.workspaceId, 'project_member_added', {
+      projectId,
+      userId: newMemberId,
+      project: {
+        id: project.id,
+        name: project.name,
+        color: project.color,
+        visibility: project.visibility,
+        description: project.description,
+        workspaceId: project.workspaceId,
+      },
+    });
+
     return member;
   },
 
@@ -419,6 +437,14 @@ export const projectService = {
     });
 
     emitToProject(projectId, 'member_removed', { userId: memberIdToRemove, projectId }, excludeSocketId);
+
+    // Also emit to workspace room so the removed user's sidebar updates
+    // (they lose access to a private project → it should disappear).
+    emitToWorkspace(project.workspaceId, 'project_member_removed', {
+      projectId,
+      userId: memberIdToRemove,
+    });
+
     return true;
   },
 

@@ -123,7 +123,29 @@ const projectSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
-    }
+    },
+    // Optimistic socket-driven project CRUD — lets useWorkspaceSocket apply
+    // incremental patches instead of refetching the entire project list.
+    socketProjectAdded: (state, action) => {
+      const project = action.payload;
+      if (!project?.id) return;
+      if (state.projects.some(p => p.id === project.id)) return;
+      state.projects.unshift(project);
+    },
+    socketProjectUpdated: (state, action) => {
+      const project = action.payload;
+      if (!project?.id) return;
+      const idx = state.projects.findIndex(p => p.id === project.id);
+      if (idx !== -1) state.projects[idx] = { ...state.projects[idx], ...project };
+      if (state.currentProject?.id === project.id) {
+        state.currentProject = { ...state.currentProject, ...project };
+      }
+    },
+    socketProjectRemoved: (state, action) => {
+      const projectId = action.payload;
+      state.projects = state.projects.filter(p => p.id !== projectId);
+      if (state.currentProject?.id === projectId) state.currentProject = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -228,5 +250,5 @@ const projectSlice = createSlice({
   }
 });
 
-export const { setCurrentProject, clearProjects, clearError } = projectSlice.actions;
+export const { setCurrentProject, clearProjects, clearError, socketProjectAdded, socketProjectUpdated, socketProjectRemoved } = projectSlice.actions;
 export default projectSlice.reducer;

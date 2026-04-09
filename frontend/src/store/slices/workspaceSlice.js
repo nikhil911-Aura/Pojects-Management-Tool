@@ -124,6 +124,8 @@ const workspaceSlice = createSlice({
   reducers: {
     setCurrentWorkspace: (state, action) => {
       state.currentWorkspace = action.payload;
+      // Persist so the next login session restores this workspace.
+      try { localStorage.setItem('lastWorkspaceId', action.payload?.id || ''); } catch {}
     },
     clearError: (state) => {
       state.error = null;
@@ -189,16 +191,18 @@ const workspaceSlice = createSlice({
       .addCase(cancelInvite.fulfilled, (state, action) => {
         state.pendingInvites = state.pendingInvites.filter(i => i.id !== action.payload.inviteId);
       })
-      // Pre-populate workspaces from login response (eliminates separate GET /workspaces call)
+      // Pre-populate workspaces from login response (eliminates separate GET /workspaces call).
+      // NOTE: do NOT auto-select currentWorkspace here. Layout's bootstrap effect
+      // handles workspace selection with a 3-tier priority (URL param → localStorage
+      // lastWorkspaceId → workspaces[0]). If we set it here, Layout sees
+      // currentWorkspace already populated and skips the localStorage restore,
+      // so the user always lands on workspaces[0] after re-login instead of
+      // their last-used workspace.
       .addCase(login.fulfilled, (state, action) => {
         const workspaces = action.payload.workspaces;
         if (workspaces?.length) {
           state.workspaces = workspaces;
           state.loading = false;
-          // Auto-select first workspace if none selected
-          if (!state.currentWorkspace) {
-            state.currentWorkspace = workspaces[0];
-          }
         }
       })
       // Reset all workspace state on logout

@@ -40,28 +40,45 @@ function Layout() {
     }
   }, [dispatch]);
 
-  // URL → workspace bootstrap. If `?workspace={id}` is present, prefer it over
-  // the auto-select-first-workspace fallback. This makes "open in new tab"
-  // (which sets ?workspace=X) land on the correct workspace, and also makes
-  // the active workspace survive a page reload.
+  // Workspace bootstrap priority:
+  //   1. ?workspace={id} in URL (new-tab / reload with explicit workspace)
+  //   2. localStorage.lastWorkspaceId (persisted before logout — restore session)
+  //   3. workspaces[0] (first workspace as ultimate fallback)
   useEffect(() => {
     if (!workspaces.length) return;
+
+    // Priority 1: URL param
     const params = new URLSearchParams(window.location.search);
     const urlWsId = params.get('workspace');
     if (urlWsId) {
       const requested = workspaces.find(w => w.id === urlWsId);
       if (requested && currentWorkspace?.id !== requested.id) {
         dispatch(setCurrentWorkspace(requested));
+        localStorage.setItem('lastWorkspaceId', requested.id);
         return;
       }
-      // If the URL points at a workspace the user can't access, fall through
-      // to the default selection below and strip the bad param.
       if (!requested) {
         params.delete('workspace');
         const qs = params.toString();
         window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
       }
     }
+
+    // Priority 2: last workspace from previous session
+    if (!currentWorkspace) {
+      const lastWsId = localStorage.getItem('lastWorkspaceId');
+      if (lastWsId) {
+        const last = workspaces.find(w => w.id === lastWsId);
+        if (last) {
+          dispatch(setCurrentWorkspace(last));
+          return;
+        }
+        // Stale — workspace no longer accessible. Clean up.
+        localStorage.removeItem('lastWorkspaceId');
+      }
+    }
+
+    // Priority 3: first workspace
     if (!currentWorkspace) {
       dispatch(setCurrentWorkspace(workspaces[0]));
     }
@@ -104,6 +121,10 @@ function Layout() {
   }, [searchQuery, currentWorkspace, dispatch]);
 
   const handleLogout = () => {
+    // Persist the active workspace so we can restore it after re-login.
+    if (currentWorkspace?.id) {
+      localStorage.setItem('lastWorkspaceId', currentWorkspace.id);
+    }
     dispatch(logout());
     navigate('/login');
   };

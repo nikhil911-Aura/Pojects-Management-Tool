@@ -3,6 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchProject, deleteProject, updateProject } from '../../store/slices/projectSlice';
+import { setCurrentWorkspace } from '../../store/slices/workspaceSlice';
 import { fetchLists, createList, deleteList, clearLists } from '../../store/slices/boardSlice';
 import api from '../../services/api';
 import { createTask, moveTask as moveTaskAction } from '../../store/slices/taskSlice';
@@ -110,6 +111,7 @@ function ProjectBoard() {
   const navigate = useNavigate();
   const { currentProject, projectLoading, projects } = useAppSelector((state) => state.project);
   const { lists, loading: listsLoading, listsForBoardId } = useAppSelector((state) => state.board);
+  const { currentWorkspace, workspaces } = useAppSelector((state) => state.workspace);
 
   const [initialLoaded, setInitialLoaded] = useState(false);
   const prevProjectIdRef = useRef(projectId);
@@ -130,6 +132,24 @@ function ProjectBoard() {
     initialLoaded &&
     currentProject?.id === projectId &&
     (!currentProject?.board?.id || listsForBoardId === currentProject.board.id);
+
+  // ── Workspace auto-sync: if this project belongs to a different workspace
+  // than the currently active one, switch the sidebar to the right workspace.
+  // Without this, navigating to a cross-workspace project URL (bookmark,
+  // shared link, browser history) would load the project's data correctly
+  // in the main area but leave the sidebar showing the wrong workspace's
+  // projects — the bug the user reported.
+  useEffect(() => {
+    if (!currentProject?.workspace?.id) return;
+    const projectWsId = currentProject.workspace.id;
+    if (currentWorkspace?.id === projectWsId) return;
+    // Find the workspace object in the already-loaded workspaces array
+    // so we can switch with full data (name, role, etc).
+    const targetWs = workspaces.find(w => w.id === projectWsId);
+    if (targetWs) {
+      dispatch(setCurrentWorkspace(targetWs));
+    }
+  }, [currentProject?.workspace?.id, currentWorkspace?.id, workspaces, dispatch]);
 
   const { pendingItems, addPendingItem, clearPendingItems, liveEdits, emitLiveEdit, emitInstant, customFieldEvent, setCustomFieldCallback, releaseEditLock } = useSocket(projectId, currentProject?.board?.id);
 
