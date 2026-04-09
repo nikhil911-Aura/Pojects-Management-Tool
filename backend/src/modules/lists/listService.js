@@ -12,9 +12,11 @@ function canAccessProject(workspaceRole, projectVisibility, projectRole) {
   return projectRole !== null;
 }
 
-function canEditProject(workspaceRole, projectRole) {
+function canEditProject(workspaceRole, projectRole, customPermissions) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
-  return projectRole === 'EDITOR';
+  if (projectRole === 'EDITOR') return true;
+  if (projectRole === 'CUSTOM' && customPermissions) return !!customPermissions['task.edit'];
+  return false;
 }
 
 async function getContextFromBoard(boardId, userId) {
@@ -24,7 +26,7 @@ async function getContextFromBoard(boardId, userId) {
       project: {
         include: {
           workspace: { include: { members: { where: { userId } } } },
-          members: { where: { userId } }
+          members: { where: { userId }, include: { customRole: true } }
         }
       }
     }
@@ -38,12 +40,13 @@ async function getContextFromBoard(boardId, userId) {
 
   const projectMember = project.members[0] || null;
   const projectRole = projectMember?.projectRole ?? null;
+  const customPermissions = projectMember?.customRole?.permissions ?? null;
 
   if (!canAccessProject(workspaceMember.role, project.visibility, projectRole)) {
     throw ApiError.forbidden('You do not have access to this board');
   }
 
-  return { board, workspaceMember, projectRole };
+  return { board, workspaceMember, projectRole, customPermissions };
 }
 
 async function getContextFromList(listId, userId) {
@@ -55,7 +58,7 @@ async function getContextFromList(listId, userId) {
           project: {
             include: {
               workspace: { include: { members: { where: { userId } } } },
-              members: { where: { userId } }
+              members: { where: { userId }, include: { customRole: true } }
             }
           }
         }
@@ -71,21 +74,22 @@ async function getContextFromList(listId, userId) {
 
   const projectMember = project.members[0] || null;
   const projectRole = projectMember?.projectRole ?? null;
+  const customPermissions = projectMember?.customRole?.permissions ?? null;
 
   if (!canAccessProject(workspaceMember.role, project.visibility, projectRole)) {
     throw ApiError.forbidden('You do not have access to this list');
   }
 
-  return { list, workspaceMember, projectRole };
+  return { list, workspaceMember, projectRole, customPermissions };
 }
 
 export const listService = {
   // Create list — EDITOR or workspace Admin
   async create(boardId, userId, listData, excludeSocketId) {
     const { name } = listData;
-    const { board, workspaceMember, projectRole } = await getContextFromBoard(boardId, userId);
+    const { board, workspaceMember, projectRole, customPermissions } = await getContextFromBoard(boardId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
+    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
       throw ApiError.forbidden('You need Editor access to add sections');
     }
 
@@ -105,7 +109,7 @@ export const listService = {
 
   // Get all lists — any project-accessible member
   async getAll(boardId, userId) {
-    const { workspaceMember, projectRole } = await getContextFromBoard(boardId, userId);
+    const { workspaceMember, projectRole, customPermissions } = await getContextFromBoard(boardId, userId);
     // Access already verified in getContextFromBoard
 
     return prisma.list.findMany({
@@ -149,9 +153,9 @@ export const listService = {
 
   // Update list — EDITOR or workspace Admin
   async update(listId, userId, updateData, excludeSocketId) {
-    const { list, workspaceMember, projectRole } = await getContextFromList(listId, userId);
+    const { list, workspaceMember, projectRole, customPermissions } = await getContextFromList(listId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
+    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
       throw ApiError.forbidden('You need Editor access to update sections');
     }
 
@@ -169,9 +173,9 @@ export const listService = {
 
   // Delete list — EDITOR or workspace Admin
   async delete(listId, userId, excludeSocketId) {
-    const { list: listCtx, workspaceMember, projectRole } = await getContextFromList(listId, userId);
+    const { list: listCtx, workspaceMember, projectRole, customPermissions } = await getContextFromList(listId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
+    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
       throw ApiError.forbidden('You need Editor access to delete sections');
     }
 
@@ -182,9 +186,9 @@ export const listService = {
 
   // Reorder lists — EDITOR or workspace Admin
   async reorder(boardId, userId, listIds) {
-    const { workspaceMember, projectRole } = await getContextFromBoard(boardId, userId);
+    const { workspaceMember, projectRole, customPermissions } = await getContextFromBoard(boardId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
+    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
       throw ApiError.forbidden('You need Editor access to reorder sections');
     }
 

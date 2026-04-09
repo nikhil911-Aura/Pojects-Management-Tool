@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAppDispatch } from '../../store/hooks';
 import { updateProjectMemberRole, removeProjectMember } from '../../store/slices/projectSlice';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const MEMBER_COLORS = ['#4573D2', '#FC636B', '#37A169', '#D69E2E', '#6A67CE', '#3BE8B0', '#F97316', '#EC4899'];
 
@@ -93,6 +94,7 @@ function RoleDropdown({ value, onChange }) {
 
 function ProjectMembersPanel({ project, onClose, onOpenShare, emitInstant }) {
   const dispatch = useAppDispatch();
+  const { confirm, ConfirmDialog } = useConfirm();
   const members = project?.members || [];
 
   const handleRoleChange = (userId, projectRole) => {
@@ -103,8 +105,8 @@ function ProjectMembersPanel({ project, onClose, onOpenShare, emitInstant }) {
     dispatch(updateProjectMemberRole({ projectId: project.id, memberId: userId, projectRole }));
   };
 
-  const handleRemove = (userId, userName) => {
-    if (confirm(`Remove ${userName} from this project?`)) {
+  const handleRemove = async (userId, userName) => {
+    if (await confirm({ title: 'Remove member?', message: `${userName} will lose access to this project.`, confirmText: 'Remove', variant: 'danger' })) {
       // Optimistic
       dispatch({ type: 'project/removeProjectMember/fulfilled', payload: { projectId: project.id, memberId: userId } });
       emitInstant?.('member_removed_instant', { userId });
@@ -228,6 +230,7 @@ function ProjectMembersPanel({ project, onClose, onOpenShare, emitInstant }) {
           </div>
         </div>
       </div>
+      {ConfirmDialog}
     </div>
   );
 }

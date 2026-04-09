@@ -192,8 +192,10 @@ function Sidebar({ isOpen }) {
 
             {showProjects && (
               <div className="mt-1 space-y-0.5 animate-fade-in">
-                {/* Skeleton while loading */}
-                {(projectsLoading || !projectsLoaded) ? (
+                {/* Skeleton while loading — only show when we have a workspace
+                    and are actively fetching. Without a workspace, no fetch
+                    ever fires, so the skeleton would loop forever. */}
+                {currentWorkspace && (projectsLoading || !projectsLoaded) ? (
                   <div className="space-y-1 px-3 animate-pulse">
                     {[...Array(5)].map((_, i) => (
                       <div key={i} className="flex items-center space-x-2.5 py-1.5">
@@ -202,6 +204,10 @@ function Sidebar({ isOpen }) {
                       </div>
                     ))}
                   </div>
+                ) : projects.length === 0 ? (
+                  <p className="px-3 py-2 text-[11px] text-[var(--asana-sidebar-text-muted)] italic">
+                    {currentWorkspace ? 'No projects yet. Create one to get started.' : 'Create a workspace first to add projects.'}
+                  </p>
                 ) : (
                   <>
                     {visibleProjects.map((project) => (

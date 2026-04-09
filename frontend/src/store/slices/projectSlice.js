@@ -64,9 +64,11 @@ export const deleteProject = createAsyncThunk(
 
 export const addProjectMember = createAsyncThunk(
   'project/addProjectMember',
-  async ({ projectId, userId, projectRole = 'EDITOR' }, { rejectWithValue }) => {
+  async ({ projectId, userId, projectRole = 'EDITOR', roleId }, { rejectWithValue }) => {
     try {
-      const response = await api.post(`/api/v1/projects/${projectId}/members`, { userId, projectRole });
+      const body = { userId, projectRole };
+      if (roleId) body.roleId = roleId;
+      const response = await api.post(`/api/v1/projects/${projectId}/members`, body);
       return { projectId, member: response.data.data };
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to add member');
@@ -76,9 +78,11 @@ export const addProjectMember = createAsyncThunk(
 
 export const updateProjectMemberRole = createAsyncThunk(
   'project/updateProjectMemberRole',
-  async ({ projectId, memberId, projectRole }, { rejectWithValue }) => {
+  async ({ projectId, memberId, projectRole, customPermissions }, { rejectWithValue }) => {
     try {
-      const response = await api.put(`/api/v1/projects/${projectId}/members/${memberId}/role`, { projectRole });
+      const body = { projectRole };
+      if (projectRole === 'CUSTOM' && customPermissions) body.customPermissions = customPermissions;
+      const response = await api.put(`/api/v1/projects/${projectId}/members/${memberId}/role`, body);
       return { projectId, member: response.data.data };
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update role');
@@ -131,6 +135,36 @@ const projectSlice = createSlice({
       if (!project?.id) return;
       if (state.projects.some(p => p.id === project.id)) return;
       state.projects.unshift(project);
+    },
+    // Live role permission update — patches customRole on every member
+    // who uses the updated role, across currentProject AND projects array.
+    socketRoleUpdated: (state, action) => {
+      const { roleId, permissions, name, color } = action.payload;
+      if (!roleId) return;
+      // Patch currentProject members in-place
+      if (state.currentProject?.members) {
+        state.currentProject.members.forEach(m => {
+          if (m.customRole?.id === roleId || m.projectRoleId === roleId) {
+            if (!m.customRole) m.customRole = { id: roleId };
+            m.customRole.permissions = permissions;
+            if (name) m.customRole.name = name;
+            if (color) m.customRole.color = color;
+          }
+        });
+      }
+    },
+    // Live role deletion — reassign affected members to the Viewer role
+    socketRoleDeleted: (state, action) => {
+      const { roleId, viewerRole } = action.payload;
+      if (!roleId) return;
+      if (state.currentProject?.members && viewerRole) {
+        state.currentProject.members.forEach(m => {
+          if (m.customRole?.id === roleId || m.projectRoleId === roleId) {
+            m.customRole = viewerRole;
+            m.projectRoleId = viewerRole.id;
+          }
+        });
+      }
     },
     socketProjectUpdated: (state, action) => {
       const project = action.payload;
@@ -250,5 +284,5 @@ const projectSlice = createSlice({
   }
 });
 
-export const { setCurrentProject, clearProjects, clearError, socketProjectAdded, socketProjectUpdated, socketProjectRemoved } = projectSlice.actions;
+export const { setCurrentProject, clearProjects, clearError, socketProjectAdded, socketProjectUpdated, socketProjectRemoved, socketRoleUpdated, socketRoleDeleted } = projectSlice.actions;
 export default projectSlice.reducer;

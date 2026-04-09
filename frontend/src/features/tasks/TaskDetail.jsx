@@ -5,6 +5,7 @@ import { fetchTask, updateTask, createSubtask, deleteTask, assignUser, addAttach
 import { optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticAddSubtask } from '../../store/slices/boardSlice';
 import api from '../../services/api';
 import { useRole } from '../../hooks/useRole';
+import { useConfirm } from '../../hooks/useConfirm';
 import { useCelebration } from '../../components/Celebration';
 import { useAutoSave, SaveIndicator } from '../../hooks/useAutoSave';
 
@@ -149,6 +150,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
   const { lists } = useAppSelector((state) => state.board);
   const { user } = useAppSelector((state) => state.auth);
   const { canEdit, canComment } = useRole();
+  const { confirm, ConfirmDialog } = useConfirm();
   const members = currentProject?.members || [];
 
   // Find task from board lists (has optimistic updates from list view)
@@ -272,8 +274,8 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
     finally { setIsUploading(false); }
   };
 
-  const handleDeleteTask = () => {
-    if (window.confirm('Delete this task?')) {
+  const handleDeleteTask = async () => {
+    if (await confirm({ title: 'Delete task?', message: 'This task and all its subtasks will be permanently deleted.', confirmText: 'Delete', variant: 'danger' })) {
       dispatch(optimisticDeleteTask(taskId));
       emitInstant?.('task_deleted', { taskId });
       if (isEmbedded) onClose();
@@ -639,6 +641,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
         </div>
       </div>
       <CelebrationComponent />
+      {ConfirmDialog}
     </div>
   );
 }

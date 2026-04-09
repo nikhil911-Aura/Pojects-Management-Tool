@@ -1,6 +1,7 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
 import { emitToWorkspace, emitToProject } from '../../core/socket.js';
+import projectRoleService from './projectRoleService.js';
 
 export const projectService = {
   // Create project
@@ -72,6 +73,15 @@ export const projectService = {
           }
         }
       }
+    });
+
+    // Ensure the workspace has system roles (Editor / Commenter / Viewer).
+    // seedSystemRoles is idempotent — only creates if missing.
+    const roleMap = await projectRoleService.seedSystemRoles(workspaceId);
+    // Assign the project creator to the Editor role.
+    await prisma.projectMember.updateMany({
+      where: { projectId: project.id, userId },
+      data: { projectRoleId: roleMap['Editor'] },
     });
 
     emitToWorkspace(workspaceId, 'project_created', { project }, excludeSocketId);
@@ -209,7 +219,8 @@ export const projectService = {
                 email: true,
                 avatar: true
               }
-            }
+            },
+            customRole: true
           }
         }
       }
@@ -363,12 +374,25 @@ export const projectService = {
       throw ApiError.conflict('User is already a member of this project');
     }
 
+    // Resolve the projectRoleId from the workspace's role pool.
+    // Accepts either `roleId` (new) or `projectRole` string (legacy compat).
+    let projectRoleId = memberData.roleId || null;
+    if (!projectRoleId && projectRole) {
+      const nameMap = { EDITOR: 'Editor', COMMENTER: 'Commenter', VIEWER: 'Viewer' };
+      const roleName = nameMap[projectRole] || 'Editor';
+      const systemRole = await prisma.customProjectRole.findFirst({
+        where: { workspaceId: project.workspaceId, isSystem: true, name: roleName },
+      });
+      if (systemRole) projectRoleId = systemRole.id;
+    }
+
     const member = await prisma.projectMember.create({
       data: {
         userId: newMemberId,
         projectId,
         role,
-        projectRole
+        projectRole,
+        ...(projectRoleId && { projectRoleId }),
       },
       include: {
         user: {
@@ -378,7 +402,8 @@ export const projectService = {
             email: true,
             avatar: true
           }
-        }
+        },
+        customRole: true
       }
     });
 
@@ -448,23 +473,50 @@ export const projectService = {
     return true;
   },
 
-  // Update a project member's role (Editor / Commenter / Viewer)
+  // Update a project member's role — accepts a roleId pointing to a CustomProjectRole.
+  // Also supports legacy `projectRole` string for backward compat (maps to system role).
   async updateMemberRole(projectId, userId, memberData, excludeSocketId) {
-    const { userId: targetUserId, projectRole } = memberData;
+    const { userId: targetUserId, projectRole, roleId, customPermissions } = memberData;
 
     const project = await prisma.project.findUnique({ where: { id: projectId } });
     if (!project) throw ApiError.notFound('Project not found');
 
-    // Only workspace Admin/Owner can change project roles
     const membership = await prisma.workspaceMember.findFirst({
       where: { workspaceId: project.workspaceId, userId, role: { in: ['OWNER', 'ADMIN'] } }
     });
     if (!membership) throw ApiError.forbidden('You do not have permission to change project roles');
 
+    let targetRoleId = roleId;
+
+    // If caller sent `projectRole` string instead of `roleId`, resolve it to the system role.
+    if (!targetRoleId && projectRole) {
+      const nameMap = { EDITOR: 'Editor', COMMENTER: 'Commenter', VIEWER: 'Viewer' };
+      const roleName = nameMap[projectRole];
+      if (roleName) {
+        const systemRole = await prisma.customProjectRole.findFirst({
+          where: { workspaceId: project.workspaceId, isSystem: true, name: roleName },
+        });
+        if (systemRole) targetRoleId = systemRole.id;
+      }
+    }
+
+    if (!targetRoleId) throw ApiError.badRequest('Invalid role');
+
+    // If updating permissions for the target role itself (custom role editor)
+    if (customPermissions) {
+      await prisma.customProjectRole.update({
+        where: { id: targetRoleId },
+        data: { permissions: customPermissions },
+      });
+    }
+
     const updated = await prisma.projectMember.update({
       where: { userId_projectId: { userId: targetUserId, projectId } },
-      data: { projectRole },
-      include: { user: { select: { id: true, name: true, email: true, avatar: true } } }
+      data: { projectRoleId: targetRoleId },
+      include: {
+        user: { select: { id: true, name: true, email: true, avatar: true } },
+        customRole: true,
+      },
     });
 
     emitToProject(projectId, 'member_role_changed', { member: updated, projectId }, excludeSocketId);

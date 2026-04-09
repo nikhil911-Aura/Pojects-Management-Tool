@@ -22,14 +22,27 @@ function canAccessProject(workspaceRole, projectVisibility, projectRole) {
   return projectRole !== null;
 }
 
-function canEditProject(workspaceRole, projectRole) {
+function canEditProject(workspaceRole, projectRole, customPermissions) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
-  return projectRole === 'EDITOR';
+  if (projectRole === 'EDITOR') return true;
+  // CUSTOM role: check granular permissions
+  if (projectRole === 'CUSTOM' && customPermissions) return !!customPermissions['task.edit'];
+  return false;
 }
 
-function canCommentProject(workspaceRole, projectRole) {
+function canCommentProject(workspaceRole, projectRole, customPermissions) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
-  return projectRole === 'EDITOR' || projectRole === 'COMMENTER';
+  if (projectRole === 'EDITOR' || projectRole === 'COMMENTER') return true;
+  if (projectRole === 'CUSTOM' && customPermissions) return !!customPermissions['comment.create'];
+  return false;
+}
+
+// Granular check for any permission key on a CUSTOM role
+function hasPermission(workspaceRole, projectRole, customPermissions, key) {
+  if (isWorkspaceAdmin(workspaceRole)) return true;
+  if (projectRole === 'EDITOR') return true;
+  if (projectRole === 'CUSTOM' && customPermissions) return !!customPermissions[key];
+  return false;
 }
 
 // ── Context resolvers ─────────────────────────────────────────────────────────
@@ -43,7 +56,7 @@ async function getContextFromList(listId, userId) {
           project: {
             include: {
               workspace: { include: { members: { where: { userId } } } },
-              members: { where: { userId } }
+              members: { where: { userId }, include: { customRole: true } }
             }
           }
         }
@@ -59,12 +72,13 @@ async function getContextFromList(listId, userId) {
 
   const projectMember = project.members[0] || null;
   const projectRole = projectMember?.projectRole ?? null;
+  const customPermissions = projectMember?.customRole?.permissions ?? null;
 
   if (!canAccessProject(workspaceMember.role, project.visibility, projectRole)) {
     throw ApiError.forbidden('You do not have access to this project');
   }
 
-  return { list, workspaceMember, projectRole, projectId: project.id };
+  return { list, workspaceMember, projectRole, customPermissions, projectId: project.id };
 }
 
 async function getContextFromTask(taskId, userId) {
@@ -78,7 +92,7 @@ async function getContextFromTask(taskId, userId) {
               project: {
                 include: {
                   workspace: { include: { members: { where: { userId } } } },
-                  members: { where: { userId } }
+                  members: { where: { userId }, include: { customRole: true } }
                 }
               }
             }
@@ -96,12 +110,13 @@ async function getContextFromTask(taskId, userId) {
 
   const projectMember = project.members[0] || null;
   const projectRole = projectMember?.projectRole ?? null;
+  const customPermissions = projectMember?.customRole?.permissions ?? null;
 
   if (!canAccessProject(workspaceMember.role, project.visibility, projectRole)) {
     throw ApiError.forbidden('You do not have access to this project');
   }
 
-  return { task, workspaceMember, projectRole, projectId: project.id };
+  return { task, workspaceMember, projectRole, customPermissions, projectId: project.id };
 }
 
 // ── Task Service ──────────────────────────────────────────────────────────────
@@ -111,9 +126,9 @@ export const taskService = {
   async create(listId, userId, taskData, excludeSocketId) {
     const { title, description, status, priority, dueDate, estimatedTime, actualTime, taskType, parentId } = taskData;
 
-    const { list, workspaceMember, projectRole, projectId } = await getContextFromList(listId, userId);
+    const { list, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromList(listId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
+    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
       throw ApiError.forbidden('You need Editor access to create tasks');
     }
 
@@ -190,9 +205,9 @@ export const taskService = {
 
   // Update task — EDITOR or workspace Admin
   async update(taskId, userId, updateData, excludeSocketId) {
-    const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
+    const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
+    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
       throw ApiError.forbidden('You need Editor access to edit tasks');
     }
 
@@ -232,9 +247,9 @@ export const taskService = {
 
   // Delete task — workspace Admin always; EDITOR who created the task
   async delete(taskId, userId, excludeSocketId) {
-    const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
+    const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
+    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
       throw ApiError.forbidden('You need Editor access to delete tasks');
     }
 
@@ -264,9 +279,9 @@ export const taskService = {
     const newParentId = parentId === undefined ? undefined : (parentId || null);
     console.log('[moveTask v2/transactional]', { taskId, listId, targetIndex, parentId: newParentId });
 
-    const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
+    const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
+    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
       throw ApiError.forbidden('You need Editor access to move tasks');
     }
 
@@ -387,9 +402,9 @@ export const taskService = {
 
   // Assign user — EDITOR or workspace Admin
   async assignUser(taskId, userId, assigneeId, excludeSocketId) {
-    const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
+    const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
+    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
       throw ApiError.forbidden('You need Editor access to assign users');
     }
 
@@ -404,9 +419,9 @@ export const taskService = {
 
   // Remove assignee — EDITOR or workspace Admin
   async removeAssignee(taskId, userId, assigneeId, excludeSocketId) {
-    const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
+    const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
+    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
       throw ApiError.forbidden('You need Editor access to remove assignees');
     }
 
@@ -417,9 +432,9 @@ export const taskService = {
 
   // Add attachment — EDITOR or workspace Admin
   async addAttachment(taskId, userId, fileData) {
-    const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
+    const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
+    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
       throw ApiError.forbidden('You need Editor access to add attachments');
     }
 
@@ -434,9 +449,9 @@ export const taskService = {
 
   // Remove attachment — workspace Admin always; EDITOR who owns the attachment
   async removeAttachment(taskId, userId, attachmentId) {
-    const { task, workspaceMember, projectRole, projectId } = await getContextFromTask(taskId, userId);
+    const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
+    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
       throw ApiError.forbidden('You need Editor access to remove attachments');
     }
 

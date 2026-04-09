@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { fetchProjects, socketProjectAdded, socketProjectRemoved } from '../store/slices/projectSlice';
+import { fetchProjects, socketProjectAdded, socketProjectRemoved, socketRoleUpdated, socketRoleDeleted } from '../store/slices/projectSlice';
 
 /**
  * Workspace-level socket — listens for project CRUD events
@@ -69,6 +69,17 @@ export const useWorkspaceSocket = () => {
       }
     });
 
+    // Role permissions updated — admin changed a role's checkboxes.
+    // Patch every member using that role so useRole() re-derives instantly.
+    socket.on('project_role_updated', (data) => {
+      if (data?.roleId) dispatch(socketRoleUpdated(data));
+    });
+
+    // Role deleted — affected members reassigned to Viewer.
+    socket.on('project_role_deleted', (data) => {
+      if (data?.roleId) dispatch(socketRoleDeleted(data));
+    });
+
     return () => {
       socket.emit('leave_workspace', workspaceId);
       socket.off('connect');
@@ -78,6 +89,8 @@ export const useWorkspaceSocket = () => {
       socket.off('project_deleted');
       socket.off('project_member_added');
       socket.off('project_member_removed');
+      socket.off('project_role_updated');
+      socket.off('project_role_deleted');
       socket.disconnect();
     };
   }, [workspaceId, currentUser?.id, dispatch]);

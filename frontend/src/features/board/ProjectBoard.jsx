@@ -13,6 +13,7 @@ import { OverviewView, TimelineView, DashboardView, GanttView, WorkloadView } fr
 import TaskDetail from '../tasks/TaskDetail';
 import { useSocket } from '../../hooks/useSocket';
 import { useRole } from '../../hooks/useRole';
+import { useConfirm } from '../../hooks/useConfirm';
 import ShareModal from '../projects/ShareModal';
 import ProjectMembersPanel from '../projects/ProjectMembersPanel';
 import { useCelebration } from '../../components/Celebration';
@@ -153,7 +154,14 @@ function ProjectBoard() {
 
   const { pendingItems, addPendingItem, clearPendingItems, liveEdits, emitLiveEdit, emitInstant, customFieldEvent, setCustomFieldCallback, releaseEditLock } = useSocket(projectId, currentProject?.board?.id);
 
-  const { canEdit, isWorkspaceAdmin } = useRole();
+  const { canEdit, can, isWorkspaceAdmin } = useRole();
+  const { confirm, ConfirmDialog } = useConfirm();
+  // Project-level permissions — used to gate UI elements that were previously
+  // restricted to workspace admins only but should now be available to custom
+  // roles with the right permissions.
+  const canInvite = isWorkspaceAdmin || can('project.invite');
+  const canEditProject = isWorkspaceAdmin || can('project.edit');
+  const canDeleteProject = isWorkspaceAdmin || can('project.delete');
   const { celebrate, CelebrationComponent } = useCelebration();
 
   const [prefetchedCF, setPrefetchedCF] = useState({ fields: null, values: null });
@@ -282,7 +290,8 @@ function ProjectBoard() {
   };
 
   const handleDeleteProject = async () => {
-    if (!window.confirm(`Delete "${currentProject?.name}" and all its tasks, sections, and data? This cannot be undone.`)) return;
+    const ok = await confirm({ title: 'Delete project?', message: `"${currentProject?.name}" and all its tasks, sections, and data will be permanently deleted. This cannot be undone.`, confirmText: 'Delete Project', variant: 'danger' });
+    if (!ok) return;
     await dispatch(deleteProject(projectId)).unwrap();
     navigate('/');
   };
@@ -401,8 +410,8 @@ function ProjectBoard() {
                     onBlur={handleRenameProject}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleRenameProject(); if (e.key === 'Escape') setEditingProjectName(false); }} />
                 ) : (
-                  <h1 className={`text-base font-bold text-[var(--asana-text-primary)] ${isWorkspaceAdmin ? 'cursor-pointer hover:text-asana-blue transition-colors' : ''}`}
-                    onClick={() => { if (isWorkspaceAdmin) { setProjectNameInput(currentProject.name); setEditingProjectName(true); } }}>
+                  <h1 className={`text-base font-bold text-[var(--asana-text-primary)] ${canEditProject ? 'cursor-pointer hover:text-asana-blue transition-colors' : ''}`}
+                    onClick={() => { if (canEditProject) { setProjectNameInput(currentProject.name); setEditingProjectName(true); } }}>
                     {currentProject.name}
                   </h1>
                 )}
@@ -415,7 +424,7 @@ function ProjectBoard() {
                 </span>
 
                 {/* Project actions "..." menu */}
-                {isWorkspaceAdmin && (
+                {(canEditProject || canDeleteProject) && (
                   <div className="relative" ref={projectMenuRef}>
                     <button onClick={() => setShowProjectMenu(!showProjectMenu)}
                       className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] transition-colors">
@@ -492,8 +501,8 @@ function ProjectBoard() {
                 )}
               </div>
 
-              {/* Add member button (admin only) */}
-              {isWorkspaceAdmin && (
+              {/* Add member button */}
+              {canInvite && (
                 <button
                   onClick={() => setShowShare(true)}
                   className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-[var(--asana-text-secondary)] hover:border-asana-blue hover:text-asana-blue transition-colors ml-1"
@@ -505,8 +514,8 @@ function ProjectBoard() {
                 </button>
               )}
 
-              {/* Member popover (admin/owner only) */}
-              {activeMemberPopover && isWorkspaceAdmin && (
+              {/* Member popover */}
+              {activeMemberPopover && canInvite && (
                 <MemberPopover
                   member={activeMemberPopover.member}
                   color={MEMBER_COLORS[activeMemberPopover.index % MEMBER_COLORS.length]}
@@ -527,8 +536,8 @@ function ProjectBoard() {
               <span className="hidden sm:inline">Share</span>
             </button>
 
-            {/* Members panel (admin only) */}
-            {isWorkspaceAdmin && (
+            {/* Members panel */}
+            {canInvite && (
               <button
                 onClick={() => setShowMembersPanel(true)}
                 className="flex items-center text-xs px-3 py-1.5 rounded-asana border border-[var(--asana-border)] text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -540,7 +549,7 @@ function ProjectBoard() {
               </button>
             )}
 
-            {canEdit && (
+            {can('section.create') && (
               <button
                 onClick={() => {
                   if (activeView === 'list') {
@@ -864,6 +873,7 @@ function ProjectBoard() {
 
       {/* Celebration animation */}
       <CelebrationComponent />
+      {ConfirmDialog}
     </div>
   );
 }

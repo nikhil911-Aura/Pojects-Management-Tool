@@ -49,10 +49,12 @@ enum MemberStatus {
 // Editor: full read/write within the project
 // Commenter: can view + comment, cannot edit tasks or sections
 // Viewer: read-only, cannot comment or edit
+// Custom: granular permissions defined in ProjectMember.customPermissions JSON
 enum ProjectRole {
   EDITOR
   COMMENTER
   VIEWER
+  CUSTOM
 }
 
 // Models
@@ -93,6 +95,7 @@ model Workspace {
   projects    Project[]
   tags        Tag[]
   invites     WorkspaceInvite[]
+  roles       CustomProjectRole[]
 }
 
 model WorkspaceMember {
@@ -196,11 +199,38 @@ model CustomFieldValue {
   @@index([taskId])
 }
 
+// Reusable named role shared across ALL projects in a workspace.
+// 3 system roles (Editor / Commenter / Viewer) are seeded on workspace creation.
+// Admins can create additional custom roles like "QA Tester", "Client Reviewer".
+// When assigning a member to a project, pick from this workspace-wide pool.
+model CustomProjectRole {
+  id          String   @id @default(uuid())
+  name        String                         // "Editor", "QA Tester", etc.
+  description String?
+  color       String   @default("#6B7280")   // badge color
+  isSystem    Boolean  @default(false)       // true for Editor/Commenter/Viewer — can't delete/rename
+  permissions Json     @default("{}")        // { "task.create": true, "task.delete": false, ... }
+  position    Int      @default(0)           // display order in dropdowns
+  createdAt   DateTime @default(now())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members     ProjectMember[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
 model ProjectMember {
   id          String      @id @default(uuid())
-  role        Role        @default(MEMBER)        // kept for compat, not used for permission checks
-  projectRole ProjectRole @default(EDITOR)        // actual permission level within the project
+  role        Role        @default(MEMBER)        // workspace-level role (kept for legacy compat)
+  projectRole ProjectRole @default(EDITOR)        // DEPRECATED — kept for data migration only
+  customPermissions Json?                         // DEPRECATED — migrated into CustomProjectRole.permissions
   createdAt   DateTime    @default(now())
+
+  // New: points to the named role in CustomProjectRole
+  projectRoleId String?
+  customRole    CustomProjectRole? @relation(fields: [projectRoleId], references: [id], onDelete: SetNull)
 
   // Relations
   userId    String
@@ -211,6 +241,7 @@ model ProjectMember {
   @@unique([userId, projectId])
   @@index([userId])
   @@index([projectId])
+  @@index([projectRoleId])
 }
 
 model Board {
