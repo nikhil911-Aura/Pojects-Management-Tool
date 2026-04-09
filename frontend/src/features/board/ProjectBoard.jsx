@@ -109,7 +109,7 @@ function ProjectBoard() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { currentProject, projectLoading, projects } = useAppSelector((state) => state.project);
-  const { lists, loading: listsLoading } = useAppSelector((state) => state.board);
+  const { lists, loading: listsLoading, listsForBoardId } = useAppSelector((state) => state.board);
 
   const [initialLoaded, setInitialLoaded] = useState(false);
   const prevProjectIdRef = useRef(projectId);
@@ -120,9 +120,16 @@ function ProjectBoard() {
     setInitialLoaded(false);
   }
 
-  // Show content if data is loaded AND matches current route
-  // This avoids showing stale data from a different project
-  const isReady = initialLoaded && currentProject?.id === projectId;
+  // Show content only when EVERY piece of data matches the current route:
+  //   1. The bootstrap effect has finished (initialLoaded)
+  //   2. currentProject's id matches the URL (no stale project from a previous nav)
+  //   3. state.board.lists is for THIS project's board (no cross-project task leakage)
+  // Without #3, switching projects fast could briefly render the old project's
+  // tasks under the new project's name.
+  const isReady =
+    initialLoaded &&
+    currentProject?.id === projectId &&
+    (!currentProject?.board?.id || listsForBoardId === currentProject.board.id);
 
   const { pendingItems, addPendingItem, clearPendingItems, liveEdits, emitLiveEdit, emitInstant, customFieldEvent, setCustomFieldCallback, releaseEditLock } = useSocket(projectId, currentProject?.board?.id);
 

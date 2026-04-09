@@ -34,17 +34,32 @@ function AcceptInvite() {
         setLoading(false);
         return;
       }
-      
+
       try {
         const response = await api.get(`/api/v1/invites/validate/${token}`);
         setInvite(response.data.data);
-        
+
         // Check email mismatch
         if (currentUser && currentUser.email !== response.data.data.email) {
           setEmailMismatch(true);
         }
       } catch (err) {
-        setError(err.response?.data?.message || 'Invalid or expired invitation');
+        const message = err.response?.data?.message || 'Invalid or expired invitation';
+        setError(message);
+        // Token reached a terminal state (accepted / cancelled / expired / invalid).
+        // Clear it from localStorage so the user isn't redirected back here on
+        // every subsequent login. Without this, the post-login flow in Login.jsx
+        // re-reads the stale token forever and the user is stuck in a loop.
+        const lower = String(message).toLowerCase();
+        const isTerminal =
+          lower.includes('accepted') ||
+          lower.includes('cancelled') ||
+          lower.includes('canceled') ||
+          lower.includes('expired') ||
+          lower.includes('invalid');
+        if (isTerminal) {
+          localStorage.removeItem(INVITE_TOKEN_KEY);
+        }
       } finally {
         setLoading(false);
       }
@@ -52,6 +67,10 @@ function AcceptInvite() {
 
     if (token) {
       validateToken();
+    } else {
+      // No token in URL or localStorage — make sure no stale token is left behind.
+      localStorage.removeItem(INVITE_TOKEN_KEY);
+      setLoading(false);
     }
   }, [token, currentUser]);
 

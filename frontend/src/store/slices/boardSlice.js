@@ -65,7 +65,13 @@ export const reorderLists = createAsyncThunk(
 const initialState = {
   lists: [],
   loading: false,
-  error: null
+  error: null,
+  // Tracks which board the current committed `lists` array belongs to.
+  listsForBoardId: null,
+  // Tracks the LATEST board the user has requested. Updated in pending,
+  // checked in fulfilled to drop stale out-of-order responses (cross-board
+  // task leakage when switching workspaces fast).
+  pendingBoardId: null,
 };
 
 const boardSlice = createSlice({
@@ -299,12 +305,31 @@ const boardSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchLists.pending, (state) => {
+      .addCase(fetchLists.pending, (state, action) => {
         state.loading = true;
+        const requestedBoardId = action.meta.arg;
+        // Always record the latest requested board so we can recognize stale
+        // responses in fulfilled/rejected.
+        state.pendingBoardId = requestedBoardId;
+        // If we're switching to a different board, wipe the previous board's
+        // tasks immediately so they don't flash on screen during the load.
+        if (requestedBoardId !== state.listsForBoardId) {
+          state.lists = [];
+          state.listsForBoardId = null;
+        }
       })
       .addCase(fetchLists.fulfilled, (state, action) => {
+        const requestedBoardId = action.meta.arg;
+        // Race-condition guard: drop the response if the user has already
+        // moved on to a different board. Prevents cross-workspace task leakage
+        // when switching projects fast (slow A response would otherwise
+        // overwrite the freshly-loaded B data).
+        if (state.pendingBoardId && state.pendingBoardId !== requestedBoardId) {
+          return;
+        }
         state.loading = false;
         state.lists = action.payload;
+        state.listsForBoardId = requestedBoardId;
       })
       .addCase(fetchLists.rejected, (state, action) => {
         state.loading = false;

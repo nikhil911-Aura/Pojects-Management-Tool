@@ -105,6 +105,8 @@ const initialState = {
   projectLoading: false,   // main view: fetching a single project
   projectsLoaded: false,   // tracks if initial fetch completed for current workspace
   projectsForWorkspaceId: null, // which workspace the current projects[] belongs to
+  pendingWorkspaceId: null,     // latest workspace requested — drops stale fetchProjects responses
+  pendingProjectId: null,       // latest project requested — drops stale fetchProject responses
   error: null
 };
 
@@ -127,20 +129,28 @@ const projectSlice = createSlice({
     builder
       .addCase(fetchProjects.pending, (state, action) => {
         state.projectsLoading = true;
-        // Only wipe the existing projects[] when SWITCHING workspaces.
-        // For same-workspace refetches (e.g. socket-driven project_created),
-        // keep the current list visible so the sidebar doesn't flash.
         const requestedWorkspaceId = action.meta.arg;
+        // Track the latest requested workspace so we can drop stale responses below.
+        state.pendingWorkspaceId = requestedWorkspaceId;
+        // Only wipe the existing projects[] when SWITCHING workspaces.
+        // For same-workspace refetches keep the current list visible.
         if (requestedWorkspaceId !== state.projectsForWorkspaceId) {
           state.projects = [];
           state.projectsLoaded = false;
         }
       })
       .addCase(fetchProjects.fulfilled, (state, action) => {
+        const requestedWorkspaceId = action.meta.arg;
+        // Race-condition guard: drop the response if the user has already
+        // moved on to a different workspace (sidebar would otherwise show
+        // projects from the wrong workspace).
+        if (state.pendingWorkspaceId && state.pendingWorkspaceId !== requestedWorkspaceId) {
+          return;
+        }
         state.projectsLoading = false;
         state.projects = action.payload;
         state.projectsLoaded = true;
-        state.projectsForWorkspaceId = action.meta.arg;
+        state.projectsForWorkspaceId = requestedWorkspaceId;
       })
       .addCase(fetchProjects.rejected, (state, action) => {
         state.projectsLoading = false;
@@ -150,10 +160,24 @@ const projectSlice = createSlice({
       .addCase(createProject.fulfilled, (state, action) => {
         state.projects.unshift(action.payload);
       })
-      .addCase(fetchProject.pending, (state) => {
+      .addCase(fetchProject.pending, (state, action) => {
         state.projectLoading = true;
+        const requestedProjectId = action.meta.arg;
+        state.pendingProjectId = requestedProjectId;
+        // If we're switching to a different project, clear currentProject
+        // immediately so stale data (sections, members) doesn't flash.
+        if (state.currentProject && state.currentProject.id !== requestedProjectId) {
+          state.currentProject = null;
+        }
       })
       .addCase(fetchProject.fulfilled, (state, action) => {
+        const requestedProjectId = action.meta.arg;
+        // Race-condition guard: drop the response if the user has navigated
+        // to a different project. Without this, project A's currentProject
+        // would overwrite project B's after a fast switch.
+        if (state.pendingProjectId && state.pendingProjectId !== requestedProjectId) {
+          return;
+        }
         state.projectLoading = false;
         state.currentProject = action.payload;
       })
