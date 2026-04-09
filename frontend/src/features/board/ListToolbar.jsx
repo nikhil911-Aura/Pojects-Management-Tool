@@ -235,17 +235,9 @@ function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, 
   return (
     <div className="bg-[var(--asana-surface)] px-6 py-2 border-b border-[var(--asana-border)] flex items-center justify-between">
       <div className="flex items-center space-x-2">
-        {canEdit && (
-          <button className="flex items-center text-xs px-3 py-1.5 rounded-md bg-[var(--asana-surface)] border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 font-medium transition-colors">
-            <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add task
-            <svg className="w-3 h-3 ml-1.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-        )}
+        <h2 className="text-sm font-semibold text-[var(--asana-text-primary)] tracking-tight">
+          Add task
+        </h2>
       </div>
 
       <div className="flex items-center space-x-1">

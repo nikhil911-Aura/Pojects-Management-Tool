@@ -928,6 +928,37 @@ function FieldTypePicker({ onSelect, onClose }) {
    Custom Field Time Tracker — stores data as JSON in custom field value
    Format: { total: minutes, entries: [{ mins, date, note }], timerStart: ISO|null }
    ═══════════════════════════════════════════ */
+// Asana-style time-input suggestions: when the user types a number or "Nh",
+// offer interpretations they can click to log instantly.
+function buildTimeSuggestionsLocal(input) {
+  const s = String(input || '').trim().toLowerCase();
+  if (!s) return [];
+  const num = s.match(/^(\d+)$/);
+  if (num) {
+    const n = parseInt(num[1], 10);
+    if (n <= 0) return [];
+    const out = [
+      { label: `${n} min`, mins: n },
+      { label: `${n} ${n === 1 ? 'hour' : 'hours'}`, mins: n * 60 },
+    ];
+    [15, 30, 45].forEach((m) => {
+      out.push({ label: `${n} ${n === 1 ? 'hour' : 'hours'} ${m} min`, mins: n * 60 + m });
+    });
+    return out;
+  }
+  const hOnly = s.match(/^(\d+)\s*h$/);
+  if (hOnly) {
+    const n = parseInt(hOnly[1], 10);
+    return [
+      { label: `${n} ${n === 1 ? 'hour' : 'hours'}`, mins: n * 60 },
+      { label: `${n} ${n === 1 ? 'hour' : 'hours'} 15 min`, mins: n * 60 + 15 },
+      { label: `${n} ${n === 1 ? 'hour' : 'hours'} 30 min`, mins: n * 60 + 30 },
+      { label: `${n} ${n === 1 ? 'hour' : 'hours'} 45 min`, mins: n * 60 + 45 },
+    ];
+  }
+  return [];
+}
+
 function CustomFieldTimeTracker({ taskId, value, canEdit, onChange }) {
   const parsed = (() => {
     try { const p = JSON.parse(value || '{}'); return { total: p.total || 0, entries: p.entries || [], timerStart: p.timerStart || null }; }
@@ -1055,11 +1086,32 @@ function CustomFieldTimeTracker({ taskId, value, canEdit, onChange }) {
                   <button onClick={handleStopTimer} className="flex items-center text-xs px-3 py-1.5 rounded-md bg-red-500 text-white font-medium hover:bg-red-600">Stop timer</button>
                 )}
                 {addingTime ? (
-                  <div className="flex items-center space-x-1">
+                  <div className="relative flex items-center space-x-1">
                     <input type="text" value={addInput} onChange={(e) => setAddInput(e.target.value)} placeholder="1h 30m" autoFocus
-                      className="w-20 text-xs px-2 py-1.5 bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-md outline-none text-[var(--asana-text-primary)] focus:ring-1 focus:ring-asana-blue"
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddTime(); if (e.key === 'Escape') setAddingTime(false); }} />
+                      className="w-24 text-xs px-2 py-1.5 bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-md outline-none text-[var(--asana-text-primary)] focus:ring-1 focus:ring-asana-blue"
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddTime(); if (e.key === 'Escape') { setAddingTime(false); setAddInput(''); } }} />
                     <button onClick={handleAddTime} className="text-xs text-asana-blue font-semibold">Add</button>
+                    {(() => {
+                      const sugs = buildTimeSuggestionsLocal(addInput);
+                      if (!sugs.length) return null;
+                      return (
+                        <div className="absolute bottom-full left-0 mb-1 z-[100] w-44 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-md shadow-lg py-1 animate-fade-in">
+                          {sugs.map((sug) => (
+                            <button key={sug.label}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                const newEntries = [{ mins: sug.mins, date: new Date().toISOString(), note: 'Manual' }, ...entries];
+                                const newTotal = total + sug.mins;
+                                setTotal(newTotal); setEntries(newEntries); setAddInput(''); setAddingTime(false);
+                                persist(newTotal, newEntries, timerStart);
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-xs text-[var(--asana-text-primary)] hover:bg-asana-blue hover:text-white transition-colors">
+                              {sug.label}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <button onClick={() => setAddingTime(true)} className="flex items-center text-xs px-3 py-1.5 rounded-md border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 font-medium">

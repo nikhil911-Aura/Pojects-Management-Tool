@@ -10,6 +10,61 @@ function formatMins(m) {
   return h > 0 ? `${h}h ${String(min).padStart(2, '0')}m` : `${min}m`;
 }
 
+// Parse "1h 30m" / "1h" / "90m" / "90" into minutes. Returns 0 on no match.
+function parseTimeString(str) {
+  const s = String(str || '').trim().toLowerCase();
+  if (!s) return 0;
+  const hm = s.match(/^(\d+)\s*h\s*(\d+)\s*m?$/);
+  if (hm) return parseInt(hm[1], 10) * 60 + parseInt(hm[2], 10);
+  const ho = s.match(/^(\d+)\s*h$/);
+  if (ho) return parseInt(ho[1], 10) * 60;
+  const mo = s.match(/^(\d+)\s*m$/);
+  if (mo) return parseInt(mo[1], 10);
+  const num = parseInt(s, 10);
+  if (!isNaN(num)) return num;
+  return 0;
+}
+
+// Build Asana-style suggestions from the typed input. If the user typed a
+// bare number N, offer "N min", "N hours", "N hours 15 min", etc. If they're
+// already typing "Nh ...", refine the minute portion. Returns an array of
+// { label, mins } — empty if nothing meaningful to suggest.
+function buildTimeSuggestions(input) {
+  const s = String(input || '').trim().toLowerCase();
+  if (!s) return [];
+  // Pure number → offer minute / hour interpretations + the four 15-min steps.
+  const num = s.match(/^(\d+)$/);
+  if (num) {
+    const n = parseInt(num[1], 10);
+    if (n <= 0) return [];
+    const out = [
+      { label: `${n} min`, mins: n },
+      { label: `${n} ${n === 1 ? 'hour' : 'hours'}`, mins: n * 60 },
+    ];
+    [15, 30, 45].forEach((m) => {
+      out.push({ label: `${n} ${n === 1 ? 'hour' : 'hours'} ${m} min`, mins: n * 60 + m });
+    });
+    return out;
+  }
+  // "Nh" → suggest the +15 increments.
+  const hOnly = s.match(/^(\d+)\s*h$/);
+  if (hOnly) {
+    const n = parseInt(hOnly[1], 10);
+    return [
+      { label: `${n} ${n === 1 ? 'hour' : 'hours'}`, mins: n * 60 },
+      { label: `${n} ${n === 1 ? 'hour' : 'hours'} 15 min`, mins: n * 60 + 15 },
+      { label: `${n} ${n === 1 ? 'hour' : 'hours'} 30 min`, mins: n * 60 + 30 },
+      { label: `${n} ${n === 1 ? 'hour' : 'hours'} 45 min`, mins: n * 60 + 45 },
+    ];
+  }
+  // "Nh M" partial → just confirm the full parse.
+  const partial = parseTimeString(s);
+  if (partial > 0) {
+    return [{ label: formatMins(partial), mins: partial }];
+  }
+  return [];
+}
+
 /**
  * TimeTracker — Asana-style time tracking cell
  * Shows total time, expandable popup with entries, timer, and add time.
@@ -130,6 +185,21 @@ export default function TimeTracker({ taskId, initialTotal = 0, timerStartedAt =
       await api.post(`/api/v1/time-tracking/task/${taskId}/entries`, { minutes: mins });
       fetchEntries();
     } catch (e) { console.error(e); } }
+  };
+
+  // Quick-add: log a fixed number of minutes from a preset chip.
+  // Same code path as handleAddTime but skips the input parsing and auto-close.
+  const handleQuickAdd = async (mins) => {
+    if (!mins || mins <= 0) return;
+    const newTotal = total + mins;
+    updateTotal(newTotal);
+    emitInstant?.('time_entry_added', { taskId, totalMinutes: newTotal });
+    if (!isTempId) {
+      try {
+        await api.post(`/api/v1/time-tracking/task/${taskId}/entries`, { minutes: mins });
+        fetchEntries();
+      } catch (e) { console.error(e); }
+    }
   };
 
   // Delete entry
@@ -289,11 +359,36 @@ export default function TimeTracker({ taskId, initialTotal = 0, timerStartedAt =
                 )}
 
                 {addingTime ? (
-                  <div className="flex items-center space-x-1">
+                  <div className="relative flex items-center space-x-1">
                     <input type="text" value={addInput} onChange={(e) => setAddInput(e.target.value)} placeholder="1h 30m" autoFocus
-                      className="w-20 text-xs px-2 py-1.5 bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-md outline-none text-[var(--asana-text-primary)] focus:ring-1 focus:ring-asana-blue"
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddTime(); if (e.key === 'Escape') setAddingTime(false); }} />
+                      className="w-24 text-xs px-2 py-1.5 bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-md outline-none text-[var(--asana-text-primary)] focus:ring-1 focus:ring-asana-blue"
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddTime(); if (e.key === 'Escape') { setAddingTime(false); setAddInput(''); } }} />
                     <button onClick={handleAddTime} className="text-xs text-asana-blue font-semibold">Add</button>
+                    {/* Suggestion dropdown — Asana-style. Appears as the user
+                        types and clicking a row instantly logs that duration. */}
+                    {(() => {
+                      const suggestions = buildTimeSuggestions(addInput);
+                      if (suggestions.length === 0) return null;
+                      return (
+                        <div className="absolute bottom-full left-0 mb-1 z-[100] w-44 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-md shadow-lg py-1 animate-fade-in">
+                          {suggestions.map((sug) => (
+                            <button
+                              key={sug.label}
+                              onMouseDown={(e) => {
+                                // Use mousedown so the click fires before the input loses focus
+                                e.preventDefault();
+                                handleQuickAdd(sug.mins);
+                                setAddInput('');
+                                setAddingTime(false);
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-xs text-[var(--asana-text-primary)] hover:bg-asana-blue hover:text-white transition-colors"
+                            >
+                              {sug.label}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <button onClick={() => setAddingTime(true)}
@@ -304,6 +399,36 @@ export default function TimeTracker({ taskId, initialTotal = 0, timerStartedAt =
                     Add time
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* Quick-add time chips — one click logs a common duration.
+                Mirrors the suggestion row Asana shows in its time tracking popup. */}
+            {canEdit && !addingTime && (
+              <div className="mt-3 pt-3 border-t border-[var(--asana-border)]">
+                <p className="text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] font-semibold mb-1.5">
+                  Quick add
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: '15m', mins: 15 },
+                    { label: '30m', mins: 30 },
+                    { label: '45m', mins: 45 },
+                    { label: '1h',  mins: 60 },
+                    { label: '1h 30m', mins: 90 },
+                    { label: '2h',  mins: 120 },
+                    { label: '4h',  mins: 240 },
+                    { label: '8h',  mins: 480 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.mins}
+                      onClick={() => handleQuickAdd(preset.mins)}
+                      className="px-2 py-1 text-[11px] rounded-md bg-gray-100 dark:bg-gray-800 text-[var(--asana-text-primary)] hover:bg-asana-blue hover:text-white transition-colors font-medium"
+                    >
+                      +{preset.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
