@@ -556,7 +556,6 @@ export const taskService = {
       : [];
 
     const where = {
-      parentId: null, // only top-level tasks
       list: { board: { project: projectFilter } },
       ...(searchConditions.length > 0 && { OR: searchConditions })
     };

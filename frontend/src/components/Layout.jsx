@@ -238,7 +238,7 @@ function Layout() {
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className={`text-sm font-medium truncate ${task.status === 'DONE' ? 'line-through text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>{task.title}</p>
+                            <p className={`text-sm font-medium truncate ${task.status === 'DONE' ? 'text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>{task.title}</p>
                             <div className="flex items-center space-x-1.5 mt-0.5">
                               <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: projectColor }} />
                               <p className="text-[11px] text-[var(--asana-text-secondary)] truncate">{projectName} &middot; {task.list?.name}</p>
