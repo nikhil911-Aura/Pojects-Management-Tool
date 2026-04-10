@@ -165,7 +165,8 @@ export const taskService = {
       // Don't fail task creation if activity log fails
     }
 
-    emitToProject(projectId, 'task_created', { task, listId }, excludeSocketId);
+    // NOTE: task_created emit removed - frontend handles real-time via instant_change
+    // emitToProject(projectId, 'task_created', { task, listId }, excludeSocketId);
     return task;
   },
 
@@ -744,9 +745,10 @@ export const taskService = {
         linkedProject: result,
       });
     }
-    // Also emit to the TARGET project so users there see the new milestone appear
-    emitToProject(targetProjectId, 'task_created', { task: linkedTask, listId: firstList.id });
-
+// Also emit to the TARGET project so users there see the new milestone appear
+    // NOTE: commented out - frontend instant_change handles real-time
+    // emitToProject(targetProjectId, 'task_created', { task: linkedTask, listId: firstList.id });
+    
     return result;
   },
 
