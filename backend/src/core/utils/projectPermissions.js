@@ -35,6 +35,9 @@ export const PROJECT_PERMISSION_KEYS = [
   // Attachments
   { key: 'attachment.add',    group: 'Attachments', label: 'Add attachments' },
   { key: 'attachment.delete', group: 'Attachments', label: 'Delete attachments' },
+  // Milestones
+  { key: 'milestone.multiproject', group: 'Milestones', label: 'Add milestones to other projects' },
+  { key: 'milestone.remove',       group: 'Milestones', label: 'Remove milestones from projects' },
   // Time tracking
   { key: 'time.track',     group: 'Time',     label: 'Log and edit time entries' },
 ];

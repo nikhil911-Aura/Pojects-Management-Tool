@@ -76,6 +76,7 @@ model User {
   attachments   Attachment[]
   timeEntries   TimeEntry[]
   invitesSent   WorkspaceInvite[]
+  projectsCreated Project[]        @relation("ProjectsCreated")
 
   // Refresh tokens
   refreshToken  String?
@@ -152,6 +153,8 @@ model Project {
   // Relations
   workspaceId  String
   workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdById  String?
+  createdBy    User?            @relation("ProjectsCreated", fields: [createdById], references: [id], onDelete: SetNull)
   board        Board?
   members      ProjectMember[]
   customFields CustomField[]
@@ -303,6 +306,12 @@ model Task {
   parentId    String?
   parent      Task?      @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
   subtasks    Task[]     @relation("Subtasks")
+
+  // Multi-project milestones: when a milestone is added to another project,
+  // a new task is created there with linkedMilestoneId pointing to the original.
+  linkedMilestoneId String?
+  linkedMilestone   Task?   @relation("MilestoneLinks", fields: [linkedMilestoneId], references: [id], onDelete: SetNull)
+  milestoneLinks    Task[]  @relation("MilestoneLinks") // all copies in other projects
 
   assignees        TaskAssignee[]
   comments         Comment[]

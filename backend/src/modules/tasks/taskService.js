@@ -583,7 +583,236 @@ export const taskService = {
       orderBy: { updatedAt: 'desc' },
       take: 20
     });
-  }
+  },
+
+  // ── Multi-project milestones ────────────────────────────────────────────────
+
+  /**
+   * Get all projects a milestone is linked to (including its home project).
+   * Returns: [{ projectId, projectName, projectColor, taskId }]
+   */
+  async getMilestoneProjects(taskId, userId) {
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: {
+        list: { include: { board: { include: { project: { select: { id: true, name: true, color: true } } } } } },
+        milestoneLinks: {
+          include: {
+            list: { include: { board: { include: { project: { select: { id: true, name: true, color: true } } } } } },
+          },
+        },
+      },
+    });
+    if (!task) throw ApiError.notFound('Task not found');
+
+    // Home project
+    const results = [{
+      projectId: task.list.board.project.id,
+      projectName: task.list.board.project.name,
+      projectColor: task.list.board.project.color,
+      taskId: task.id,
+      isHome: true,
+    }];
+
+    // Linked copies in other projects
+    for (const link of task.milestoneLinks) {
+      results.push({
+        projectId: link.list.board.project.id,
+        projectName: link.list.board.project.name,
+        projectColor: link.list.board.project.color,
+        taskId: link.id,
+        isHome: false,
+      });
+    }
+
+    // Also check if THIS task is itself a linked copy — include the original's project
+    if (task.linkedMilestoneId) {
+      const original = await prisma.task.findUnique({
+        where: { id: task.linkedMilestoneId },
+        include: {
+          list: { include: { board: { include: { project: { select: { id: true, name: true, color: true } } } } } },
+          milestoneLinks: {
+            where: { id: { not: taskId } },
+            include: {
+              list: { include: { board: { include: { project: { select: { id: true, name: true, color: true } } } } } },
+            },
+          },
+        },
+      });
+      if (original) {
+        // Original's home project
+        results.length = 0; // rebuild to avoid duplicates
+        results.push({
+          projectId: original.list.board.project.id,
+          projectName: original.list.board.project.name,
+          projectColor: original.list.board.project.color,
+          taskId: original.id,
+          isHome: true,
+        });
+        // All links including current task
+        for (const link of original.milestoneLinks) {
+          results.push({
+            projectId: link.list.board.project.id,
+            projectName: link.list.board.project.name,
+            projectColor: link.list.board.project.color,
+            taskId: link.id,
+            isHome: false,
+          });
+        }
+        // Also add current task
+        results.push({
+          projectId: task.list.board.project.id,
+          projectName: task.list.board.project.name,
+          projectColor: task.list.board.project.color,
+          taskId: task.id,
+          isHome: false,
+        });
+      }
+    }
+
+    return results;
+  },
+
+  /**
+   * Add a milestone to another project. Creates a new task with just the title
+   * in the target project's first section. Links back via linkedMilestoneId.
+   */
+  async addMilestoneToProject(taskId, userId, targetProjectId) {
+    // Permission check — user must have milestone.multiproject permission in the source project
+    const { workspaceMember, projectRole, customPermissions } = await getContextFromTask(taskId, userId);
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'milestone.multiproject')) {
+      throw ApiError.forbidden('You do not have permission to add milestones to other projects');
+    }
+
+    // Get the original milestone
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: { list: { include: { board: true } } },
+    });
+    if (!task) throw ApiError.notFound('Task not found');
+    if (task.taskType !== 'MILESTONE') throw ApiError.badRequest('Only milestones can be added to multiple projects');
+
+    // Resolve the original milestone (in case this is already a linked copy)
+    const originalId = task.linkedMilestoneId || task.id;
+
+    // Check user has access to the target project
+    const targetProject = await prisma.project.findUnique({
+      where: { id: targetProjectId },
+      include: {
+        board: { include: { lists: { orderBy: { position: 'asc' }, take: 1 } } },
+        workspace: { include: { members: { where: { userId } } } },
+      },
+    });
+    if (!targetProject) throw ApiError.notFound('Target project not found');
+    if (!targetProject.workspace.members[0]) throw ApiError.forbidden('You do not have access to the target project');
+
+    const firstList = targetProject.board?.lists?.[0];
+    if (!firstList) throw ApiError.badRequest('Target project has no sections');
+
+    // Check if already linked to this project
+    const existingLink = await prisma.task.findFirst({
+      where: { linkedMilestoneId: originalId, list: { board: { project: { id: targetProjectId } } } },
+    });
+    if (existingLink) throw ApiError.conflict('This milestone is already in that project');
+
+    // Also check if the original itself is in the target project
+    const originalTask = await prisma.task.findUnique({
+      where: { id: originalId },
+      include: { list: { include: { board: true } } },
+    });
+    if (originalTask?.list.board.projectId === targetProjectId) {
+      throw ApiError.conflict('This milestone is already in that project');
+    }
+
+    // Create the linked copy — name only, everything else empty
+    const linkedTask = await prisma.task.create({
+      data: {
+        title: task.title,
+        taskType: 'MILESTONE',
+        status: 'TODO',
+        priority: 'LOW',
+        position: 0,
+        listId: firstList.id,
+        linkedMilestoneId: originalId,
+      },
+      include: {
+        list: { include: { board: { include: { project: { select: { id: true, name: true, color: true } } } } } },
+      },
+    });
+
+    const result = {
+      projectId: targetProjectId,
+      projectName: targetProject.name,
+      projectColor: targetProject.color,
+      taskId: linkedTask.id,
+      isHome: false,
+    };
+
+    // Emit to the SOURCE project room so other users viewing this milestone see the update live
+    const sourceProjectId = originalTask?.list.board.projectId || task.list?.board?.projectId;
+    if (sourceProjectId) {
+      emitToProject(sourceProjectId, 'milestone_project_added', {
+        milestoneId: originalId,
+        linkedProject: result,
+      });
+    }
+    // Also emit to the TARGET project so users there see the new milestone appear
+    emitToProject(targetProjectId, 'task_created', { task: linkedTask, listId: firstList.id });
+
+    return result;
+  },
+
+  /**
+   * Remove a milestone from a project. Deletes the linked copy task.
+   * Cannot remove from the home project (the original milestone).
+   */
+  async removeMilestoneFromProject(taskId, userId, projectId) {
+    // Permission check on the source task's project
+    const { workspaceMember, projectRole, customPermissions } = await getContextFromTask(taskId, userId);
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'milestone.remove')) {
+      throw ApiError.forbidden('You do not have permission to remove milestones from projects');
+    }
+
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: { list: { include: { board: true } } },
+    });
+    if (!task) throw ApiError.notFound('Task not found');
+
+    // Resolve the original milestone
+    const originalId = task.linkedMilestoneId || task.id;
+
+    // Find the linked copy in the target project
+    const linkedCopy = await prisma.task.findFirst({
+      where: {
+        linkedMilestoneId: originalId,
+        list: { board: { projectId } },
+      },
+      include: { list: { include: { board: true } } },
+    });
+
+    // Maybe the task itself IS the copy in that project
+    const isOriginalInProject = task.list.board.projectId === projectId && !task.linkedMilestoneId;
+    if (isOriginalInProject) {
+      throw ApiError.badRequest('Cannot remove a milestone from its home project');
+    }
+
+    const taskToDelete = linkedCopy || (task.list.board.projectId === projectId ? task : null);
+    if (!taskToDelete) throw ApiError.notFound('Milestone not found in that project');
+
+    await prisma.task.delete({ where: { id: taskToDelete.id } });
+
+    // Emit to source project for live update of the Projects list in detail panel
+    const sourceProjectId = task.list.board.projectId;
+    emitToProject(sourceProjectId, 'milestone_project_removed', {
+      milestoneId: originalId,
+      removedProjectId: projectId,
+    });
+    // Emit to target project so the task disappears from the list view
+    emitToProject(projectId, 'task_deleted', taskToDelete.id);
+
+    return { message: 'Milestone removed from project' };
+  },
 };
 
 export default taskService;

@@ -643,7 +643,7 @@ function Workspace() {
               <div className="divide-y divide-[var(--asana-border)]">
                 {[...members, ...invites].map((person) => (
                   <div key={person.id}
-                    className={`flex items-center justify-between px-6 py-3.5 transition-colors ${
+                    className={`group flex items-center justify-between px-6 py-3.5 transition-colors ${
                       person.status === 'pending' ? 'bg-yellow-50/30 dark:bg-yellow-900/5' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'
                     }`}>
                     <div className="flex items-center space-x-3">
@@ -695,9 +695,51 @@ function Workspace() {
                           )}
                         </>
                       ) : (
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${ROLE_STYLE[person.role] || ROLE_STYLE.MEMBER}`}>
-                          {person.role}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          {isAdmin && person.role !== 'OWNER' && person.id !== currentUser?.id ? (
+                            <select
+                              value={person.role}
+                              onChange={async (e) => {
+                                const newRole = e.target.value;
+                                try {
+                                  await api.put(`/api/v1/workspaces/${workspaceId}/members/${person.id}/role`, { userId: person.id, role: newRole });
+                                  dispatch(fetchWorkspace(workspaceId));
+                                } catch (err) {
+                                  console.error('Failed to update role:', err);
+                                }
+                              }}
+                              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--asana-surface)] border border-[var(--asana-border)] text-[var(--asana-text-primary)] cursor-pointer focus:outline-none focus:ring-1 focus:ring-asana-blue"
+                            >
+                              <option value="ADMIN">ADMIN</option>
+                              <option value="MEMBER">MEMBER</option>
+                              <option value="GUEST">GUEST</option>
+                            </select>
+                          ) : (
+                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${ROLE_STYLE[person.role] || ROLE_STYLE.MEMBER}`}>
+                              {person.role}
+                            </span>
+                          )}
+                          {isAdmin && person.role !== 'OWNER' && person.id !== currentUser?.id && (
+                            <button
+                              onClick={async () => {
+                                if (await confirm({ title: `Remove ${person.name}?`, message: `They will lose access to this workspace and all its projects.`, confirmText: 'Remove', variant: 'danger' })) {
+                                  try {
+                                    await api.delete(`/api/v1/workspaces/${workspaceId}/members/${person.id}`);
+                                    dispatch(fetchWorkspace(workspaceId));
+                                  } catch (err) {
+                                    console.error('Failed to remove member:', err);
+                                  }
+                                }
+                              }}
+                              className="p-1.5 rounded-md text-[var(--asana-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                              title="Remove from workspace"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>

@@ -35,6 +35,7 @@ export const projectService = {
         views: views?.length > 0 ? views : ['overview', 'list', 'board', 'timeline', 'dashboard'],
         visibility: visibility || 'PRIVATE',
         workspaceId,
+        createdById: userId,
         board: {
           create: {
             name: 'Board',
@@ -199,6 +200,9 @@ export const projectService = {
       include: {
         board: {
           select: { id: true }
+        },
+        createdBy: {
+          select: { id: true, name: true, email: true, avatar: true }
         },
         workspace: {
           select: {

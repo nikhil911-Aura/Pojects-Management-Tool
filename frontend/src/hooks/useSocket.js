@@ -106,8 +106,22 @@ export const useSocket = (projectId, boardId) => {
       };
     })();
 
-    socket.on('task_created', () => { try { setPendingItems([]); } catch {} });
-    socket.on('task_deleted', () => {});
+    socket.on('task_created', (data) => {
+      try { setPendingItems([]); } catch {}
+      // If the event includes the task + listId, add it to the board live
+      // (e.g., milestone added from another project, or task created by another user)
+      try {
+        if (data?.task?.id && data?.listId) {
+          dispatch(optimisticAddTask({ listId: data.listId, task: data.task }));
+        }
+      } catch {}
+    });
+    socket.on('task_deleted', (data) => {
+      try {
+        const id = typeof data === 'string' ? data : data?.taskId || data;
+        if (id) dispatch(optimisticDeleteTask(id));
+      } catch {}
+    });
     socket.on('task_updated', (data) => {
       // Apply field-level update from backend (sender excluded via x-socket-id)
       try {
@@ -137,6 +151,34 @@ export const useSocket = (projectId, boardId) => {
     socket.on('section_created', () => {});
     socket.on('section_updated', () => {});
     socket.on('section_deleted', () => {});
+
+    // Milestone multi-project — update the detail panel's project list live
+    socket.on('milestone_project_added', (data) => {
+      try {
+        dispatch((dispatch, getState) => {
+          const ct = getState().task.currentTask;
+          // Update if the user is viewing the original milestone or any of its linked copies
+          const originalId = ct?.linkedMilestoneId || ct?.id;
+          if (ct && data?.milestoneId && (data.milestoneId === originalId || data.milestoneId === ct.id)) {
+            // Force a refetch of the milestone projects list by touching currentTask
+            dispatch(setCurrentTask({ ...ct, _milestoneProjectsUpdated: Date.now() }));
+          }
+        });
+      } catch {}
+    });
+
+    // Milestone removed from a project — update the detail panel's project list live
+    socket.on('milestone_project_removed', (data) => {
+      try {
+        dispatch((dispatch, getState) => {
+          const ct = getState().task.currentTask;
+          const originalId = ct?.linkedMilestoneId || ct?.id;
+          if (ct && data?.milestoneId && (data.milestoneId === originalId || data.milestoneId === ct.id)) {
+            dispatch(setCurrentTask({ ...ct, _milestoneProjectsUpdated: Date.now() }));
+          }
+        });
+      } catch {}
+    });
 
     // Attachment live updates — other users see uploads/deletes instantly
     socket.on('attachment_added', (data) => {

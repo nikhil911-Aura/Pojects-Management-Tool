@@ -62,6 +62,23 @@ export const taskController = {
     return successResponse(res, null, 'Assignee removed successfully');
   },
 
+  async getMilestoneProjects(req, res) {
+    const projects = await taskService.getMilestoneProjects(req.params.id, req.user.id);
+    return successResponse(res, projects);
+  },
+
+  async addMilestoneToProject(req, res) {
+    const { projectId } = req.body;
+    if (!projectId) return res.status(400).json({ success: false, message: 'projectId is required' });
+    const result = await taskService.addMilestoneToProject(req.params.id, req.user.id, projectId);
+    return createdResponse(res, result, 'Milestone added to project');
+  },
+
+  async removeMilestoneFromProject(req, res) {
+    await taskService.removeMilestoneFromProject(req.params.id, req.user.id, req.params.projectId);
+    return successResponse(res, null, 'Milestone removed from project');
+  },
+
   async search(req, res, next) {
     const { workspaceId } = req.params;
     const { q } = req.query;

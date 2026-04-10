@@ -15,7 +15,6 @@ import { useSocket } from '../../hooks/useSocket';
 import { useRole } from '../../hooks/useRole';
 import { useConfirm } from '../../hooks/useConfirm';
 import ShareModal from '../projects/ShareModal';
-import ProjectMembersPanel from '../projects/ProjectMembersPanel';
 import { useCelebration } from '../../components/Celebration';
 
 const PRIORITY_DOT = {
@@ -166,7 +165,6 @@ function ProjectBoard() {
 
   const [prefetchedCF, setPrefetchedCF] = useState({ fields: null, values: null });
   const [showShare, setShowShare] = useState(searchParams.get('share') === '1');
-  const [showMembersPanel, setShowMembersPanel] = useState(false);
   const [showCreateList, setShowCreateList] = useState(false);
   const [addSectionTrigger, setAddSectionTrigger] = useState(0);
   const [addTaskTrigger, setAddTaskTrigger] = useState(0);
@@ -423,6 +421,11 @@ function ProjectBoard() {
                 }`}>
                   {currentProject.visibility === 'PRIVATE' ? 'Private' : 'Public'}
                 </span>
+                {currentProject.createdBy?.name && (
+                  <span className="text-[10px] text-[var(--asana-text-tertiary)] font-medium hidden sm:inline-flex items-center gap-1">
+                    <span className="opacity-50">by</span> {currentProject.createdBy.name}
+                  </span>
+                )}
 
                 {/* Project actions "..." menu */}
                 {(canEditProject || canDeleteProject) && (
@@ -495,7 +498,7 @@ function ProjectBoard() {
                 {members.length > 5 && (
                   <div
                     className="w-8 h-8 rounded-full border-2 border-[var(--asana-surface)] bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] font-bold text-[var(--asana-text-secondary)] cursor-pointer hover:scale-110 transition-transform"
-                    onClick={() => isWorkspaceAdmin && setShowMembersPanel(true)}
+                    onClick={() => isWorkspaceAdmin && setShowShare(true)}
                   >
                     +{members.length - 5}
                   </div>
@@ -537,18 +540,6 @@ function ProjectBoard() {
               <span className="hidden sm:inline">Share</span>
             </button>
 
-            {/* Members panel */}
-            {canInvite && (
-              <button
-                onClick={() => setShowMembersPanel(true)}
-                className="flex items-center text-xs px-3 py-1.5 rounded-asana border border-[var(--asana-border)] text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                <span className="hidden sm:inline">Members</span>
-              </button>
-            )}
 
             {can('section.create') && (
               <button
@@ -843,16 +834,6 @@ function ProjectBoard() {
             setShowShare(false);
             setSearchParams(prev => { prev.delete('share'); return prev; });
           }}
-        />
-      )}
-
-      {/* ── Members Panel (Admin/Owner only) ── */}
-      {showMembersPanel && isWorkspaceAdmin && (
-        <ProjectMembersPanel
-          project={currentProject}
-          onClose={() => setShowMembersPanel(false)}
-          onOpenShare={() => { setShowMembersPanel(false); setShowShare(true); }}
-          emitInstant={emitInstant}
         />
       )}
 

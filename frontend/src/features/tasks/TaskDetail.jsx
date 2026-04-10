@@ -10,6 +10,149 @@ import { useCelebration } from '../../components/Celebration';
 import { useAutoSave, SaveIndicator } from '../../hooks/useAutoSave';
 
 const STATUS_OPTIONS = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'];
+
+/**
+ * Milestone Projects section — shows all projects this milestone is linked to
+ * with a + button to add it to another project.
+ */
+function MilestoneProjects({ taskId }) {
+  const { projects } = useAppSelector((state) => state.project);
+  const currentTask = useAppSelector((state) => state.task.currentTask);
+  const { can } = useRole();
+  const [linkedProjects, setLinkedProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showPicker, setShowPicker] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [search, setSearch] = useState('');
+  const pickerRef = useRef(null);
+
+  // Fetch linked projects — re-runs when taskId changes or when socket signals an update
+  const milestoneSignal = currentTask?._milestoneProjectsUpdated;
+  useEffect(() => {
+    if (!taskId) return;
+    api.get(`/api/v1/tasks/${taskId}/milestone-projects`)
+      .then(res => setLinkedProjects(res.data.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [taskId, milestoneSignal]);
+
+  // Close picker on outside click
+  useEffect(() => {
+    if (!showPicker) return;
+    const handler = (e) => { if (pickerRef.current && !pickerRef.current.contains(e.target)) setShowPicker(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showPicker]);
+
+  const linkedProjectIds = new Set(linkedProjects.map(p => p.projectId));
+  const availableProjects = (projects || []).filter(
+    p => !linkedProjectIds.has(p.id) && search ? p.name.toLowerCase().includes(search.toLowerCase()) : !linkedProjectIds.has(p.id)
+  );
+
+  const handleAdd = async (projectId) => {
+    setAdding(true);
+    try {
+      const res = await api.post(`/api/v1/tasks/${taskId}/milestone-projects`, { projectId });
+      setLinkedProjects(prev => [...prev, res.data.data]);
+      setShowPicker(false);
+      setSearch('');
+    } catch (err) {
+      console.error('Failed to add milestone to project:', err);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  if (loading) return null;
+
+  return (
+    <div className="pt-4 border-t border-[var(--asana-border)]">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-2">
+          <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Projects</h3>
+          <span className="text-[10px] font-bold text-asana-blue bg-asana-blue/10 px-1.5 py-0.5 rounded-full">
+            {linkedProjects.length}
+          </span>
+        </div>
+        {can('milestone.multiproject') && (
+        <div className="relative" ref={pickerRef}>
+          <button
+            onClick={() => setShowPicker(!showPicker)}
+            className="text-xs font-medium text-asana-blue hover:underline flex items-center"
+          >
+            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add to project
+          </button>
+
+          {showPicker && (
+            <div className="absolute right-0 top-full mt-1 z-[100] w-64 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl overflow-hidden animate-fade-in">
+              <div className="p-2 border-b border-[var(--asana-border)]">
+                <input
+                  type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search projects..." autoFocus
+                  className="w-full px-2.5 py-1.5 text-xs bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-md text-[var(--asana-text-primary)] outline-none focus:border-asana-blue placeholder-[var(--asana-text-muted)]"
+                />
+              </div>
+              <div className="max-h-48 overflow-y-auto py-1">
+                {availableProjects.length === 0 ? (
+                  <p className="text-xs text-[var(--asana-text-muted)] text-center py-3">
+                    {search ? 'No matching projects' : 'Already in all projects'}
+                  </p>
+                ) : (
+                  availableProjects.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => handleAdd(p.id)}
+                      disabled={adding}
+                      className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors disabled:opacity-50"
+                    >
+                      <div className="w-5 h-5 rounded flex items-center justify-center text-white text-[9px] font-bold mr-2.5 flex-shrink-0"
+                        style={{ backgroundColor: p.color || '#4573D2' }}>
+                        {p.name?.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-sm text-[var(--asana-text-primary)] truncate">{p.name}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        )}
+      </div>
+
+      {/* Linked projects list */}
+      <div className="space-y-1">
+        {linkedProjects.map(lp => (
+          <div key={lp.projectId} className="flex items-center space-x-2.5 px-2 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors group/mp">
+            <div className="w-4 h-4 rounded flex-shrink-0" style={{ backgroundColor: lp.projectColor || '#4573D2' }} />
+            <span className="text-sm text-[var(--asana-text-primary)] truncate flex-1">{lp.projectName}</span>
+            {lp.isHome ? (
+              <span className="text-[9px] text-[var(--asana-text-muted)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex-shrink-0">Home</span>
+            ) : can('milestone.remove') && (
+              <button
+                onClick={async () => {
+                  try {
+                    await api.delete(`/api/v1/tasks/${taskId}/milestone-projects/${lp.projectId}`);
+                    setLinkedProjects(prev => prev.filter(p => p.projectId !== lp.projectId));
+                  } catch (err) { console.error('Failed to remove:', err); }
+                }}
+                className="opacity-0 group-hover/mp:opacity-100 p-0.5 rounded text-[var(--asana-text-secondary)] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0"
+                title="Remove from this project"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 const STATUS_LABELS = { TODO: 'To do', IN_PROGRESS: 'In progress', REVIEW: 'Review', DONE: 'Completed' };
 const STATUS_COLORS = {
   TODO: 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200',
@@ -530,6 +673,11 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
               )}
             </div>
           </div>
+
+          {/* ── Milestone Projects — only for MILESTONE type tasks ── */}
+          {task.taskType === 'MILESTONE' && (
+            <MilestoneProjects taskId={taskId} />
+          )}
 
           {/* ── Attachments ── */}
           <div className="pt-4 border-t border-[var(--asana-border)]">
