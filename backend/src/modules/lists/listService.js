@@ -13,10 +13,10 @@ function canAccessProject(workspaceRole, projectVisibility, projectRole) {
   return projectRole !== null;
 }
 
-function canEditProject(workspaceRole, projectRole, customPermissions) {
+function hasPermission(workspaceRole, projectRole, customPermissions, key) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
   if (projectRole === 'EDITOR') return true;
-  if (projectRole === 'CUSTOM' && customPermissions) return !!customPermissions['task.edit'];
+  if (projectRole === 'CUSTOM' && customPermissions) return !!customPermissions[key];
   return false;
 }
 
@@ -90,8 +90,8 @@ export const listService = {
     const { name } = listData;
     const { board, workspaceMember, projectRole, customPermissions } = await getContextFromBoard(boardId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
-      throw ApiError.forbidden('You need Editor access to add sections');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'section.create')) {
+      throw ApiError.forbidden('You do not have permission to create sections');
     }
 
     const lastList = await prisma.list.findFirst({
@@ -156,8 +156,8 @@ export const listService = {
   async update(listId, userId, updateData, excludeSocketId) {
     const { list, workspaceMember, projectRole, customPermissions } = await getContextFromList(listId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
-      throw ApiError.forbidden('You need Editor access to update sections');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'section.edit')) {
+      throw ApiError.forbidden('You do not have permission to edit sections');
     }
 
     const { name, position } = updateData;
@@ -176,8 +176,8 @@ export const listService = {
   async delete(listId, userId, excludeSocketId) {
     const { list: listCtx, workspaceMember, projectRole, customPermissions } = await getContextFromList(listId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
-      throw ApiError.forbidden('You need Editor access to delete sections');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'section.delete')) {
+      throw ApiError.forbidden('You do not have permission to delete sections');
     }
 
     // Clean up Cloudinary files for all tasks in this section before cascade delete.
@@ -203,8 +203,8 @@ export const listService = {
   async reorder(boardId, userId, listIds) {
     const { workspaceMember, projectRole, customPermissions } = await getContextFromBoard(boardId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
-      throw ApiError.forbidden('You need Editor access to reorder sections');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'section.edit')) {
+      throw ApiError.forbidden('You do not have permission to reorder sections');
     }
 
     const updates = listIds.map((id, index) =>

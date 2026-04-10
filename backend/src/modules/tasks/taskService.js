@@ -34,21 +34,6 @@ function canAccessProject(workspaceRole, projectVisibility, projectRole) {
   return projectRole !== null;
 }
 
-function canEditProject(workspaceRole, projectRole, customPermissions) {
-  if (isWorkspaceAdmin(workspaceRole)) return true;
-  if (projectRole === 'EDITOR') return true;
-  // CUSTOM role: check granular permissions
-  if (projectRole === 'CUSTOM' && customPermissions) return !!customPermissions['task.edit'];
-  return false;
-}
-
-function canCommentProject(workspaceRole, projectRole, customPermissions) {
-  if (isWorkspaceAdmin(workspaceRole)) return true;
-  if (projectRole === 'EDITOR' || projectRole === 'COMMENTER') return true;
-  if (projectRole === 'CUSTOM' && customPermissions) return !!customPermissions['comment.create'];
-  return false;
-}
-
 // Granular check for any permission key on a CUSTOM role
 function hasPermission(workspaceRole, projectRole, customPermissions, key) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
@@ -134,14 +119,15 @@ async function getContextFromTask(taskId, userId) {
 // ── Task Service ──────────────────────────────────────────────────────────────
 export const taskService = {
 
-  // Create task — EDITOR or workspace Admin
+  // Create task or subtask
   async create(listId, userId, taskData, excludeSocketId) {
     const { title, description, status, priority, dueDate, estimatedTime, actualTime, taskType, parentId } = taskData;
 
     const { list, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromList(listId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
-      throw ApiError.forbidden('You need Editor access to create tasks');
+    const permKey = parentId ? 'subtask.create' : 'task.create';
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, permKey)) {
+      throw ApiError.forbidden(`You do not have permission to create ${parentId ? 'subtasks' : 'tasks'}`);
     }
 
     const lastTask = await prisma.task.findFirst({
@@ -215,12 +201,15 @@ export const taskService = {
     });
   },
 
-  // Update task — EDITOR or workspace Admin
+  // Update task
   async update(taskId, userId, updateData, excludeSocketId) {
     const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
-      throw ApiError.forbidden('You need Editor access to edit tasks');
+    // Status-only change → check task.complete; everything else → task.edit
+    const statusOnly = Object.keys(updateData).length === 1 && updateData.status !== undefined;
+    const permKey = statusOnly ? 'task.complete' : 'task.edit';
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, permKey)) {
+      throw ApiError.forbidden('You do not have permission to edit this task');
     }
 
     const { title, description, status, priority, dueDate, estimatedTime, actualTime, taskType, parentId } = updateData;
@@ -257,12 +246,13 @@ export const taskService = {
     return updated;
   },
 
-  // Delete task — workspace Admin always; EDITOR who created the task
+  // Delete task
   async delete(taskId, userId, excludeSocketId) {
     const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
-      throw ApiError.forbidden('You need Editor access to delete tasks');
+    const permKey = task.parentId ? 'subtask.delete' : 'task.delete';
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, permKey)) {
+      throw ApiError.forbidden('You do not have permission to delete this task');
     }
 
     // Non-admins (project Editors) can only delete tasks they created
@@ -319,8 +309,8 @@ export const taskService = {
 
     const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
-      throw ApiError.forbidden('You need Editor access to move tasks');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'task.move')) {
+      throw ApiError.forbidden('You do not have permission to move tasks');
     }
 
     // Guard: prevent setting a task as its own ancestor (direct cycle)
@@ -438,12 +428,12 @@ export const taskService = {
     return updated;
   },
 
-  // Assign user — EDITOR or workspace Admin
+  // Assign user
   async assignUser(taskId, userId, assigneeId, excludeSocketId) {
     const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
-      throw ApiError.forbidden('You need Editor access to assign users');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'task.assign')) {
+      throw ApiError.forbidden('You do not have permission to assign users');
     }
 
     const assignee = await prisma.taskAssignee.create({
@@ -455,12 +445,12 @@ export const taskService = {
     return assignee;
   },
 
-  // Remove assignee — EDITOR or workspace Admin
+  // Remove assignee
   async removeAssignee(taskId, userId, assigneeId, excludeSocketId) {
     const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
-      throw ApiError.forbidden('You need Editor access to remove assignees');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'task.assign')) {
+      throw ApiError.forbidden('You do not have permission to remove assignees');
     }
 
     await prisma.taskAssignee.delete({ where: { userId_taskId: { userId: assigneeId, taskId } } });
@@ -468,12 +458,12 @@ export const taskService = {
     return true;
   },
 
-  // Add attachment — EDITOR or workspace Admin
+  // Add attachment
   async addAttachment(taskId, userId, fileData) {
     const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
-      throw ApiError.forbidden('You need Editor access to add attachments');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'attachment.add')) {
+      throw ApiError.forbidden('You do not have permission to add attachments');
     }
 
     const attachment = await prisma.attachment.create({
@@ -485,13 +475,12 @@ export const taskService = {
     return attachment;
   },
 
-  // Remove attachment — workspace Admin always; EDITOR who owns the attachment.
-  // Deletes the file from Cloudinary CDN first, then removes the DB row.
+  // Remove attachment — deletes from Cloudinary CDN first, then removes the DB row.
   async removeAttachment(taskId, userId, attachmentId) {
     const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
-      throw ApiError.forbidden('You need Editor access to remove attachments');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'attachment.delete')) {
+      throw ApiError.forbidden('You do not have permission to remove attachments');
     }
 
     // Always fetch the attachment — needed for both ownership check and Cloudinary delete.

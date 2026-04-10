@@ -4,6 +4,38 @@ import { emitToWorkspace, emitToProject } from '../../core/socket.js';
 import { cloudinary } from '../../core/cloudinary.js';
 import projectRoleService from './projectRoleService.js';
 
+// ── Permission helpers ───────────────────────────────────────────────────────
+
+function isWorkspaceAdmin(workspaceRole) {
+  return workspaceRole === 'OWNER' || workspaceRole === 'ADMIN';
+}
+
+function hasPermission(workspaceRole, projectRole, customPermissions, key) {
+  if (isWorkspaceAdmin(workspaceRole)) return true;
+  if (projectRole === 'EDITOR') return true;
+  if (projectRole === 'CUSTOM' && customPermissions) return !!customPermissions[key];
+  return false;
+}
+
+// Get workspace + project role for a user in a project
+async function getProjectPermissionContext(projectId, userId) {
+  const wsMember = await prisma.workspaceMember.findFirst({
+    where: { workspace: { projects: { some: { id: projectId } } }, userId }
+  });
+  if (!wsMember) return { wsRole: null, projectRole: null, customPermissions: null };
+
+  const projMember = await prisma.projectMember.findFirst({
+    where: { projectId, userId },
+    include: { customRole: true }
+  });
+
+  return {
+    wsRole: wsMember.role,
+    projectRole: projMember?.projectRole ?? null,
+    customPermissions: projMember?.customRole?.permissions ?? null
+  };
+}
+
 export const projectService = {
   // Create project
   async create(workspaceId, userId, projectData, excludeSocketId) {
@@ -268,16 +300,8 @@ export const projectService = {
       throw ApiError.notFound('Project not found');
     }
 
-    // Check workspace permission
-    const membership = await prisma.workspaceMember.findFirst({
-      where: {
-        workspaceId: project.workspaceId,
-        userId,
-        role: { in: ['OWNER', 'ADMIN'] }
-      }
-    });
-
-    if (!membership) {
+    const { wsRole, projectRole, customPermissions } = await getProjectPermissionContext(projectId, userId);
+    if (!hasPermission(wsRole, projectRole, customPermissions, 'project.edit')) {
       throw ApiError.forbidden('You do not have permission to update this project');
     }
 
@@ -318,16 +342,8 @@ export const projectService = {
       throw ApiError.notFound('Project not found');
     }
 
-    // Check workspace permission
-    const membership = await prisma.workspaceMember.findFirst({
-      where: {
-        workspaceId: project.workspaceId,
-        userId,
-        role: { in: ['OWNER', 'ADMIN'] }
-      }
-    });
-
-    if (!membership) {
+    const { wsRole, projectRole, customPermissions } = await getProjectPermissionContext(projectId, userId);
+    if (!hasPermission(wsRole, projectRole, customPermissions, 'project.delete')) {
       throw ApiError.forbidden('You do not have permission to delete this project');
     }
 
@@ -376,15 +392,8 @@ export const projectService = {
     }
 
     // Check permission
-    const membership = await prisma.workspaceMember.findFirst({
-      where: {
-        workspaceId: project.workspaceId,
-        userId,
-        role: { in: ['OWNER', 'ADMIN'] }
-      }
-    });
-
-    if (!membership) {
+    const { wsRole, projectRole: callerProjRole, customPermissions } = await getProjectPermissionContext(projectId, userId);
+    if (!hasPermission(wsRole, callerProjRole, customPermissions, 'project.invite')) {
       throw ApiError.forbidden('You do not have permission to add members');
     }
 
@@ -468,16 +477,14 @@ export const projectService = {
     }
 
     // Check permission
-    const membership = await prisma.workspaceMember.findFirst({
-      where: {
-        workspaceId: project.workspaceId,
-        userId,
-        role: { in: ['OWNER', 'ADMIN'] }
-      }
-    });
-
-    if (!membership) {
+    const { wsRole, projectRole: callerProjRole, customPermissions } = await getProjectPermissionContext(projectId, userId);
+    if (!hasPermission(wsRole, callerProjRole, customPermissions, 'project.invite')) {
       throw ApiError.forbidden('You do not have permission to remove members');
+    }
+
+    // Only workspace OWNER/ADMIN can remove the project creator
+    if (project.createdById && memberIdToRemove === project.createdById && !isWorkspaceAdmin(wsRole)) {
+      throw ApiError.forbidden('Cannot remove the project creator');
     }
 
     await prisma.projectMember.delete({
@@ -509,10 +516,10 @@ export const projectService = {
     const project = await prisma.project.findUnique({ where: { id: projectId } });
     if (!project) throw ApiError.notFound('Project not found');
 
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { workspaceId: project.workspaceId, userId, role: { in: ['OWNER', 'ADMIN'] } }
-    });
-    if (!membership) throw ApiError.forbidden('You do not have permission to change project roles');
+    const { wsRole, projectRole: callerProjRole, customPermissions: callerPerms } = await getProjectPermissionContext(projectId, userId);
+    if (!hasPermission(wsRole, callerProjRole, callerPerms, 'project.invite')) {
+      throw ApiError.forbidden('You do not have permission to change project roles');
+    }
 
     let targetRoleId = roleId;
 
