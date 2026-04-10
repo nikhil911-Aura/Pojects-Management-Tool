@@ -166,9 +166,26 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
     return null;
   })();
 
-  // Priority: boardTask (has optimistic updates) > currentTask (API data) > previewTask (initial)
-  const baseTask = boardTask || (currentTask?.id === taskId ? currentTask : null) || previewTask;
-  const isFullyLoaded = currentTask?.id === taskId;
+  // Merge: boardTask has optimistic field updates (status, title, etc.) from the list view,
+  // while currentTask has rich data (attachments, comments, activity) from fetchTask.
+  // Merge both so the detail panel shows everything.
+  const fullCurrentTask = currentTask?.id === taskId ? currentTask : null;
+  const baseTask = (() => {
+    if (boardTask && fullCurrentTask) {
+      // Board task wins for core fields (has optimistic updates), but inherit
+      // rich fields that only exist on the full fetch.
+      return {
+        ...fullCurrentTask,
+        ...boardTask,
+        attachments: fullCurrentTask.attachments || boardTask.attachments,
+        comments: fullCurrentTask.comments || boardTask.comments,
+        activityLogs: fullCurrentTask.activityLogs || boardTask.activityLogs,
+        subtasks: boardTask.subtasks?.length > 0 ? boardTask.subtasks : fullCurrentTask.subtasks,
+      };
+    }
+    return boardTask || fullCurrentTask || previewTask;
+  })();
+  const isFullyLoaded = !!fullCurrentTask;
 
   // Local optimistic overlay — merges over fetched data for instant UI
   const [optimistic, setOptimistic] = useState({});
@@ -269,7 +286,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
     const file = e.target.files[0];
     if (!file) return;
     setIsUploading(true);
-    try { await dispatch(addAttachment({ taskId, file })).unwrap(); refetchTask(); }
+    try { await dispatch(addAttachment({ taskId, file })).unwrap(); }
     catch (err) { console.error('Upload failed:', err); }
     finally { setIsUploading(false); }
   };

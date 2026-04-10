@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useAppDispatch } from '../store/hooks';
 import { fetchLists, optimisticUpdateTask, optimisticRenameSection, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticDeleteTask, optimisticAssignUser, optimisticReplaceItem, optimisticMoveTaskAnywhere } from '../store/slices/boardSlice';
-import { fetchTask } from '../store/slices/taskSlice';
+import { fetchTask, setCurrentTask } from '../store/slices/taskSlice';
 import { fetchProject } from '../store/slices/projectSlice';
 import { setApiSocketId } from '../services/api';
 
@@ -137,6 +137,31 @@ export const useSocket = (projectId, boardId) => {
     socket.on('section_created', () => {});
     socket.on('section_updated', () => {});
     socket.on('section_deleted', () => {});
+
+    // Attachment live updates — other users see uploads/deletes instantly
+    socket.on('attachment_added', (data) => {
+      try {
+        dispatch((dispatch, getState) => {
+          const ct = getState().task.currentTask;
+          if (ct && ct.id === data?.taskId && data?.attachment) {
+            const existing = ct.attachments || [];
+            if (!existing.some(a => a.id === data.attachment.id)) {
+              dispatch(setCurrentTask({ ...ct, attachments: [data.attachment, ...existing] }));
+            }
+          }
+        });
+      } catch {}
+    });
+    socket.on('attachment_removed', (data) => {
+      try {
+        dispatch((dispatch, getState) => {
+          const ct = getState().task.currentTask;
+          if (ct && ct.id === data?.taskId && data?.attachmentId && ct.attachments) {
+            dispatch(setCurrentTask({ ...ct, attachments: ct.attachments.filter(a => a.id !== data.attachmentId) }));
+          }
+        });
+      } catch {}
+    });
 
     // Backend member events — these only fire for OTHER users (sender excluded)
     // They serve as fallback if instant_change was missed

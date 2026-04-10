@@ -192,6 +192,19 @@ const taskSlice = createSlice({
           state.currentTask.assignees.push(action.payload);
         }
       })
+      .addCase(addAttachment.fulfilled, (state, action) => {
+        if (state.currentTask) {
+          if (!state.currentTask.attachments) state.currentTask.attachments = [];
+          if (!state.currentTask.attachments.some(a => a.id === action.payload.id)) {
+            state.currentTask.attachments.unshift(action.payload);
+          }
+        }
+      })
+      .addCase(removeAttachment.fulfilled, (state, action) => {
+        if (state.currentTask?.attachments) {
+          state.currentTask.attachments = state.currentTask.attachments.filter(a => a.id !== action.payload);
+        }
+      })
       .addCase(searchTasks.fulfilled, (state, action) => {
         state.searchResults = action.payload;
       });
