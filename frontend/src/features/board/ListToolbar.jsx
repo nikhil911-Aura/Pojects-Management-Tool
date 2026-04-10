@@ -199,7 +199,7 @@ function OptionsPanel({ columns, onChange, onClose }) {
 /* ═════════════════════════════════════════════
    Main Toolbar
    ═════════════════════════════════════════════ */
-function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, groupBy, onGroupChange, columns, onColumnsChange, members, canEdit, hasActiveFilters, searchQuery, onSearchChange }) {
+function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, groupBy, onGroupChange, columns, onColumnsChange, members, canEdit, canCreateTask, hasActiveFilters, searchQuery, onSearchChange, onAddTask }) {
   const [openPanel, setOpenPanel] = useState(null); // 'filter' | 'sort' | 'group' | 'options' | 'search' | null
   const searchInputRef = useRef(null);
 
@@ -235,9 +235,20 @@ function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, 
   return (
     <div className="bg-[var(--asana-surface)] px-6 py-2 border-b border-[var(--asana-border)] flex items-center justify-between">
       <div className="flex items-center space-x-2">
-        <h2 className="text-sm font-semibold text-[var(--asana-text-primary)] tracking-tight">
-          Add task
-        </h2>
+        {canCreateTask && onAddTask && (
+          <button
+            onClick={onAddTask}
+            className="flex items-center text-sm font-semibold text-[var(--asana-text-primary)] hover:text-asana-blue transition-colors group/add"
+          >
+            <svg className="w-4 h-4 mr-1.5 text-[var(--asana-text-secondary)] group-hover/add:text-asana-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add task
+            <svg className="w-3 h-3 ml-1 text-[var(--asana-text-secondary)] group-hover/add:text-asana-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className="flex items-center space-x-1">

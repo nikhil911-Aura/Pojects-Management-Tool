@@ -169,6 +169,7 @@ function ProjectBoard() {
   const [showMembersPanel, setShowMembersPanel] = useState(false);
   const [showCreateList, setShowCreateList] = useState(false);
   const [addSectionTrigger, setAddSectionTrigger] = useState(0);
+  const [addTaskTrigger, setAddTaskTrigger] = useState(0);
   const [showCreateTask, setShowCreateTask] = useState(null);
   const [newListName, setNewListName] = useState('');
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -604,9 +605,11 @@ function ProjectBoard() {
           onColumnsChange={setListColumns}
           members={members}
           canEdit={canEdit}
+          canCreateTask={can('task.create')}
           hasActiveFilters={!!(listFilters.status || listFilters.priority || listFilters.assignee || listFilters.dueDate)}
           searchQuery={listSearch}
           onSearchChange={setListSearch}
+          onAddTask={() => setAddTaskTrigger(prev => prev + 1)}
         />
       )}
 
@@ -811,6 +814,7 @@ function ProjectBoard() {
             releaseEditLock={releaseEditLock}
             emitInstant={emitInstant}
             addSectionTrigger={addSectionTrigger}
+            addTaskTrigger={addTaskTrigger}
             customFieldEvent={customFieldEvent}
             setCustomFieldCallback={setCustomFieldCallback}
             prefetchedCustomFields={prefetchedCF.fields}

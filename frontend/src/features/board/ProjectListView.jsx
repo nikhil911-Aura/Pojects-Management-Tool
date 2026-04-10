@@ -1468,7 +1468,7 @@ function PendingRow({ title, type, depth = 0 }) {
   );
 }
 
-function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingItems = [], addPendingItem, clearPendingItems, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, addSectionTrigger = 0, customFieldEvent, setCustomFieldCallback, prefetchedCustomFields = null, prefetchedFieldValues = null }) {
+function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingItems = [], addPendingItem, clearPendingItems, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, addSectionTrigger = 0, addTaskTrigger = 0, customFieldEvent, setCustomFieldCallback, prefetchedCustomFields = null, prefetchedFieldValues = null }) {
   const cols = { assignee: true, dueDate: true, status: true, estimatedTime: true, actualTime: true, priority: false, ...columns };
   const dispatch = useAppDispatch();
   const { canEdit, can, customRole, isWorkspaceAdmin } = useRole();
@@ -1545,6 +1545,17 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
       setTimeout(() => addSectionInputRef.current?.focus(), 100);
     }
   }, [addSectionTrigger]);
+
+  // Respond to "Add Task" button from toolbar — opens inline add in the first section
+  useEffect(() => {
+    if (addTaskTrigger > 0) {
+      const firstList = lists?.[0];
+      if (firstList) {
+        setAddingTaskTo(firstList.id);
+        setNewTaskTitle('');
+      }
+    }
+  }, [addTaskTrigger, lists]);
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [editingSectionName, setEditingSectionName] = useState('');
   const [newTaskTitle, setNewTaskTitle] = useState('');
