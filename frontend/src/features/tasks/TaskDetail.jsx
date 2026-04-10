@@ -213,6 +213,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
   const [newSubtask, setNewSubtask] = useState('');
   const [newComment, setNewComment] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState(null);
   const [showAssigneePicker, setShowAssigneePicker] = useState(false);
   const [activeTab, setActiveTab] = useState('comments');
   const [justCompleted, setJustCompleted] = useState(false);
@@ -553,10 +554,21 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                       <span className="text-[10px] text-[var(--asana-text-secondary)]">{(att.size / 1024).toFixed(1)} KB</span>
                     </div>
                     {canEdit && (
-                      <button onClick={() => dispatch(removeAttachment({ taskId, attachmentId: att.id }))}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
+                      deletingAttachmentId === att.id ? (
+                        <svg className="w-3.5 h-3.5 animate-spin text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                          <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                        </svg>
+                      ) : (
+                        <button onClick={async () => {
+                          setDeletingAttachmentId(att.id);
+                          try { await dispatch(removeAttachment({ taskId, attachmentId: att.id })).unwrap(); }
+                          catch {} finally { setDeletingAttachmentId(null); }
+                        }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      )
                     )}
                   </div>
                 ))}

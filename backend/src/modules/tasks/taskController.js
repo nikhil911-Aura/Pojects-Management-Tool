@@ -20,8 +20,17 @@ export const taskController = {
 
   async addAttachment(req, res, next) {
     if (!req.file) { const err = new Error('No file uploaded'); err.statusCode = 400; return next(err); }
+    // Debug: log all req.file fields to find where Cloudinary puts the public_id
+    console.log('[upload] req.file keys:', Object.keys(req.file));
+    console.log('[upload] req.file.filename:', req.file.filename);
+    console.log('[upload] req.file.path:', req.file.path);
+    console.log('[upload] req.file.public_id:', req.file.public_id);
     const attachment = await taskService.addAttachment(req.params.id, req.user.id, {
-      filename: req.file.originalname, url: req.file.path, mimeType: req.file.mimetype, size: req.file.size
+      filename: req.file.originalname,
+      url: req.file.path,
+      publicId: req.file.filename || req.file.public_id || null,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
     });
     return createdResponse(res, attachment, 'Attachment added successfully');
   },

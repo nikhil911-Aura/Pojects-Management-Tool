@@ -382,6 +382,7 @@ model Attachment {
   id        String   @id @default(uuid())
   filename  String
   url       String
+  publicId  String?  // Cloudinary public ID for deletion — e.g. "asana_clone/abc123"
   mimeType  String
   size      Int
   createdAt DateTime @default(now())

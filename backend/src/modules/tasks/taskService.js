@@ -1,6 +1,18 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
 import { emitToProject } from '../../core/socket.js';
+import { cloudinary } from '../../core/cloudinary.js';
+
+// ── Cloudinary URL → publicId fallback for old attachments without publicId ──
+// URL format: https://res.cloudinary.com/{cloud}/image/upload/v1234/asana_clone/abc123.jpg
+// We need: "asana_clone/abc123" (folder + filename without extension)
+function extractPublicIdFromUrl(url) {
+  if (!url) return null;
+  try {
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.*?)(?:\.[a-zA-Z0-9]+)?$/);
+    return match?.[1] || null;
+  } catch { return null; }
+}
 
 // ── Workspace role hierarchy ──────────────────────────────────────────────────
 // OWNER / ADMIN  →  workspace administrators (bypass all project-level checks)
@@ -263,6 +275,32 @@ export const taskService = {
       }
     }
 
+    // Clean up Cloudinary files before cascade-deleting the task.
+    // Collect ALL task IDs in the subtree (any depth) so their attachments are cleaned.
+    const collectSubtreeIds = async (rootId) => {
+      const ids = [rootId];
+      const children = await prisma.task.findMany({ where: { parentId: rootId }, select: { id: true } });
+      for (const child of children) {
+        ids.push(...(await collectSubtreeIds(child.id)));
+      }
+      return ids;
+    };
+    const allTaskIds = await collectSubtreeIds(taskId);
+    const attachments = await prisma.attachment.findMany({
+      where: { taskId: { in: allTaskIds } },
+      select: { publicId: true, url: true },
+    });
+    // Fire-and-forget Cloudinary deletes — don't block the task deletion.
+    if (attachments.length > 0) {
+      const publicIds = attachments
+        .map(a => a.publicId || extractPublicIdFromUrl(a.url))
+        .filter(Boolean);
+      if (publicIds.length > 0) {
+        cloudinary.api.delete_resources(publicIds, { resource_type: 'image' })
+          .catch(err => console.warn('[delete task] Cloudinary bulk cleanup failed (non-fatal):', err.message));
+      }
+    }
+
     await prisma.task.delete({ where: { id: taskId } });
     emitToProject(projectId, 'task_deleted', taskId, excludeSocketId);
     return true;
@@ -447,7 +485,8 @@ export const taskService = {
     return attachment;
   },
 
-  // Remove attachment — workspace Admin always; EDITOR who owns the attachment
+  // Remove attachment — workspace Admin always; EDITOR who owns the attachment.
+  // Deletes the file from Cloudinary CDN first, then removes the DB row.
   async removeAttachment(taskId, userId, attachmentId) {
     const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
 
@@ -455,13 +494,30 @@ export const taskService = {
       throw ApiError.forbidden('You need Editor access to remove attachments');
     }
 
-    if (!isWorkspaceAdmin(workspaceMember.role)) {
-      const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
-      if (!attachment || attachment.userId !== userId) {
-        throw ApiError.forbidden('You can only remove your own attachments');
+    // Always fetch the attachment — needed for both ownership check and Cloudinary delete.
+    const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
+    if (!attachment) throw ApiError.notFound('Attachment not found');
+
+    // Who can delete: workspace admin OR has attachment.delete permission OR owns the attachment
+    const canDeleteAny = isWorkspaceAdmin(workspaceMember.role) || hasPermission(workspaceMember.role, projectRole, customPermissions, 'attachment.delete');
+    if (!canDeleteAny && attachment.userId !== userId) {
+      throw ApiError.forbidden('You can only remove your own attachments');
+    }
+
+    // 1. Delete from Cloudinary CDN (best-effort — don't block DB delete on CDN failure).
+    const publicId = attachment.publicId || extractPublicIdFromUrl(attachment.url);
+    if (publicId) {
+      // Determine resource_type from mimeType — Cloudinary requires exact type for deletion
+      const mime = (attachment.mimeType || '').toLowerCase();
+      const resourceType = mime.startsWith('video/') ? 'video' : mime.startsWith('image/') ? 'image' : 'raw';
+      try {
+        await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+      } catch (err) {
+        console.warn('[removeAttachment] Cloudinary delete failed (non-fatal):', err.message);
       }
     }
 
+    // 2. Delete from DB.
     await prisma.attachment.delete({ where: { id: attachmentId } });
     emitToProject(projectId, 'attachment_removed', { taskId, attachmentId });
     return true;

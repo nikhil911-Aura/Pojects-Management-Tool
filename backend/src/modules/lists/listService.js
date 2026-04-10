@@ -1,6 +1,7 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
 import { emitToProject } from '../../core/socket.js';
+import { cloudinary } from '../../core/cloudinary.js';
 
 function isWorkspaceAdmin(workspaceRole) {
   return workspaceRole === 'OWNER' || workspaceRole === 'ADMIN';
@@ -177,6 +178,20 @@ export const listService = {
 
     if (!canEditProject(workspaceMember.role, projectRole, customPermissions)) {
       throw ApiError.forbidden('You need Editor access to delete sections');
+    }
+
+    // Clean up Cloudinary files for all tasks in this section before cascade delete.
+    const attachments = await prisma.attachment.findMany({
+      where: { task: { listId } },
+      select: { publicId: true, url: true },
+    });
+    if (attachments.length > 0) {
+      const extractId = (url) => { try { const m = url?.match(/\/upload\/(?:v\d+\/)?(.*?)(?:\.[a-zA-Z0-9]+)?$/); return m?.[1] || null; } catch { return null; } };
+      const ids = attachments.map(a => a.publicId || extractId(a.url)).filter(Boolean);
+      for (let i = 0; i < ids.length; i += 100) {
+        cloudinary.api.delete_resources(ids.slice(i, i + 100), { resource_type: 'image' })
+          .catch(err => console.warn('[delete section] Cloudinary cleanup failed (non-fatal):', err.message));
+      }
     }
 
     await prisma.list.delete({ where: { id: listId } });

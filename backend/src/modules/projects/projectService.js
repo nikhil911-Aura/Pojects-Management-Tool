@@ -1,6 +1,7 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
 import { emitToWorkspace, emitToProject } from '../../core/socket.js';
+import { cloudinary } from '../../core/cloudinary.js';
 import projectRoleService from './projectRoleService.js';
 
 export const projectService = {
@@ -324,6 +325,29 @@ export const projectService = {
 
     if (!membership) {
       throw ApiError.forbidden('You do not have permission to delete this project');
+    }
+
+    // Clean up ALL Cloudinary files for every task in this project before cascade delete.
+    // Project → Board → Lists → Tasks → Attachments. One bulk query + one bulk CDN call.
+    const attachments = await prisma.attachment.findMany({
+      where: { task: { list: { board: { project: { id: projectId } } } } },
+      select: { publicId: true, url: true },
+    });
+    if (attachments.length > 0) {
+      const extractPublicId = (url) => {
+        try { const m = url?.match(/\/upload\/(?:v\d+\/)?(.*?)(?:\.[a-zA-Z0-9]+)?$/); return m?.[1] || null; } catch { return null; }
+      };
+      const publicIds = attachments
+        .map(a => a.publicId || extractPublicId(a.url))
+        .filter(Boolean);
+      if (publicIds.length > 0) {
+        // Cloudinary bulk delete supports up to 100 at a time
+        for (let i = 0; i < publicIds.length; i += 100) {
+          const batch = publicIds.slice(i, i + 100);
+          cloudinary.api.delete_resources(batch, { resource_type: 'image' })
+            .catch(err => console.warn('[delete project] Cloudinary cleanup failed (non-fatal):', err.message));
+        }
+      }
     }
 
     await prisma.project.delete({
