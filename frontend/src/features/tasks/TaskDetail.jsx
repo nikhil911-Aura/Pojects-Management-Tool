@@ -576,10 +576,10 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             <div className="flex items-center">
               <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Priority</span>
               <select value={task.priority || 'LOW'} onChange={(e) => handleUpdate('priority', e.target.value)} disabled={!canEdit}
-                className={`bg-transparent border-none p-1.5 rounded text-xs font-semibold focus:ring-0 ${PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.LOW} ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
-                <option value="HIGH">High</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="LOW">Low</option>
+                className={`border border-[var(--asana-border)] p-1.5 px-2.5 rounded-md text-xs font-semibold focus:ring-1 focus:ring-asana-blue/30 focus:border-asana-blue/30 outline-none bg-[var(--asana-bg)] text-[var(--asana-text-primary)] ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
+                <option value="HIGH" className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">🔴 High</option>
+                <option value="MEDIUM" className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">🟡 Medium</option>
+                <option value="LOW" className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">🔵 Low</option>
               </select>
             </div>
 
@@ -587,8 +587,10 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             <div className="flex items-center">
               <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Status</span>
               <select value={task.status || 'TODO'} onChange={(e) => handleUpdate('status', e.target.value)} disabled={!canEdit}
-                className={`border-none p-1.5 rounded text-xs font-semibold focus:ring-0 ${STATUS_COLORS[task.status] || STATUS_COLORS.TODO} ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
-                {STATUS_OPTIONS.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+                className={`border border-[var(--asana-border)] p-1.5 px-2.5 rounded-md text-xs font-semibold focus:ring-1 focus:ring-asana-blue/30 focus:border-asana-blue/30 outline-none bg-[var(--asana-bg)] text-[var(--asana-text-primary)] ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
+                {STATUS_OPTIONS.map(s => (
+                  <option key={s} value={s} className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">{STATUS_LABELS[s]}</option>
+                ))}
               </select>
             </div>
 
