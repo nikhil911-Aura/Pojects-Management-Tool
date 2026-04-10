@@ -292,7 +292,14 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
   const { currentProject } = useAppSelector((state) => state.project);
   const { lists } = useAppSelector((state) => state.board);
   const { user } = useAppSelector((state) => state.auth);
-  const { canEdit, canComment } = useRole();
+  const { canEdit, canComment, can } = useRole();
+  const canDeleteTask = can('task.delete');
+  const canCreateSubtask = can('subtask.create');
+  const canDeleteSubtask = can('subtask.delete');
+  const canAddAttachment = can('attachment.add');
+  const canDeleteAttachment = can('attachment.delete');
+  const canAssign = can('task.assign');
+  const canComplete = can('task.complete');
   const { confirm, ConfirmDialog } = useConfirm();
   const members = currentProject?.members || [];
 
@@ -391,7 +398,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
 
   const handleAddSubtask = (e) => {
     e.preventDefault();
-    if (!newSubtask.trim()) return;
+    if (!canCreateSubtask || !newSubtask.trim()) return;
     const title = newSubtask.trim();
     const listId = task.listId || task.list?.id;
     const tempSubtask = { id: `temp-${Date.now()}`, title, status: 'TODO', priority: 'LOW', taskType: 'DEFAULT_TASK', assignees: [], subtasks: [] };
@@ -428,7 +435,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
-    if (!file) return;
+    if (!canAddAttachment || !file) return;
     setIsUploading(true);
     try { await dispatch(addAttachment({ taskId, file })).unwrap(); }
     catch (err) { console.error('Upload failed:', err); }
@@ -436,6 +443,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
   };
 
   const handleDeleteTask = async () => {
+    if (!canDeleteTask) return;
     if (await confirm({ title: 'Delete task?', message: 'This task and all its subtasks will be permanently deleted.', confirmText: 'Delete', variant: 'danger' })) {
       dispatch(optimisticDeleteTask(taskId));
       emitInstant?.('task_deleted', { taskId });
@@ -468,22 +476,22 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
         <div className="flex items-center space-x-1">
           <button
             onClick={() => {
-              if (!canEdit) return;
+              if (!canComplete) return;
               const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
               if (newStatus === 'DONE') { setJustCompleted(true); setTimeout(() => setJustCompleted(false), 600); celebrate(); }
               handleUpdate('status', newStatus);
             }}
-            disabled={!canEdit}
+            disabled={!canComplete}
             className={`flex items-center px-3 py-1.5 rounded-md border text-xs font-semibold transition-all duration-300 ${
               task.status === 'DONE' ? 'bg-green-500 text-white border-green-500' : 'text-[var(--asana-text-secondary)] border-[var(--asana-border)] hover:border-green-400 hover:text-green-500'
-            } ${justCompleted ? 'check-pop' : ''} ${!canEdit ? 'cursor-default opacity-70' : ''}`}
+            } ${justCompleted ? 'check-pop' : ''} ${!canComplete ? 'cursor-default opacity-70' : ''}`}
           >
             <svg className={`w-3.5 h-3.5 mr-1 ${justCompleted ? 'check-draw' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
             </svg>
             {task.status === 'DONE' ? 'Completed' : 'Mark complete'}
           </button>
-          {canEdit && (
+          {canDeleteTask && (
             <button onClick={handleDeleteTask} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-[var(--asana-text-secondary)] hover:text-red-500 transition-colors" title="Delete">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -524,8 +532,8 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             {/* Assignee */}
             <div className="flex items-center relative">
               <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Assignee</span>
-              <button onClick={() => canEdit && setShowAssigneePicker(true)}
-                className={`flex items-center space-x-2 p-1.5 rounded transition-colors flex-1 min-w-0 ${canEdit ? 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer' : ''}`}>
+              <button onClick={() => canAssign && setShowAssigneePicker(true)}
+                className={`flex items-center space-x-2 p-1.5 rounded transition-colors flex-1 min-w-0 ${canAssign ? 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer' : ''}`}>
                 {task.assignees?.length > 0 ? (
                   <>
                     <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
@@ -649,7 +657,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                       {sub.assignees[0].user?.name?.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  {canEdit && (
+                  {canDeleteSubtask && (
                     <button onClick={() => {
                       setLocalSubtasks(prev => (prev || task.subtasks || []).filter(s => s.id !== sub.id));
                       dispatch(optimisticDeleteTask(sub.id));
@@ -662,7 +670,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                   )}
                 </div>
               ))}
-              {canEdit && (
+              {canCreateSubtask && (
                 <form onSubmit={handleAddSubtask} className="flex items-center space-x-3 py-1.5 px-2">
                   <svg className="w-4 h-4 text-[var(--asana-text-secondary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -683,7 +691,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
           <div className="pt-4 border-t border-[var(--asana-border)]">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Attachments</h3>
-              {canEdit && (
+              {canAddAttachment && (
                 <label className={`cursor-pointer text-xs font-medium text-asana-blue hover:underline ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
                   <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
                   {isUploading ? 'Uploading...' : '+ Add file'}
@@ -701,7 +709,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                       <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[var(--asana-text-primary)] truncate block hover:text-asana-blue">{att.filename}</a>
                       <span className="text-[10px] text-[var(--asana-text-secondary)]">{(att.size / 1024).toFixed(1)} KB</span>
                     </div>
-                    {canEdit && (
+                    {canDeleteAttachment && (
                       deletingAttachmentId === att.id ? (
                         <svg className="w-3.5 h-3.5 animate-spin text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
                           <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
