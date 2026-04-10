@@ -322,6 +322,7 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                         <p className="text-sm font-medium text-[var(--asana-text-primary)] truncate">
                           {m.user?.name}
                           {isYou && <span className="ml-1.5 text-[10px] bg-asana-blue/10 text-asana-blue px-1.5 py-0.5 rounded-full font-bold">You</span>}
+                          {uid === currentProject?.createdById && <span className="ml-1.5 text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-full font-bold">Creator</span>}
                         </p>
                         <p className="text-xs text-[var(--asana-text-secondary)] truncate">{m.user?.email}</p>
                       </div>
@@ -342,15 +343,17 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                               </svg>
                             </button>
                           )}
-                          <button
-                            onClick={() => handleRemove(uid)}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all"
-                            title="Remove from project"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                          {(uid !== currentProject?.createdById || isWorkspaceAdmin) && (
+                            <button
+                              onClick={() => handleRemove(uid)}
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all"
+                              title="Remove from project"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
                         </>
                       ) : (
                         <span className="text-xs font-bold rounded-full px-2.5 py-1"

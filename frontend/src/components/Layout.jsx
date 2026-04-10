@@ -158,7 +158,7 @@ function Layout() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* ── Header ── */}
-        <header className="h-14 bg-[var(--asana-surface)] border-b border-[var(--asana-border)] px-2 sm:px-4 flex items-center justify-between sticky top-0 z-30">
+        <header className="h-14 bg-[var(--asana-surface)] border-b border-[var(--asana-border)] px-2 sm:px-4 flex items-center justify-between sticky top-0 z-40">
           <div className="flex items-center space-x-2 sm:space-x-3">
             {/* Sidebar toggle */}
             <button
