@@ -37,7 +37,9 @@ export const projectController = {
   async updateMemberRole(req, res, next) {
     const member = await projectService.updateMemberRole(req.params.id, req.user.id, {
       userId: req.params.memberId,
-      projectRole: req.body.projectRole
+      projectRole: req.body.projectRole,
+      roleId: req.body.roleId,
+      customPermissions: req.body.customPermissions,
     }, req.socketId);
     return successResponse(res, member, 'Member role updated');
   },

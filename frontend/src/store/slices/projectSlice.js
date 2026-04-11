@@ -78,10 +78,12 @@ export const addProjectMember = createAsyncThunk(
 
 export const updateProjectMemberRole = createAsyncThunk(
   'project/updateProjectMemberRole',
-  async ({ projectId, memberId, projectRole, customPermissions }, { rejectWithValue }) => {
+  async ({ projectId, memberId, projectRole, roleId, customPermissions }, { rejectWithValue }) => {
     try {
-      const body = { projectRole };
-      if (projectRole === 'CUSTOM' && customPermissions) body.customPermissions = customPermissions;
+      const body = {};
+      if (roleId) body.roleId = roleId;
+      if (projectRole) body.projectRole = projectRole;
+      if (customPermissions) body.customPermissions = customPermissions;
       const response = await api.put(`/api/v1/projects/${projectId}/members/${memberId}/role`, body);
       return { projectId, member: response.data.data };
     } catch (error) {

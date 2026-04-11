@@ -40,10 +40,10 @@ function RoleDropdown({ roles, value, onChange, compact = false }) {
   return (
     <>
       <button ref={btnRef} onClick={handleOpen}
-        className={`flex items-center space-x-1.5 text-xs font-bold rounded-lg px-2.5 py-1.5 transition-colors hover:ring-1 hover:ring-[var(--asana-border)] ${compact ? '' : 'min-w-[100px]'}`}
+        className={`flex items-center justify-between text-xs font-bold rounded-lg px-2.5 py-1.5 transition-colors hover:ring-1 hover:ring-[var(--asana-border)] ${compact ? 'min-w-[110px]' : 'min-w-[120px]'}`}
         style={{ backgroundColor: `${displayColor}20`, color: displayColor }}>
-        <span>{displayName}</span>
-        <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <span className="truncate">{displayName}</span>
+        <svg className={`w-3 h-3 ml-1.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
@@ -328,38 +328,47 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2 flex-shrink-0 ml-3">
+                    <div className="flex items-center justify-end gap-1 flex-shrink-0 ml-3 w-[180px]">
                       {canInvite && !isYou && rolesLoaded ? (
                         <>
+                          {/* Edit permissions icon for custom roles — fixed slot */}
+                          <div className="w-6 flex justify-center">
+                            {memberRole && !memberRole.isSystem && (
+                              <button onClick={() => handleEditRole(memberRole)}
+                                className="p-1 rounded-md text-[var(--asana-text-secondary)] hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 transition-colors"
+                                title="Edit role permissions">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
                           <RoleDropdown roles={projectRoles} value={memberRoleId} onChange={(id) => handleRoleChange(uid, id)} compact />
-                          {/* Edit permissions icon for custom roles */}
-                          {memberRole && !memberRole.isSystem && (
-                            <button onClick={() => handleEditRole(memberRole)}
-                              className="p-1 rounded-md text-[var(--asana-text-secondary)] hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 transition-colors"
-                              title="Edit role permissions">
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                            </button>
-                          )}
-                          {(uid !== currentProject?.createdById || isWorkspaceAdmin) && (
-                            <button
-                              onClick={() => handleRemove(uid)}
-                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all"
-                              title="Remove from project"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          )}
+                          {/* Remove button — fixed slot */}
+                          <div className="w-6 flex justify-center">
+                            {(uid !== currentProject?.createdById || isWorkspaceAdmin) && (
+                              <button
+                                onClick={() => handleRemove(uid)}
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all"
+                                title="Remove from project"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
                         </>
                       ) : (
-                        <span className="text-xs font-bold rounded-full px-2.5 py-1"
-                          style={{ backgroundColor: `${memberRole?.color || '#6B7280'}20`, color: memberRole?.color || '#6B7280' }}>
-                          {memberRole?.name || m.projectRole || 'Member'}
-                        </span>
+                        <>
+                          <div className="w-6" />
+                          <span className="text-xs font-bold rounded-lg px-2.5 py-1.5 min-w-[110px] text-center"
+                            style={{ backgroundColor: `${memberRole?.color || '#6B7280'}20`, color: memberRole?.color || '#6B7280' }}>
+                            {memberRole?.name || m.projectRole || 'Member'}
+                          </span>
+                          <div className="w-6" />
+                        </>
                       )}
                     </div>
                   </div>
