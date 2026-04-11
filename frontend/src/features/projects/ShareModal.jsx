@@ -100,8 +100,10 @@ function ShareModal({ projectId, onClose, emitInstant }) {
   const { currentProject } = useAppSelector(state => state.project);
   const { currentWorkspace } = useAppSelector(state => state.workspace);
   const { user: currentUser } = useAppSelector(state => state.auth);
-  const { isWorkspaceAdmin, can } = useRole();
+  const { isWorkspaceAdmin, can, workspaceRole } = useRole();
   const canInvite = isWorkspaceAdmin || can('project.invite');
+  const canChangeRole = isWorkspaceAdmin || can('project.changeRole');
+  const isWorkspaceOwner = workspaceRole === 'OWNER';
   const { confirm, ConfirmDialog } = useConfirm();
 
   const [search, setSearch] = useState('');
@@ -145,6 +147,38 @@ function ShareModal({ projectId, onClose, emitInstant }) {
   const availableMembers = (currentWorkspace?.members || []).filter(
     m => !projectMemberIds.has(m.userId || m.user?.id)
   );
+
+  // Map: userId → workspace role (OWNER/ADMIN/MEMBER/GUEST). Used to protect
+  // workspace owners/admins from having their role changed by lower-privilege users.
+  const wsRoleByUserId = {};
+  (currentWorkspace?.members || []).forEach(m => {
+    const uid = m.userId || m.user?.id;
+    if (uid) wsRoleByUserId[uid] = m.role;
+  });
+
+  // Returns true if the current user is allowed to change `targetUid`'s role.
+  const canChangeRoleFor = (targetUid) => {
+    if (!canChangeRole) return false;
+    // Workspace OWNER/ADMIN can change their OWN project role; others cannot.
+    if (targetUid === currentUser?.id && !isWorkspaceAdmin) return false;
+    const targetWsRole = wsRoleByUserId[targetUid];
+    // Only the workspace OWNER can change another OWNER or an ADMIN
+    // (but the caller may always change their own row if they passed the check above)
+    if (targetUid !== currentUser?.id && (targetWsRole === 'OWNER' || targetWsRole === 'ADMIN') && !isWorkspaceOwner) return false;
+    return true;
+  };
+
+  // Returns true if the current user is allowed to remove `targetUid` from the project.
+  const canRemoveFor = (targetUid) => {
+    if (!canInvite) return false;
+    if (targetUid === currentUser?.id) return false;
+    // Project creator can only be removed by a workspace OWNER/ADMIN
+    if (targetUid === currentProject?.createdById && !isWorkspaceAdmin) return false;
+    const targetWsRole = wsRoleByUserId[targetUid];
+    // Only the workspace OWNER can remove another OWNER or an ADMIN
+    if ((targetWsRole === 'OWNER' || targetWsRole === 'ADMIN') && !isWorkspaceOwner) return false;
+    return true;
+  };
   const filteredAvailable = availableMembers.filter(m =>
     (m.user?.name || '').toLowerCase().includes(search.toLowerCase()) ||
     (m.user?.email || '').toLowerCase().includes(search.toLowerCase())
@@ -319,57 +353,56 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                         {m.user?.name?.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-[var(--asana-text-primary)] truncate">
-                          {m.user?.name}
-                          {isYou && <span className="ml-1.5 text-[10px] bg-asana-blue/10 text-asana-blue px-1.5 py-0.5 rounded-full font-bold">You</span>}
-                          {uid === currentProject?.createdById && <span className="ml-1.5 text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-full font-bold">Creator</span>}
-                        </p>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="text-sm font-medium text-[var(--asana-text-primary)] truncate min-w-0">
+                            {m.user?.name}
+                          </p>
+                          {isYou && <span className="text-[10px] bg-asana-blue/10 text-asana-blue px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">You</span>}
+                          {uid === currentProject?.createdById && <span className="text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">Creator</span>}
+                        </div>
                         <p className="text-xs text-[var(--asana-text-secondary)] truncate">{m.user?.email}</p>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-end gap-1 flex-shrink-0 ml-3 w-[180px]">
-                      {canInvite && !isYou && rolesLoaded ? (
-                        <>
-                          {/* Edit permissions icon for custom roles — fixed slot */}
-                          <div className="w-6 flex justify-center">
-                            {memberRole && !memberRole.isSystem && (
-                              <button onClick={() => handleEditRole(memberRole)}
-                                className="p-1 rounded-md text-[var(--asana-text-secondary)] hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 transition-colors"
-                                title="Edit role permissions">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                          <RoleDropdown roles={projectRoles} value={memberRoleId} onChange={(id) => handleRoleChange(uid, id)} compact />
-                          {/* Remove button — fixed slot */}
-                          <div className="w-6 flex justify-center">
-                            {(uid !== currentProject?.createdById || isWorkspaceAdmin) && (
-                              <button
-                                onClick={() => handleRemove(uid)}
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all"
-                                title="Remove from project"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        </>
+                      {/* Edit permissions icon for custom roles — fixed slot */}
+                      <div className="w-6 flex justify-center">
+                        {canChangeRoleFor(uid) && rolesLoaded && memberRole && !memberRole.isSystem && (
+                          <button onClick={() => handleEditRole(memberRole)}
+                            className="p-1 rounded-md text-[var(--asana-text-secondary)] hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 transition-colors"
+                            title="Edit role permissions">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Role: dropdown if user can change this member's role, otherwise static badge */}
+                      {canChangeRoleFor(uid) && rolesLoaded ? (
+                        <RoleDropdown roles={projectRoles} value={memberRoleId} onChange={(id) => handleRoleChange(uid, id)} compact />
                       ) : (
-                        <>
-                          <div className="w-6" />
-                          <span className="text-xs font-bold rounded-lg px-2.5 py-1.5 min-w-[110px] text-center"
-                            style={{ backgroundColor: `${memberRole?.color || '#6B7280'}20`, color: memberRole?.color || '#6B7280' }}>
-                            {memberRole?.name || m.projectRole || 'Member'}
-                          </span>
-                          <div className="w-6" />
-                        </>
+                        <span className="text-xs font-bold rounded-lg px-2.5 py-1.5 min-w-[110px] text-center"
+                          style={{ backgroundColor: `${memberRole?.color || '#6B7280'}20`, color: memberRole?.color || '#6B7280' }}>
+                          {memberRole?.name || m.projectRole || 'Member'}
+                        </span>
                       )}
+
+                      {/* Remove button — fixed slot */}
+                      <div className="w-6 flex justify-center">
+                        {canRemoveFor(uid) && (
+                          <button
+                            onClick={() => handleRemove(uid)}
+                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all"
+                            title="Remove from project"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

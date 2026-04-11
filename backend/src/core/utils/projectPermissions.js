@@ -29,9 +29,10 @@ export const PROJECT_PERMISSION_KEYS = [
   { key: 'comment.create', group: 'Comments', label: 'Add comments' },
   { key: 'comment.delete', group: 'Comments', label: 'Delete own comments' },
   // Project settings
-  { key: 'project.edit',   group: 'Project',  label: 'Edit project name, description, color' },
-  { key: 'project.delete', group: 'Project',  label: 'Delete the project' },
-  { key: 'project.invite', group: 'Project',  label: 'Invite / remove project members' },
+  { key: 'project.edit',       group: 'Project',  label: 'Edit project name, description, color' },
+  { key: 'project.delete',     group: 'Project',  label: 'Delete the project' },
+  { key: 'project.invite',     group: 'Project',  label: 'Invite / remove project members' },
+  { key: 'project.changeRole', group: 'Project',  label: 'Change member roles' },
   // Attachments
   { key: 'attachment.add',    group: 'Attachments', label: 'Add attachments' },
   { key: 'attachment.delete', group: 'Attachments', label: 'Delete attachments' },

@@ -482,9 +482,28 @@ export const projectService = {
       throw ApiError.forbidden('You do not have permission to remove members');
     }
 
+    // Cannot remove yourself
+    if (memberIdToRemove === userId) {
+      throw ApiError.forbidden('You cannot remove yourself from the project');
+    }
+
     // Only workspace OWNER/ADMIN can remove the project creator
     if (project.createdById && memberIdToRemove === project.createdById && !isWorkspaceAdmin(wsRole)) {
       throw ApiError.forbidden('Cannot remove the project creator');
+    }
+
+    // Protect workspace OWNER/ADMIN — only the OWNER can remove another OWNER or an ADMIN
+    const targetWsMembership = await prisma.workspaceMember.findFirst({
+      where: { workspaceId: project.workspaceId, userId: memberIdToRemove },
+      select: { role: true },
+    });
+    if (targetWsMembership) {
+      if (targetWsMembership.role === 'OWNER' && wsRole !== 'OWNER') {
+        throw ApiError.forbidden('You cannot remove the workspace owner');
+      }
+      if (targetWsMembership.role === 'ADMIN' && wsRole !== 'OWNER') {
+        throw ApiError.forbidden('Only the workspace owner can remove an admin');
+      }
     }
 
     await prisma.projectMember.delete({
@@ -517,8 +536,34 @@ export const projectService = {
     if (!project) throw ApiError.notFound('Project not found');
 
     const { wsRole, projectRole: callerProjRole, customPermissions: callerPerms } = await getProjectPermissionContext(projectId, userId);
-    if (!hasPermission(wsRole, callerProjRole, callerPerms, 'project.invite')) {
+
+    // Permission gate: needs the dedicated `project.changeRole` permission.
+    // Workspace OWNER/ADMIN bypass via hasPermission().
+    if (!hasPermission(wsRole, callerProjRole, callerPerms, 'project.changeRole')) {
       throw ApiError.forbidden('You do not have permission to change project roles');
+    }
+
+    // Cannot change your own role — except workspace OWNER/ADMIN can change their own project role
+    if (targetUserId === userId && !isWorkspaceAdmin(wsRole)) {
+      throw ApiError.forbidden('You cannot change your own role');
+    }
+
+    // Protect workspace OWNER and ADMIN — only the OWNER can change another OWNER/ADMIN's role.
+    // (In practice "change OWNER" is impossible because OWNER bypasses everything anyway,
+    // but we still block lower-privilege users from changing ADMIN roles.)
+    const targetWsMembership = await prisma.workspaceMember.findFirst({
+      where: { workspaceId: project.workspaceId, userId: targetUserId },
+      select: { role: true },
+    });
+    if (targetWsMembership) {
+      const targetIsOwner = targetWsMembership.role === 'OWNER';
+      const targetIsAdmin = targetWsMembership.role === 'ADMIN';
+      if (targetIsOwner && wsRole !== 'OWNER') {
+        throw ApiError.forbidden("You cannot change the workspace owner's role");
+      }
+      if (targetIsAdmin && wsRole !== 'OWNER') {
+        throw ApiError.forbidden("Only the workspace owner can change an admin's role");
+      }
     }
 
     let targetRoleId = roleId;
