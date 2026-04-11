@@ -51,10 +51,9 @@ export const workspaceInviteService = {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
-    // 4. Create or update invite in DB
+    // 4. Create or update invite in DB (unique by email + workspaceId)
     const invite = await prisma.workspaceInvite.upsert({
-      where: { token: hashedToken }, // This is unlikely to hit on upsert with new token, but email + workspaceId unique would be better if we had it.
-      // Actually, let's just find existing pending invite for this email/workspace and update it.
+      where: { email_workspaceId: { email, workspaceId } },
       create: {
         email,
         role,

@@ -134,6 +134,7 @@ model WorkspaceInvite {
   invitedById String
   invitedBy   User         @relation(fields: [invitedById], references: [id], onDelete: Cascade)
 
+  @@unique([email, workspaceId])
   @@index([email])
   @@index([token])
   @@index([workspaceId])
