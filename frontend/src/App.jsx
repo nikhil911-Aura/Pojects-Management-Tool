@@ -13,6 +13,7 @@ import Inbox from './features/inbox/Inbox';
 import Profile from './features/profile/Profile';
 import Settings from './features/settings/Settings';
 import AcceptInvite from './features/invites/AcceptInvite';
+import Reports from './features/reports/Reports';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }) {
@@ -64,12 +65,13 @@ function App() {
       <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to={location.state?.from || '/'} replace />} />
       <Route path="/invite/accept/:token" element={<AcceptInvite />} />
 
-      <Route element={<Layout />}>
+        <Route element={<Layout />}>
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/my-tasks" element={<ProtectedRoute><MyTasks /></ProtectedRoute>} />
         <Route path="/inbox" element={<ProtectedRoute><Inbox /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
         <Route path="/workspace/:workspaceId" element={<ProtectedRoute><Workspace /></ProtectedRoute>} />
         <Route path="/project/:projectId" element={<ProtectedRoute><ProjectBoard /></ProtectedRoute>} />
         <Route path="/task/:taskId" element={<ProtectedRoute><TaskDetail /></ProtectedRoute>} />

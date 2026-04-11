@@ -17,6 +17,7 @@ import activityRoutes from './modules/activity/activityRoutes.js';
 import inviteRoutes from './modules/invites/inviteRoutes.js';
 import customFieldRoutes from './modules/customFields/customFieldRoutes.js';
 import timeTrackingRoutes from './modules/timeTracking/timeTrackingRoutes.js';
+import reportRoutes from './modules/reports/reportRoutes.js';
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use('/api/v1/activities', activityRoutes);
 app.use('/api/v1/invites', inviteRoutes);
 app.use('/api/v1/custom-fields', customFieldRoutes);
 app.use('/api/v1/time-tracking', timeTrackingRoutes);
+app.use('/api/v1/reports', reportRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

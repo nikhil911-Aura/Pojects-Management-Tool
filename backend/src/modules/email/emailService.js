@@ -48,6 +48,27 @@ export const emailService = {
       throw error;
     }
   },
+
+  /**
+   * Send a report email
+   */
+  async sendReportEmail(to, subject, html) {
+    try {
+      const info = await transporter.sendMail({
+        from: `"Asana Clone Reports" <${config.smtp.user}>`,
+        to,
+        subject,
+        html,
+      });
+      console.log(`[EmailService] Report sent to ${to}. Message ID: ${info.messageId}`);
+      logger.info(`Report email sent: ${info.messageId}`);
+      return info;
+    } catch (error) {
+      console.error(`[EmailService] Failed to send report to ${to}:`, error);
+      logger.error('Error sending report email:', error);
+      throw error;
+    }
+  }
 };
 
 export default emailService;
