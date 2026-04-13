@@ -23,7 +23,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.1.14:3000', 'http://192.168.1.18:3000'],
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.1.22:3000'],
   credentials: true
 }));
 app.use(express.json());
