@@ -34,11 +34,15 @@ function canAccessProject(workspaceRole, projectVisibility, projectRole) {
   return projectRole !== null;
 }
 
-// Granular check for any permission key on a CUSTOM role
+// Granular check — uses customPermissions from the new role system (CustomProjectRole),
+// with legacy projectRole enum as fallback for un-migrated data.
 function hasPermission(workspaceRole, projectRole, customPermissions, key) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
+  // New role system: customPermissions comes from customRole.permissions (always check first)
+  if (customPermissions && typeof customPermissions === 'object') return !!customPermissions[key];
+  // Legacy fallback: check the old projectRole enum
   if (projectRole === 'EDITOR') return true;
-  if (projectRole === 'CUSTOM' && customPermissions) return !!customPermissions[key];
+  if (projectRole === 'COMMENTER' && (key === 'comment.create' || key === 'comment.delete' || key === 'time.track')) return true;
   return false;
 }
 

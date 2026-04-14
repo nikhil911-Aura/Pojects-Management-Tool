@@ -15,8 +15,9 @@ function canAccessProject(workspaceRole, projectVisibility, projectRole) {
 
 function hasPermission(workspaceRole, projectRole, customPermissions, key) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
+  if (customPermissions && typeof customPermissions === 'object') return !!customPermissions[key];
   if (projectRole === 'EDITOR') return true;
-  if (projectRole === 'CUSTOM' && customPermissions) return !!customPermissions[key];
+  if (projectRole === 'COMMENTER' && (key === 'comment.create' || key === 'comment.delete' || key === 'time.track')) return true;
   return false;
 }
 

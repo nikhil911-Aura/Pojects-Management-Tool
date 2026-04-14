@@ -3,46 +3,42 @@ import { ApiError } from '../../core/utils/apiResponse.js';
 
 export const activityService = {
 
-  // Get inbox — activity logs relevant to the user across all projects in a workspace.
-  // Shows: actions on tasks assigned to user, tasks user created, comments on user's tasks,
-  // and actions done by others (not the user's own actions).
+  // Inbox — shows tasks recently assigned to the current user (newest first).
+  // Only the user's OWN assigned tasks — sorted by when they were assigned.
   async getInbox(workspaceId, userId, { cursor, limit = 30 } = {}) {
     const membership = await prisma.workspaceMember.findFirst({
       where: { workspaceId, userId },
     });
     if (!membership) throw ApiError.forbidden('You are not a member of this workspace');
 
-    const isAdmin = membership.role === 'OWNER' || membership.role === 'ADMIN';
-
-    // Build where: activities on tasks in this workspace, NOT by the current user
     const where = {
-      userId: { not: userId }, // exclude own actions
+      userId,
       task: {
         list: { board: { project: { workspaceId } } },
       },
     };
 
-    // Non-admins: only see activities on tasks they're assigned to or created
-    if (!isAdmin) {
-      where.task.OR = [
-        { assignees: { some: { userId } } },
-        { activityLogs: { some: { userId, action: { in: ['TASK_CREATED', 'SUBTASK_CREATED'] } } } },
-      ];
-    }
-
     if (cursor) {
       where.createdAt = { lt: new Date(cursor) };
     }
 
-    const activities = await prisma.activityLog.findMany({
+    // Get task assignments for this user, newest first
+    const assignments = await prisma.taskAssignee.findMany({
       where,
       include: {
-        user: { select: { id: true, name: true, avatar: true } },
         task: {
           select: {
             id: true,
             title: true,
             status: true,
+            priority: true,
+            dueDate: true,
+            createdAt: true,
+            assignees: {
+              select: { userId: true },
+              orderBy: { createdAt: 'asc' },
+              take: 1,
+            },
             list: {
               select: {
                 name: true,
@@ -58,11 +54,14 @@ export const activityService = {
         },
       },
       orderBy: { createdAt: 'desc' },
-      take: limit + 1, // fetch one extra to detect if there's a next page
     });
 
-    const hasMore = activities.length > limit;
-    const items = hasMore ? activities.slice(0, limit) : activities;
+    // Only keep tasks where this user is the PRIMARY assignee (first assigned)
+    const filtered = assignments.filter(a => a.task.assignees?.[0]?.userId === userId);
+
+    const paginated = filtered.slice(0, limit + 1);
+    const hasMore = paginated.length > limit;
+    const items = hasMore ? paginated.slice(0, limit) : paginated;
     const nextCursor = hasMore ? items[items.length - 1].createdAt.toISOString() : null;
 
     return { items, nextCursor, hasMore };
