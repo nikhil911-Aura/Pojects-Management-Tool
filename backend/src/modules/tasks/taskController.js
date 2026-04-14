@@ -56,6 +56,12 @@ export const taskController = {
     return successResponse(res, assignee, 'User assigned successfully');
   },
 
+  async reassignUser(req, res, next) {
+    const { userId } = req.validatedBody || req.body;
+    const assignee = await taskService.reassignUser(req.params.id, req.user.id, userId, req.socketId);
+    return successResponse(res, assignee, 'Task reassigned successfully');
+  },
+
   async removeAssignee(req, res, next) {
     const { assigneeId } = req.params;
     await taskService.removeAssignee(req.params.id, req.user.id, assigneeId, req.socketId);
@@ -83,6 +89,12 @@ export const taskController = {
     const { workspaceId } = req.params;
     const { q } = req.query;
     const tasks = await taskService.search(workspaceId, req.user.id, q);
+    return successResponse(res, tasks);
+  },
+
+  async getMyTasks(req, res, next) {
+    const { workspaceId } = req.params;
+    const tasks = await taskService.getMyTasks(workspaceId, req.user.id);
     return successResponse(res, tasks);
   }
 };

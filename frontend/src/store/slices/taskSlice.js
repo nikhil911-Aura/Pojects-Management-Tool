@@ -87,6 +87,18 @@ export const assignUser = createAsyncThunk(
   }
 );
 
+export const reassignUser = createAsyncThunk(
+  'task/reassignUser',
+  async ({ taskId, userId }, { rejectWithValue }) => {
+    try {
+      const response = await api.put(`/api/v1/tasks/${taskId}/assignees/reassign`, { userId });
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to reassign');
+    }
+  }
+);
+
 export const addAttachment = createAsyncThunk(
   'task/addAttachment',
   async ({ taskId, file }, { rejectWithValue }) => {
@@ -127,9 +139,24 @@ export const searchTasks = createAsyncThunk(
   }
 );
 
+export const fetchMyTasks = createAsyncThunk(
+  'task/fetchMyTasks',
+  async ({ workspaceId }, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`/api/v1/tasks/workspace/${workspaceId}/my-tasks`);
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch my tasks');
+    }
+  }
+);
+
 const initialState = {
   currentTask: null,
   searchResults: [],
+  myTasks: [],
+  teamTasks: [],
+  myTasksLoading: false,
   loading: false,
   error: null
 };
@@ -207,6 +234,18 @@ const taskSlice = createSlice({
       })
       .addCase(searchTasks.fulfilled, (state, action) => {
         state.searchResults = action.payload;
+      })
+      .addCase(fetchMyTasks.pending, (state) => {
+        state.myTasksLoading = true;
+      })
+      .addCase(fetchMyTasks.fulfilled, (state, action) => {
+        state.myTasksLoading = false;
+        state.myTasks = action.payload.myTasks || [];
+        state.teamTasks = action.payload.teamTasks || [];
+      })
+      .addCase(fetchMyTasks.rejected, (state, action) => {
+        state.myTasksLoading = false;
+        state.error = action.payload;
       });
   }
 });

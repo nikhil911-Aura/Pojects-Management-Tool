@@ -262,6 +262,9 @@ export const useSocket = (projectId, boardId) => {
         if (event === 'task_assigned' && data.taskId && data.user) {
           dispatch(optimisticAssignUser({ taskId: data.taskId, user: data.user }));
         }
+        if (event === 'task_reassigned' && data.taskId && data.user) {
+          dispatch(optimisticAssignUser({ taskId: data.taskId, user: data.user, replace: true }));
+        }
 
         // Drag-and-drop move from another user — apply instantly via the same
         // recursive reducer used by the local drag (handles all 5 move cases).

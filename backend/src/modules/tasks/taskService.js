@@ -1,6 +1,6 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
-import { emitToProject } from '../../core/socket.js';
+import { emitToProject, emitToWorkspace } from '../../core/socket.js';
 import { cloudinary } from '../../core/cloudinary.js';
 
 // ── Cloudinary URL → publicId fallback for old attachments without publicId ──
@@ -113,7 +113,7 @@ async function getContextFromTask(taskId, userId) {
     throw ApiError.forbidden('You do not have access to this project');
   }
 
-  return { task, workspaceMember, projectRole, customPermissions, projectId: project.id };
+  return { task, workspaceMember, projectRole, customPermissions, projectId: project.id, workspaceId: project.workspaceId };
 }
 
 // ── Task Service ──────────────────────────────────────────────────────────────
@@ -204,7 +204,7 @@ export const taskService = {
 
   // Update task
   async update(taskId, userId, updateData, excludeSocketId) {
-    const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
+    const { task, workspaceMember, projectRole, customPermissions, projectId, workspaceId } = await getContextFromTask(taskId, userId);
 
     // Status-only change → check task.complete; everything else → task.edit
     const statusOnly = Object.keys(updateData).length === 1 && updateData.status !== undefined;
@@ -244,12 +244,19 @@ export const taskService = {
     }
 
     emitToProject(projectId, 'task_updated', updated, excludeSocketId);
+    // If status or dueDate changed, notify My Tasks pages (affects tabs/filters)
+    if (updateData.status || updateData.dueDate !== undefined) {
+      const affectedUserIds = (updated.assignees || []).map(a => a.userId || a.user?.id).filter(Boolean);
+      if (affectedUserIds.length) {
+        emitToWorkspace(workspaceId, 'my_tasks_changed', { affectedUserIds, action: 'updated', taskId });
+      }
+    }
     return updated;
   },
 
   // Delete task
   async delete(taskId, userId, excludeSocketId) {
-    const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
+    const { task, workspaceMember, projectRole, customPermissions, projectId, workspaceId } = await getContextFromTask(taskId, userId);
 
     const permKey = task.parentId ? 'subtask.delete' : 'task.delete';
     if (!hasPermission(workspaceMember.role, projectRole, customPermissions, permKey)) {
@@ -292,8 +299,16 @@ export const taskService = {
       }
     }
 
+    // Capture assignees before deleting (for My Tasks notification)
+    const taskAssignees = await prisma.taskAssignee.findMany({ where: { taskId }, select: { userId: true } });
+    const assigneeIds = taskAssignees.map(a => a.userId);
+
     await prisma.task.delete({ where: { id: taskId } });
     emitToProject(projectId, 'task_deleted', taskId, excludeSocketId);
+    // Notify My Tasks pages
+    if (assigneeIds.length) {
+      emitToWorkspace(workspaceId, 'my_tasks_changed', { affectedUserIds: assigneeIds, action: 'deleted', taskId });
+    }
     return true;
   },
 
@@ -431,7 +446,7 @@ export const taskService = {
 
   // Assign user
   async assignUser(taskId, userId, assigneeId, excludeSocketId) {
-    const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
+    const { task, workspaceMember, projectRole, customPermissions, projectId, workspaceId } = await getContextFromTask(taskId, userId);
 
     if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'task.assign')) {
       throw ApiError.forbidden('You do not have permission to assign users');
@@ -443,12 +458,44 @@ export const taskService = {
     });
 
     emitToProject(projectId, 'user_assigned', { taskId, assignee }, excludeSocketId);
+    // Notify workspace so My Tasks pages refresh
+    emitToWorkspace(workspaceId, 'my_tasks_changed', { affectedUserIds: [assigneeId], action: 'assigned', taskId });
+    return assignee;
+  },
+
+  // Reassign — remove all current assignees and assign a single new one
+  async reassignUser(taskId, userId, newAssigneeId, excludeSocketId) {
+    const { task, workspaceMember, projectRole, customPermissions, projectId, workspaceId } = await getContextFromTask(taskId, userId);
+
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'task.assign')) {
+      throw ApiError.forbidden('You do not have permission to assign users');
+    }
+
+    // Get current assignees before removing (for socket notification)
+    const currentAssignees = await prisma.taskAssignee.findMany({ where: { taskId }, select: { userId: true } });
+    const oldUserIds = currentAssignees.map(a => a.userId);
+
+    // Remove all current assignees and add the new one in a transaction
+    await prisma.$transaction([
+      prisma.taskAssignee.deleteMany({ where: { taskId } }),
+      prisma.taskAssignee.create({ data: { userId: newAssigneeId, taskId } }),
+    ]);
+
+    const assignee = await prisma.taskAssignee.findUnique({
+      where: { userId_taskId: { userId: newAssigneeId, taskId } },
+      include: { user: true },
+    });
+
+    emitToProject(projectId, 'task_reassigned', { taskId, assignee, removedUserIds: oldUserIds }, excludeSocketId);
+    // Notify all affected users (old + new) so My Tasks pages refresh
+    const allAffected = Array.from(new Set([...oldUserIds, newAssigneeId]));
+    emitToWorkspace(workspaceId, 'my_tasks_changed', { affectedUserIds: allAffected, action: 'reassigned', taskId });
     return assignee;
   },
 
   // Remove assignee
   async removeAssignee(taskId, userId, assigneeId, excludeSocketId) {
-    const { task, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromTask(taskId, userId);
+    const { task, workspaceMember, projectRole, customPermissions, projectId, workspaceId } = await getContextFromTask(taskId, userId);
 
     if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'task.assign')) {
       throw ApiError.forbidden('You do not have permission to remove assignees');
@@ -456,6 +503,8 @@ export const taskService = {
 
     await prisma.taskAssignee.delete({ where: { userId_taskId: { userId: assigneeId, taskId } } });
     emitToProject(projectId, 'user_removed', { taskId, assigneeId }, excludeSocketId);
+    // Notify workspace so My Tasks pages refresh
+    emitToWorkspace(workspaceId, 'my_tasks_changed', { affectedUserIds: [assigneeId], action: 'unassigned', taskId });
     return true;
   },
 
@@ -572,6 +621,102 @@ export const taskService = {
       orderBy: { updatedAt: 'desc' },
       take: 20
     });
+  },
+
+  // My Tasks
+  // - OWNER/ADMIN: { myTasks: [...], teamTasks: [...] } (own + all member tasks in workspace)
+  // - MEMBER: { myTasks: [...] } (own tasks in PUBLIC projects + projects they're a member of)
+  // - GUEST: { myTasks: [...] } (own tasks only in projects they're explicitly added to)
+  async getMyTasks(workspaceId, userId) {
+    const membership = await prisma.workspaceMember.findFirst({
+      where: { workspaceId, userId }
+    });
+    if (!membership) throw ApiError.forbidden('You are not a member of this workspace');
+
+    const isAdmin = membership.role === 'OWNER' || membership.role === 'ADMIN';
+    const isGuest = membership.role === 'GUEST';
+
+    const taskInclude = {
+      list: {
+        select: {
+          id: true,
+          name: true,
+          board: {
+            select: {
+              id: true,
+              projectId: true,
+              project: { select: { id: true, name: true, color: true } }
+            }
+          }
+        }
+      },
+      assignees: {
+        include: { user: { select: { id: true, name: true, avatar: true } } }
+      }
+    };
+
+    // Build project visibility filter for non-admin users
+    let projectFilter = { workspaceId };
+    if (!isAdmin) {
+      projectFilter = {
+        workspaceId,
+        OR: [
+          ...(isGuest ? [] : [{ visibility: 'PUBLIC' }]),
+          { members: { some: { userId } } }
+        ]
+      };
+    }
+
+    // My own tasks — only where the user is the PRIMARY assignee (first assigned).
+    // We fetch tasks where the user is ANY assignee, then filter server-side to
+    // keep only those where the user is the first assignee (earliest createdAt).
+    const myCandidates = await prisma.task.findMany({
+      where: {
+        assignees: { some: { userId } },
+        list: { board: { project: projectFilter } },
+      },
+      include: {
+        ...taskInclude,
+        assignees: {
+          include: { user: { select: { id: true, name: true, avatar: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    // Keep only tasks where the user is the FIRST (primary) assignee
+    const myTasks = myCandidates.filter(t => {
+      const firstAssignee = t.assignees?.[0];
+      return firstAssignee?.userId === userId || firstAssignee?.user?.id === userId;
+    });
+
+    // For OWNER/ADMIN: also fetch all tasks across workspace that have at least one assignee
+    // (excluding tasks already in myTasks). Shows who is working on what.
+    if (isAdmin) {
+      const allAssignedTasks = await prisma.task.findMany({
+        where: {
+          assignees: { some: {} },
+          list: { board: { project: { workspaceId } } },
+        },
+        include: {
+          ...taskInclude,
+          assignees: {
+            include: { user: { select: { id: true, name: true, avatar: true } } },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      // Team tasks = tasks whose primary assignee is NOT the current user
+      const myTaskIds = new Set(myTasks.map(t => t.id));
+      const teamTasks = allAssignedTasks.filter(t => !myTaskIds.has(t.id));
+
+      return { myTasks, teamTasks };
+    }
+
+    return { myTasks, teamTasks: [] };
   },
 
   // ── Multi-project milestones ────────────────────────────────────────────────

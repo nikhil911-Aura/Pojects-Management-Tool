@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchTask, updateTask, createSubtask, deleteTask, assignUser, addAttachment, removeAttachment } from '../../store/slices/taskSlice';
 import { optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticAddSubtask } from '../../store/slices/boardSlice';
+import { fetchProject } from '../../store/slices/projectSlice';
 import api from '../../services/api';
 import { useRole } from '../../hooks/useRole';
 import { useConfirm } from '../../hooks/useConfirm';
@@ -377,6 +378,16 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
     setLocalComments(null);
     setLocalSubtasks(null);
   }, [taskId, dispatch]);
+
+  // If the task's project doesn't match the currently loaded project,
+  // fetch it so useRole() can resolve permissions correctly.
+  // This happens when opening from My Tasks or search (no project context).
+  useEffect(() => {
+    const taskProjectId = fullCurrentTask?.list?.board?.project?.id;
+    if (taskProjectId && currentProject?.id !== taskProjectId) {
+      dispatch(fetchProject(taskProjectId));
+    }
+  }, [fullCurrentTask?.list?.board?.project?.id, currentProject?.id, dispatch]);
 
   useEffect(() => {
     if (currentTask?.id === taskId) {

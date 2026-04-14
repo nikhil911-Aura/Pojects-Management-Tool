@@ -12,7 +12,9 @@ import {
   setUserFilter,
   setGroupBy,
 } from '../../store/slices/reportSlice';
+import { fetchWorkspace } from '../../store/slices/workspaceSlice';
 import { useRole } from '../../hooks/useRole';
+import api from '../../services/api';
 
 // ── Period options ──────────────────────────────────────────────────────────
 const PERIODS = [
@@ -69,9 +71,17 @@ function Reports() {
   const [activeTab, setActiveTab] = useState('timesheet'); // 'timesheet' | 'team'
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showCustomRange, setShowCustomRange] = useState(filters.period === 'custom');
+  const [toast, setToast] = useState(null); // { type: 'success'|'error', message, count }
 
   const workspaceId = currentWorkspace?.id;
   const canViewTeam = isWorkspaceAdmin;
+
+  // Ensure workspace members are loaded (needed for email modal + member filter)
+  useEffect(() => {
+    if (workspaceId && !Array.isArray(currentWorkspace?.members)) {
+      dispatch(fetchWorkspace(workspaceId));
+    }
+  }, [workspaceId, currentWorkspace?.members, dispatch]);
 
   // ── Fetch data when tab or filters change ────────────────────────────────
   useEffect(() => {
@@ -126,7 +136,17 @@ function Reports() {
           </div>
 
           <div className="flex items-center space-x-2">
-            <ExportMenu loading={exportLoading} onExport={handleExport} />
+            <button
+              onClick={() => handleExport('xlsx')}
+              disabled={exportLoading}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 text-xs font-medium transition-colors disabled:opacity-50"
+              title="Download Excel report"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span>{exportLoading ? 'Exporting…' : 'Download Excel'}</span>
+            </button>
             <button
               onClick={() => setShowEmailModal(true)}
               className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-asana-blue hover:bg-blue-600 text-white text-xs font-medium transition-colors shadow-sm"
@@ -260,73 +280,67 @@ function Reports() {
       {showEmailModal && (
         <EmailReportModal
           workspaceMembers={currentWorkspace?.members || []}
+          workspaceId={workspaceId}
           loading={emailLoading}
           onClose={() => setShowEmailModal(false)}
           onSend={async ({ recipients, message }) => {
             const result = await dispatch(emailReport({ workspaceId, filters, recipients, message }));
-            if (!result.error) setShowEmailModal(false);
+            if (!result.error) {
+              const sent = result.payload?.sent || recipients.length;
+              setShowEmailModal(false);
+              setToast({ type: 'success', message: `Report sent to ${sent} recipient${sent === 1 ? '' : 's'}`, count: sent });
+              setTimeout(() => setToast(null), 4000);
+            } else {
+              setToast({ type: 'error', message: result.payload || 'Failed to send report' });
+              setTimeout(() => setToast(null), 5000);
+            }
           }}
         />
       )}
+
+      {/* Toast notification */}
+      {toast && <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
     </div>
   );
 }
 
-// ── Export menu (Excel / CSV) ───────────────────────────────────────────────
-function ExportMenu({ loading, onExport }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    if (open) document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
+// ── Toast notification ──────────────────────────────────────────────────────
+function Toast({ type, message, onClose }) {
+  const isSuccess = type === 'success';
   return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen(!open)}
-        disabled={loading}
-        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 text-xs font-medium transition-colors disabled:opacity-50"
-        title="Download report"
-      >
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
-        <span>{loading ? 'Exporting…' : 'Download'}</span>
-        <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-1 w-44 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl py-1 z-50 animate-fade-in">
-          <button
-            onClick={() => { onExport('xlsx'); setOpen(false); }}
-            className="w-full flex items-center space-x-2.5 text-left px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50"
-          >
-            <span className="w-6 h-6 rounded bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-[10px] font-bold text-green-700 dark:text-green-400">
-              XLS
-            </span>
-            <div>
-              <p className="font-medium text-[var(--asana-text-primary)]">Excel (.xlsx)</p>
-              <p className="text-[10px] text-[var(--asana-text-secondary)]">Styled report</p>
-            </div>
-          </button>
-          <button
-            onClick={() => { onExport('csv'); setOpen(false); }}
-            className="w-full flex items-center space-x-2.5 text-left px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50"
-          >
-            <span className="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center text-[10px] font-bold text-gray-700 dark:text-gray-300">
-              CSV
-            </span>
-            <div>
-              <p className="font-medium text-[var(--asana-text-primary)]">CSV (.csv)</p>
-              <p className="text-[10px] text-[var(--asana-text-secondary)]">Plain text</p>
-            </div>
-          </button>
+    <div className="fixed bottom-6 right-6 z-[100] animate-slide-in-right">
+      <div className={`flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl border ${
+        isSuccess
+          ? 'bg-green-50 dark:bg-green-900/40 border-green-200 dark:border-green-700/50'
+          : 'bg-red-50 dark:bg-red-900/40 border-red-200 dark:border-red-700/50'
+      }`}>
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+          isSuccess ? 'bg-green-500' : 'bg-red-500'
+        }`}>
+          {isSuccess ? (
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          )}
         </div>
-      )}
+        <div>
+          <p className={`text-sm font-semibold ${isSuccess ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
+            {isSuccess ? 'Email Sent!' : 'Send Failed'}
+          </p>
+          <p className={`text-xs ${isSuccess ? 'text-green-600 dark:text-green-300' : 'text-red-600 dark:text-red-300'}`}>
+            {message}
+          </p>
+        </div>
+        <button onClick={onClose} className="ml-2 p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+          <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }
@@ -728,111 +742,136 @@ function EmptyState({ icon, title, message }) {
 }
 
 // ── Email modal ─────────────────────────────────────────────────────────────
-// Two recipient sources:
-//   1. Workspace members (with select-all toggle)
-//   2. Custom emails (free-form input, validated)
-function EmailReportModal({ workspaceMembers, onClose, onSend, loading }) {
-  const [selectedMembers, setSelectedMembers] = useState([]); // emails of workspace members
-  const [customEmails, setCustomEmails] = useState([]);       // free-form emails
+// Three recipient sources:
+//   1. Saved recipients (persisted in DB per workspace — add/delete)
+//   2. Workspace members (searchable, with select-all)
+//   3. One-time custom email (typed inline, not saved)
+function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, loading }) {
+  const [selected, setSelected] = useState(new Set());       // all selected emails
+  const [savedRecipients, setSavedRecipients] = useState([]); // from DB
+  const [loadingSaved, setLoadingSaved] = useState(true);
   const [emailInput, setEmailInput] = useState('');
+  const [nameInput, setNameInput] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [adding, setAdding] = useState(false);
 
-  // Build deduped member options (skip self if you want)
+  // Fetch saved recipients on mount
+  useEffect(() => {
+    if (!workspaceId) { setLoadingSaved(false); return; }
+    api.get(`/api/v1/reports/workspace/${workspaceId}/recipients`)
+      .then(res => setSavedRecipients(res.data.data || []))
+      .catch(() => {})
+      .finally(() => setLoadingSaved(false));
+  }, [workspaceId]);
+
+  // Workspace members
   const memberOptions = useMemo(() => {
-    return workspaceMembers
-      .map((m) => ({
-        id: m.userId || m.user?.id,
-        name: m.user?.name,
-        email: m.user?.email,
-      }))
-      .filter((m) => m.email);
+    return (workspaceMembers || [])
+      .map(m => ({ id: m.userId || m.user?.id, name: m.user?.name, email: m.user?.email }))
+      .filter(m => m.email);
   }, [workspaceMembers]);
 
-  const filtered = memberOptions.filter(
-    (m) =>
-      !search ||
-      m.name?.toLowerCase().includes(search.toLowerCase()) ||
-      m.email?.toLowerCase().includes(search.toLowerCase())
+  const filteredMembers = memberOptions.filter(m =>
+    !search || m.name?.toLowerCase().includes(search.toLowerCase()) || m.email?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const allFilteredEmails = filtered.map((m) => m.email);
-  const allSelected = filtered.length > 0 && allFilteredEmails.every((e) => selectedMembers.includes(e));
-  const someSelected = !allSelected && allFilteredEmails.some((e) => selectedMembers.includes(e));
-
-  const toggleMember = (email) => {
-    setSelectedMembers((prev) =>
-      prev.includes(email) ? prev.filter((e) => e !== email) : [...prev, email]
-    );
+  // Toggle helpers
+  const toggle = (email) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(email) ? next.delete(email) : next.add(email);
+      return next;
+    });
   };
 
-  const toggleSelectAll = () => {
-    if (allSelected) {
-      setSelectedMembers((prev) => prev.filter((e) => !allFilteredEmails.includes(e)));
-    } else {
-      setSelectedMembers((prev) => Array.from(new Set([...prev, ...allFilteredEmails])));
-    }
+  const selectAllSaved = () => {
+    const emails = savedRecipients.map(r => r.email);
+    const allIn = emails.every(e => selected.has(e));
+    setSelected(prev => {
+      const next = new Set(prev);
+      emails.forEach(e => allIn ? next.delete(e) : next.add(e));
+      return next;
+    });
   };
 
-  const addCustomEmail = (raw) => {
-    const value = String(raw || '').trim().toLowerCase();
-    if (!value) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      setError(`Invalid email: ${value}`);
+  const selectAllMembers = () => {
+    const emails = filteredMembers.map(m => m.email);
+    const allIn = emails.every(e => selected.has(e));
+    setSelected(prev => {
+      const next = new Set(prev);
+      emails.forEach(e => allIn ? next.delete(e) : next.add(e));
+      return next;
+    });
+  };
+
+  // Add new email to DB
+  const handleAddRecipient = async () => {
+    const email = emailInput.trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Enter a valid email address');
       return;
     }
-    if (customEmails.includes(value) || selectedMembers.includes(value)) {
-      setError('Already added');
+    if (savedRecipients.some(r => r.email === email)) {
+      setError('This email is already saved');
       return;
     }
-    setCustomEmails((prev) => [...prev, value]);
-    setEmailInput('');
+    setAdding(true);
     setError('');
-  };
-
-  const removeCustomEmail = (email) => {
-    setCustomEmails((prev) => prev.filter((e) => e !== email));
-  };
-
-  const handleEmailKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      addCustomEmail(emailInput);
-    } else if (e.key === 'Backspace' && !emailInput && customEmails.length) {
-      removeCustomEmail(customEmails[customEmails.length - 1]);
+    try {
+      const res = await api.post(`/api/v1/reports/workspace/${workspaceId}/recipients`, {
+        email,
+        name: nameInput.trim() || null,
+      });
+      setSavedRecipients(prev => [res.data.data, ...prev]);
+      setEmailInput('');
+      setNameInput('');
+      setShowAddForm(false);
+      // Auto-select the newly added recipient
+      setSelected(prev => new Set(prev).add(email));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to add');
+    } finally {
+      setAdding(false);
     }
   };
 
-  const allRecipients = useMemo(
-    () => Array.from(new Set([...selectedMembers, ...customEmails])),
-    [selectedMembers, customEmails]
-  );
+  // Delete from DB
+  const handleDeleteRecipient = async (recipientId, email) => {
+    try {
+      await api.delete(`/api/v1/reports/recipients/${recipientId}`);
+      setSavedRecipients(prev => prev.filter(r => r.id !== recipientId));
+      setSelected(prev => { const next = new Set(prev); next.delete(email); return next; });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete');
+    }
+  };
+
+  const allRecipients = useMemo(() => Array.from(selected), [selected]);
 
   const handleSend = () => {
     setError('');
-    if (allRecipients.length === 0) {
-      setError('Add at least one recipient');
-      return;
-    }
-    if (allRecipients.length > 20) {
-      setError('Too many recipients (max 20 per send)');
-      return;
-    }
+    if (allRecipients.length === 0) { setError('Select at least one recipient'); return; }
+    if (allRecipients.length > 20) { setError('Too many recipients (max 20)'); return; }
     onSend({ recipients: allRecipients, message: message.trim() });
   };
+
+  const savedAllSelected = savedRecipients.length > 0 && savedRecipients.every(r => selected.has(r.email));
+  const membersAllSelected = filteredMembers.length > 0 && filteredMembers.every(m => selected.has(m.email));
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
       <div className="bg-[var(--asana-surface)] rounded-2xl shadow-2xl w-full max-w-2xl border border-[var(--asana-border)] overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Gradient header */}
+        {/* Header */}
         <div className="px-6 py-5 bg-gradient-to-br from-asana-blue to-indigo-600 text-white">
           <div className="flex items-start justify-between">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">Email Report</div>
               <h3 className="text-lg font-bold mt-0.5">Send Work Report</h3>
               <p className="text-[12px] opacity-90 mt-1">
-                Pick workspace members or add custom email addresses · Max 20 recipients
+                Select recipients from saved emails or workspace members
               </p>
             </div>
             <button onClick={onClose} className="p-1.5 rounded-md hover:bg-white/20 transition-colors">
@@ -845,20 +884,21 @@ function EmailReportModal({ workspaceMembers, onClose, onSend, loading }) {
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          {/* ── Custom email input (chips style) ── */}
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] mb-1.5">
-              Recipients
-            </label>
-            <div className="border border-[var(--asana-border)] rounded-lg p-2 bg-[var(--asana-bg)] focus-within:ring-2 focus-within:ring-asana-blue/20 focus-within:border-asana-blue/40 transition-all">
-              <div className="flex flex-wrap gap-1.5 items-center">
-                {/* Selected member chips */}
-                {selectedMembers.map((email) => {
-                  const m = memberOptions.find((x) => x.email === email);
+
+          {/* ── Selected chips ── */}
+          {selected.size > 0 && (
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] mb-1.5">
+                Selected ({selected.size})
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {allRecipients.map(email => {
+                  const m = memberOptions.find(x => x.email === email);
+                  const s = savedRecipients.find(x => x.email === email);
                   return (
                     <span key={email} className="inline-flex items-center gap-1 bg-asana-blue/10 text-asana-blue text-xs font-medium px-2 py-1 rounded-md">
-                      <span>{m?.name || email}</span>
-                      <button onClick={() => toggleMember(email)} className="hover:bg-asana-blue/20 rounded p-0.5">
+                      <span>{m?.name || s?.name || email}</span>
+                      <button onClick={() => toggle(email)} className="hover:bg-asana-blue/20 rounded p-0.5">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -866,53 +906,120 @@ function EmailReportModal({ workspaceMembers, onClose, onSend, loading }) {
                     </span>
                   );
                 })}
-                {/* Custom email chips */}
-                {customEmails.map((email) => (
-                  <span key={email} className="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-medium px-2 py-1 rounded-md">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                    </svg>
-                    <span>{email}</span>
-                    <button onClick={() => removeCustomEmail(email)} className="hover:bg-purple-200 dark:hover:bg-purple-800/40 rounded p-0.5">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-                <input
-                  type="email"
-                  value={emailInput}
-                  onChange={(e) => { setEmailInput(e.target.value); setError(''); }}
-                  onKeyDown={handleEmailKeyDown}
-                  onBlur={() => emailInput && addCustomEmail(emailInput)}
-                  placeholder={allRecipients.length ? 'Add more...' : 'Type an email and press Enter'}
-                  className="flex-1 min-w-[180px] bg-transparent text-xs text-[var(--asana-text-primary)] placeholder-[var(--asana-text-muted)] outline-none border-none py-1 px-1"
-                />
               </div>
             </div>
-            <div className="flex items-center justify-between mt-1.5">
-              <p className="text-[10px] text-[var(--asana-text-secondary)]">
-                Press <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[9px]">Enter</kbd> or comma to add
-              </p>
-              <p className="text-[10px] text-[var(--asana-text-secondary)]">
-                <span className={`font-bold ${allRecipients.length > 20 ? 'text-red-500' : 'text-asana-blue'}`}>{allRecipients.length}</span> / 20
-              </p>
+          )}
+
+          {/* ── Saved recipients ── */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)]">
+                Saved Recipients ({savedRecipients.length})
+              </label>
+              <div className="flex items-center gap-3">
+                {savedRecipients.length > 0 && (
+                  <button onClick={selectAllSaved} className="text-[11px] font-semibold text-asana-blue hover:underline">
+                    {savedAllSelected ? 'Deselect All' : 'Select All'}
+                  </button>
+                )}
+                <button
+                  onClick={() => { setShowAddForm(!showAddForm); setError(''); }}
+                  className="text-[11px] font-semibold text-green-600 dark:text-green-400 hover:underline"
+                >
+                  + Add Email
+                </button>
+              </div>
+            </div>
+
+            {/* Add form */}
+            {showAddForm && (
+              <div className="border border-[var(--asana-border)] rounded-lg p-3 mb-2 bg-[var(--asana-bg)] space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    placeholder="email@example.com"
+                    value={emailInput}
+                    onChange={e => { setEmailInput(e.target.value); setError(''); }}
+                    onKeyDown={e => e.key === 'Enter' && handleAddRecipient()}
+                    className="flex-1 px-2.5 py-1.5 border border-[var(--asana-border)] rounded-md text-xs bg-[var(--asana-surface)] text-[var(--asana-text-primary)] focus:outline-none focus:ring-1 focus:ring-asana-blue/30"
+                    autoFocus
+                  />
+                  <input
+                    type="text"
+                    placeholder="Name (optional)"
+                    value={nameInput}
+                    onChange={e => setNameInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAddRecipient()}
+                    className="w-36 px-2.5 py-1.5 border border-[var(--asana-border)] rounded-md text-xs bg-[var(--asana-surface)] text-[var(--asana-text-primary)] focus:outline-none focus:ring-1 focus:ring-asana-blue/30"
+                  />
+                  <button
+                    onClick={handleAddRecipient}
+                    disabled={adding}
+                    className="px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-md hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {adding ? '...' : 'Save'}
+                  </button>
+                </div>
+                <p className="text-[10px] text-[var(--asana-text-secondary)]">
+                  This email will be saved for future reports. Press Enter to add.
+                </p>
+              </div>
+            )}
+
+            {/* Saved list */}
+            <div className="border border-[var(--asana-border)] rounded-lg max-h-40 overflow-y-auto divide-y divide-[var(--asana-border)]">
+              {loadingSaved ? (
+                <div className="py-4 text-center">
+                  <div className="animate-spin w-4 h-4 border-2 border-asana-blue border-t-transparent rounded-full mx-auto" />
+                </div>
+              ) : savedRecipients.length === 0 ? (
+                <p className="text-xs text-[var(--asana-text-secondary)] text-center py-4">
+                  No saved recipients yet. Click "+ Add Email" to save one.
+                </p>
+              ) : (
+                savedRecipients.map(r => (
+                  <label key={r.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/40 cursor-pointer transition-colors group">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(r.email)}
+                      onChange={() => toggle(r.email)}
+                      className="w-3.5 h-3.5 rounded text-asana-blue cursor-pointer"
+                    />
+                    <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 flex-shrink-0">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-[var(--asana-text-primary)] truncate">{r.name || r.email}</p>
+                      {r.name && <p className="text-[10px] text-[var(--asana-text-secondary)] truncate">{r.email}</p>}
+                    </div>
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteRecipient(r.id, r.email); }}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all"
+                      title="Remove saved email"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </label>
+                ))
+              )}
             </div>
           </div>
 
-          {/* ── Workspace members list ── */}
+          {/* ── Workspace members ── */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-[11px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)]">
                 Workspace Members ({memberOptions.length})
               </label>
-              <button
-                onClick={toggleSelectAll}
-                className="text-[11px] font-semibold text-asana-blue hover:underline"
-              >
-                {allSelected ? 'Deselect All' : 'Select All'}
-              </button>
+              {filteredMembers.length > 0 && (
+                <button onClick={selectAllMembers} className="text-[11px] font-semibold text-asana-blue hover:underline">
+                  {membersAllSelected ? 'Deselect All' : 'Select All'}
+                </button>
+              )}
             </div>
 
             <div className="relative mb-2">
@@ -921,28 +1028,25 @@ function EmailReportModal({ workspaceMembers, onClose, onSend, loading }) {
               </svg>
               <input
                 type="text"
-                placeholder="Search members…"
+                placeholder="Search members by name or email…"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={e => setSearch(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 border border-[var(--asana-border)] rounded-md text-xs bg-[var(--asana-bg)] text-[var(--asana-text-primary)] focus:outline-none focus:ring-1 focus:ring-asana-blue/30 focus:border-asana-blue/30"
               />
             </div>
 
-            <div className="border border-[var(--asana-border)] rounded-lg max-h-56 overflow-y-auto divide-y divide-[var(--asana-border)]">
-              {filtered.length === 0 && (
-                <p className="text-xs text-[var(--asana-text-secondary)] text-center py-6">No members found</p>
-              )}
-              {filtered.map((m) => {
-                const checked = selectedMembers.includes(m.email);
-                return (
-                  <label
-                    key={m.id}
-                    className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/40 cursor-pointer transition-colors"
-                  >
+            <div className="border border-[var(--asana-border)] rounded-lg max-h-48 overflow-y-auto divide-y divide-[var(--asana-border)]">
+              {filteredMembers.length === 0 ? (
+                <p className="text-xs text-[var(--asana-text-secondary)] text-center py-4">
+                  {memberOptions.length === 0 ? 'No workspace members loaded' : 'No members match your search'}
+                </p>
+              ) : (
+                filteredMembers.map(m => (
+                  <label key={m.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/40 cursor-pointer transition-colors">
                     <input
                       type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleMember(m.email)}
+                      checked={selected.has(m.email)}
+                      onChange={() => toggle(m.email)}
                       className="w-3.5 h-3.5 rounded text-asana-blue cursor-pointer"
                     />
                     <Avatar name={m.name} />
@@ -951,8 +1055,8 @@ function EmailReportModal({ workspaceMembers, onClose, onSend, loading }) {
                       <p className="text-[10px] text-[var(--asana-text-secondary)] truncate">{m.email}</p>
                     </div>
                   </label>
-                );
-              })}
+                ))
+              )}
             </div>
           </div>
 
@@ -963,12 +1067,11 @@ function EmailReportModal({ workspaceMembers, onClose, onSend, loading }) {
             </label>
             <textarea
               value={message}
-              onChange={(e) => setMessage(e.target.value.slice(0, 1000))}
+              onChange={e => setMessage(e.target.value.slice(0, 1000))}
               placeholder="Add a personal note that will appear at the top of the email..."
-              rows={3}
+              rows={2}
               className="w-full px-3 py-2 border border-[var(--asana-border)] rounded-lg text-xs bg-[var(--asana-bg)] text-[var(--asana-text-primary)] placeholder-[var(--asana-text-muted)] focus:outline-none focus:ring-2 focus:ring-asana-blue/20 focus:border-asana-blue/40 resize-none"
             />
-            <p className="text-[10px] text-[var(--asana-text-secondary)] mt-1 text-right">{message.length} / 1000</p>
           </div>
 
           {error && (
@@ -981,23 +1084,20 @@ function EmailReportModal({ workspaceMembers, onClose, onSend, loading }) {
         {/* Footer */}
         <div className="px-6 py-3.5 bg-gray-50 dark:bg-gray-800/30 border-t border-[var(--asana-border)] flex items-center justify-between">
           <p className="text-[11px] text-[var(--asana-text-secondary)]">
-            {allRecipients.length > 0 && (
+            {selected.size > 0 && (
               <>
-                Sending to <span className="font-bold text-[var(--asana-text-primary)]">{allRecipients.length}</span> recipient{allRecipients.length === 1 ? '' : 's'}
+                Sending to <span className="font-bold text-[var(--asana-text-primary)]">{selected.size}</span> recipient{selected.size === 1 ? '' : 's'}
+                {selected.size > 20 && <span className="text-red-500 ml-1">(max 20!)</span>}
               </>
             )}
           </p>
           <div className="flex items-center space-x-2">
-            <button
-              onClick={onClose}
-              disabled={loading}
-              className="px-3 py-1.5 rounded-md text-xs font-medium text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-            >
+            <button onClick={onClose} disabled={loading} className="px-3 py-1.5 rounded-md text-xs font-medium text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50">
               Cancel
             </button>
             <button
               onClick={handleSend}
-              disabled={allRecipients.length === 0 || loading || allRecipients.length > 20}
+              disabled={selected.size === 0 || loading || selected.size > 20}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-semibold bg-asana-blue text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               {loading ? (

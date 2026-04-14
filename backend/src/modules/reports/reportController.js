@@ -1,5 +1,6 @@
 import reportService from './reportService.js';
-import { successResponse } from '../../core/utils/apiResponse.js';
+import prisma from '../../core/database/prisma.js';
+import { successResponse, ApiError } from '../../core/utils/apiResponse.js';
 
 function parseFilters(input) {
   return {
@@ -72,7 +73,52 @@ export const reportController = {
     const options = { message: req.body.message || '' };
     const result = await reportService.emailReport(workspaceId, req.user.id, filters, recipients, options);
     return successResponse(res, result);
-  }
+  },
+
+  // ── Saved report recipients ─────────────────────────────────────────────
+  async getRecipients(req, res) {
+    const { workspaceId } = req.params;
+    const recipients = await prisma.reportRecipient.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: 'desc' },
+      include: { addedBy: { select: { id: true, name: true } } },
+    });
+    return successResponse(res, recipients);
+  },
+
+  async addRecipient(req, res) {
+    const { workspaceId } = req.params;
+    const { email, name } = req.body;
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw ApiError.badRequest('Valid email is required');
+    }
+
+    // Check if already exists
+    const existing = await prisma.reportRecipient.findUnique({
+      where: { email_workspaceId: { email: email.toLowerCase().trim(), workspaceId } },
+    });
+    if (existing) throw ApiError.conflict('This email is already added');
+
+    const recipient = await prisma.reportRecipient.create({
+      data: {
+        email: email.toLowerCase().trim(),
+        name: name?.trim() || null,
+        workspaceId,
+        addedById: req.user.id,
+      },
+      include: { addedBy: { select: { id: true, name: true } } },
+    });
+    return successResponse(res, recipient, 'Recipient added');
+  },
+
+  async deleteRecipient(req, res) {
+    const { recipientId } = req.params;
+    const recipient = await prisma.reportRecipient.findUnique({ where: { id: recipientId } });
+    if (!recipient) throw ApiError.notFound('Recipient not found');
+    await prisma.reportRecipient.delete({ where: { id: recipientId } });
+    return successResponse(res, null, 'Recipient removed');
+  },
 };
 
 export default reportController;

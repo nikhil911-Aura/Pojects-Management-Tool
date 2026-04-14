@@ -783,32 +783,47 @@ async function buildExcelWorkbook({ rows, taskTotals = [], filters, summary, isA
 }
 
 // ── Completion rate helper ──────────────────────────────────────────────────
+// Counts tasks that have time entries in the selected period (matches the timesheet view).
+// "Total" = unique tasks with time logged in period; "Completed" = those with status DONE.
 async function calculateCompletionRate(workspaceId, filters, scopedUserId) {
   const { startDate, endDate } = parseDateFilter(filters);
 
-  const taskWhere = {
-    list: { board: { project: { workspaceId } } },
+  // Find tasks that have time entries matching the current filters
+  const entryWhere = {
+    task: {
+      list: { board: { project: { workspaceId } } },
+    },
   };
 
   if (filters.projectIds?.length) {
-    taskWhere.list = { board: { project: { workspaceId, id: { in: filters.projectIds } } } };
+    entryWhere.task.list = { board: { project: { workspaceId, id: { in: filters.projectIds } } } };
   }
   if (scopedUserId) {
-    taskWhere.assignees = { some: { userId: scopedUserId } };
+    entryWhere.task.assignees = { some: { userId: scopedUserId } };
+    entryWhere.userId = scopedUserId;
   }
   if (filters.userIds?.length) {
-    taskWhere.assignees = { some: { userId: { in: filters.userIds } } };
+    entryWhere.task.assignees = { some: { userId: { in: filters.userIds } } };
   }
   if (startDate || endDate) {
-    taskWhere.createdAt = {};
-    if (startDate) taskWhere.createdAt.gte = startDate;
-    if (endDate) taskWhere.createdAt.lte = endDate;
+    entryWhere.date = {};
+    if (startDate) entryWhere.date.gte = startDate;
+    if (endDate) entryWhere.date.lte = endDate;
   }
 
-  const [completed, total] = await Promise.all([
-    prisma.task.count({ where: { ...taskWhere, status: 'DONE' } }),
-    prisma.task.count({ where: taskWhere }),
-  ]);
+  // Get unique task IDs that have entries in this period
+  const entries = await prisma.timeEntry.findMany({
+    where: entryWhere,
+    select: { task: { select: { id: true, status: true } } },
+  });
+
+  const taskMap = {};
+  for (const e of entries) {
+    taskMap[e.task.id] = e.task.status;
+  }
+
+  const total = Object.keys(taskMap).length;
+  const completed = Object.values(taskMap).filter(s => s === 'DONE').length;
 
   return {
     completed,
@@ -1218,7 +1233,8 @@ function renderReportEmailHtml({ isAdmin, filters, summary, reportData, sender, 
             <td style="background:linear-gradient(135deg,#4573D2 0%,#6366f1 100%);padding:32px 32px 28px 32px;color:#ffffff">
               <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;opacity:0.85">${isAdmin ? 'Team' : 'Personal'} Work Report</div>
               <h1 style="margin:6px 0 4px 0;font-size:26px;font-weight:700;line-height:1.2">${dateRange}</h1>
-              <div style="font-size:13px;opacity:0.9;margin-top:6px">From <strong>${esc(senderName)}</strong>${senderEmail ? ` &lt;${esc(senderEmail)}&gt;` : ''}</div>
+              <div style="font-size:13px;color:#ffffff;margin-top:6px">From <strong style="color:#ffffff">${esc(senderName)}</strong></div>
+              ${senderEmail ? `<div style="font-size:12px;color:#fde68a;margin-top:3px">${esc(senderEmail)}</div>` : ''}
             </td>
           </tr>
 

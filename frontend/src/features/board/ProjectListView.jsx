@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { createTask, createSubtask, updateTask, assignUser, deleteTask, moveTask as moveTaskAction } from '../../store/slices/taskSlice';
+import { createTask, createSubtask, updateTask, assignUser, reassignUser, deleteTask, moveTask as moveTaskAction } from '../../store/slices/taskSlice';
 import { fetchLists, createList, updateList, deleteList, moveTask as moveTaskOptimistic, optimisticMoveTaskAnywhere, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticRenameSection, optimisticReplaceItem } from '../../store/slices/boardSlice';
 import { useRole } from '../../hooks/useRole';
 import { useConfirm } from '../../hooks/useConfirm';
@@ -120,20 +120,23 @@ function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, em
     }
   }, [anchorRef]);
 
-  const assignedIds = (currentAssignees || []).map(a => a.user?.id || a.userId);
-  const filtered = (members || []).filter(m =>
-    !assignedIds.includes(m.user?.id || m.userId) &&
-    (m.user?.name || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const q = search.toLowerCase();
+  const filtered = (members || []).filter(m => {
+    const user = m.user || m;
+    if (!q) return true;
+    return (user.name || '').toLowerCase().includes(q)
+      || (user.email || '').toLowerCase().includes(q);
+  });
 
   const handleAssign = async (userId) => {
     const user = (members || []).map(m => m.user || m).find(u => u.id === userId);
     if (user) {
-      dispatch(optimisticAssignUser({ taskId, user }));
-      emitInstant?.('task_assigned', { taskId: resolveId(taskId), user });
+      // Optimistic: replace all assignees with the new one
+      dispatch(optimisticAssignUser({ taskId, user, replace: true }));
+      emitInstant?.('task_reassigned', { taskId: resolveId(taskId), user });
     }
     onClose();
-    queueOrRun(taskId, (realId) => dispatch(assignUser({ taskId: realId, userId })));
+    queueOrRun(taskId, (realId) => dispatch(reassignUser({ taskId: realId, userId })));
   };
 
   return (
@@ -143,7 +146,7 @@ function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, em
         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search people..." autoFocus
           className="w-full px-2.5 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 rounded-md border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400" />
       </div>
-      <div className="max-h-40 overflow-y-auto">
+      <div className="max-h-48 overflow-y-auto">
         {filtered.length === 0 ? (
           <p className="text-xs text-[var(--asana-text-secondary)] text-center py-3">No members found</p>
         ) : filtered.map((m) => {
