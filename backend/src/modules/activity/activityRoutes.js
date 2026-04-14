@@ -5,8 +5,10 @@ import { asyncHandler } from '../../core/middlewares/asyncHandler.js';
 
 const router = express.Router();
 
-// Inbox — workspace-wide notifications
+// Inbox
 router.get('/workspace/:workspaceId/inbox', authenticate, asyncHandler(activityController.getInbox));
+router.get('/workspace/:workspaceId/inbox/unread-count', authenticate, asyncHandler(activityController.getUnreadCount));
+router.post('/workspace/:workspaceId/inbox/mark-seen', authenticate, asyncHandler(activityController.markSeen));
 
 // Per-task activity
 router.get('/task/:taskId', authenticate, asyncHandler(activityController.getByTask));

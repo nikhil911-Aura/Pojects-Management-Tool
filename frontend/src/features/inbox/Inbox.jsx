@@ -79,6 +79,13 @@ function Inbox() {
 
   useEffect(() => { fetchInbox(); }, [fetchInbox]);
 
+  // Mark inbox as seen when this page opens
+  useEffect(() => {
+    if (workspaceId) {
+      api.post(`/api/v1/activities/workspace/${workspaceId}/inbox/mark-seen`).catch(() => {});
+    }
+  }, [workspaceId]);
+
   // Real-time: refresh when tasks are assigned/reassigned
   useEffect(() => {
     if (!workspaceId || !user?.id) return;

@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { useRole } from '../hooks/useRole';
 import { createWorkspace, setCurrentWorkspace } from '../store/slices/workspaceSlice';
 import CreateProjectWizard from '../features/projects/CreateProjectWizard';
 import InviteModal from '../features/workspace/InviteModal';
+import api from '../services/api';
+import io from 'socket.io-client';
 
 const PROJECTS_VISIBLE_LIMIT = 8;
 const WORKSPACES_VISIBLE_LIMIT = 5;
@@ -29,6 +31,41 @@ function Sidebar({ isOpen }) {
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
+  const [inboxUnread, setInboxUnread] = useState(0);
+  const location = useLocation();
+
+  // Fetch inbox unread count
+  const fetchUnreadCount = useCallback(async () => {
+    if (!currentWorkspace?.id) return;
+    try {
+      const res = await api.get(`/api/v1/activities/workspace/${currentWorkspace.id}/inbox/unread-count`);
+      setInboxUnread(res.data.data?.count || 0);
+    } catch {}
+  }, [currentWorkspace?.id]);
+
+  useEffect(() => { fetchUnreadCount(); }, [fetchUnreadCount]);
+
+  // Mark as seen when user navigates to /inbox, then refresh count
+  useEffect(() => {
+    if (location.pathname === '/inbox' && currentWorkspace?.id && inboxUnread > 0) {
+      api.post(`/api/v1/activities/workspace/${currentWorkspace.id}/inbox/mark-seen`)
+        .then(() => setInboxUnread(0))
+        .catch(() => {});
+    }
+  }, [location.pathname, currentWorkspace?.id, inboxUnread]);
+
+  // Real-time: refresh count when tasks are assigned
+  useEffect(() => {
+    if (!currentWorkspace?.id || !user?.id) return;
+    const socketUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    const token = localStorage.getItem('accessToken');
+    const socket = io(socketUrl, { auth: { token }, transports: ['websocket'] });
+    socket.on('connect', () => socket.emit('join_workspace', currentWorkspace.id));
+    socket.on('my_tasks_changed', (data) => {
+      if (data?.affectedUserIds?.includes(user.id)) fetchUnreadCount();
+    });
+    return () => socket.disconnect();
+  }, [currentWorkspace?.id, user?.id, fetchUnreadCount]);
 
   const handleCreateWorkspace = (e) => {
     e.preventDefault();
@@ -177,7 +214,12 @@ function Sidebar({ isOpen }) {
               }
             >
               {item.icon}
-              <span>{item.name}</span>
+              <span className="flex-1">{item.name}</span>
+              {item.name === 'Inbox' && inboxUnread > 0 && (
+                <span className="min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[9px] font-bold rounded-full px-1">
+                  {inboxUnread > 99 ? '99+' : inboxUnread}
+                </span>
+              )}
             </NavLink>
           ))}
 

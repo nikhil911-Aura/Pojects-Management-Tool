@@ -102,12 +102,13 @@ model Workspace {
 }
 
 model WorkspaceMember {
-  id          String    @id @default(uuid())
-  role        Role         @default(MEMBER)
-  status      MemberStatus @default(ACTIVE)
-  joinedAt    DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id              String    @id @default(uuid())
+  role            Role         @default(MEMBER)
+  status          MemberStatus @default(ACTIVE)
+  joinedAt        DateTime?
+  lastInboxSeenAt DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   // Relations
   userId      String
