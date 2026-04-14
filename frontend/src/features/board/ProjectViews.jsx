@@ -131,13 +131,16 @@ export function TimelineView({ lists, onTaskClick }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Calculate date range
-  const tasksWithDates = tasks.filter(t => t.dueDate);
-  const minDate = tasksWithDates.length > 0
-    ? new Date(Math.min(...tasksWithDates.map(t => new Date(t.dueDate).getTime()), today.getTime()))
-    : addDays(today, -7);
-  const maxDate = tasksWithDates.length > 0
-    ? new Date(Math.max(...tasksWithDates.map(t => new Date(t.dueDate).getTime()), addDays(today, 14).getTime()))
+  // Calculate date range — include both createdAt and dueDate so all bars fit
+  const allDates = [];
+  allDates.push(today.getTime());
+  tasks.forEach(t => {
+    if (t.createdAt) allDates.push(new Date(t.createdAt).getTime());
+    if (t.dueDate) allDates.push(new Date(t.dueDate).getTime());
+  });
+  const minDate = new Date(Math.min(...allDates));
+  const maxDate = allDates.length > 1
+    ? new Date(Math.max(...allDates, addDays(today, 14).getTime()))
     : addDays(today, 30);
 
   const startDate = addDays(minDate, -3);
@@ -208,8 +211,16 @@ export function TimelineView({ lists, onTaskClick }) {
               const color = BAR_COLORS[(li * 5 + ti) % BAR_COLORS.length];
               const hasDue = !!task.dueDate;
               const isMilestone = task.taskType === 'MILESTONE';
-              const barLeft = hasDue ? getPosition(addDays(task.dueDate, isMilestone ? 0 : -3)) : getPosition(today);
-              const barWidth = isMilestone ? 0 : (hasDue ? 4 * dayWidth : 2 * dayWidth);
+
+              // Calculate bar position from createdAt → dueDate
+              const taskStart = new Date(task.createdAt || today);
+              taskStart.setHours(0, 0, 0, 0);
+              const taskEnd = hasDue ? new Date(task.dueDate) : addDays(taskStart, 1);
+              taskEnd.setHours(0, 0, 0, 0);
+
+              const daySpan = Math.max(1, Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60 * 24)));
+              const barLeft = isMilestone && hasDue ? getPosition(task.dueDate) : getPosition(taskStart);
+              const barWidth = isMilestone ? 0 : daySpan * dayWidth;
 
               return (
                 <div key={task.id} className="flex border-b border-[var(--asana-border)]/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 group">
