@@ -5,12 +5,23 @@ import { inviteUser, fetchInvites } from '../../store/slices/workspaceSlice';
 const ROLES = [
   {
     value: 'MEMBER',
-    label: 'Member',
+    label: 'Manager',
     desc: 'Can view and edit projects they have access to',
     color: '#3B82F6',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+    ),
+  },
+  {
+    value: 'MEMBER',
+    label: 'Developer',
+    desc: 'Can view and edit projects they have access to',
+    color: '#10B981',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
       </svg>
     ),
   },

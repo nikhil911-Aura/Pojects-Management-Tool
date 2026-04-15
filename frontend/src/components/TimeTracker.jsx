@@ -10,16 +10,22 @@ function formatMins(m) {
   return h > 0 ? `${h}h ${String(min).padStart(2, '0')}m` : `${min}m`;
 }
 
-// Parse "1h 30m" / "1h" / "90m" / "90" into minutes. Returns 0 on no match.
+// Parse "1h 30m" / "1.5h" / "1h" / "90m" / "90" / "1.5" into minutes. Returns 0 on no match.
 function parseTimeString(str) {
   const s = String(str || '').trim().toLowerCase();
   if (!s) return 0;
+  // "1h 30m" / "1h 30"
   const hm = s.match(/^(\d+)\s*h\s*(\d+)\s*m?$/);
   if (hm) return parseInt(hm[1], 10) * 60 + parseInt(hm[2], 10);
-  const ho = s.match(/^(\d+)\s*h$/);
-  if (ho) return parseInt(ho[1], 10) * 60;
-  const mo = s.match(/^(\d+)\s*m$/);
-  if (mo) return parseInt(mo[1], 10);
+  // "1.5h" / "2.25h" (decimal hours)
+  const decH = s.match(/^(\d+(?:\.\d+)?)\s*h$/);
+  if (decH) return Math.round(parseFloat(decH[1]) * 60);
+  // "90m" / "30 m"
+  const mo = s.match(/^(\d+(?:\.\d+)?)\s*m$/);
+  if (mo) return Math.round(parseFloat(mo[1]));
+  // Bare decimal like "1.5" → treat as hours if it has a decimal, otherwise minutes
+  const dec = s.match(/^(\d+\.\d+)$/);
+  if (dec) return Math.round(parseFloat(dec[1]) * 60);
   const num = parseInt(s, 10);
   if (!isNaN(num)) return num;
   return 0;
@@ -32,7 +38,7 @@ function parseTimeString(str) {
 function buildTimeSuggestions(input) {
   const s = String(input || '').trim().toLowerCase();
   if (!s) return [];
-  // Pure number → offer minute / hour interpretations + the four 15-min steps.
+  // Pure integer → offer minute / hour interpretations + the four 15-min steps.
   const num = s.match(/^(\d+)$/);
   if (num) {
     const n = parseInt(num[1], 10);
@@ -45,6 +51,13 @@ function buildTimeSuggestions(input) {
       out.push({ label: `${n} ${n === 1 ? 'hour' : 'hours'} ${m} min`, mins: n * 60 + m });
     });
     return out;
+  }
+  // Decimal like "1.5" or "1.5h" → convert to hours + minutes
+  const decMatch = s.match(/^(\d+\.\d+)\s*h?$/);
+  if (decMatch) {
+    const totalMins = Math.round(parseFloat(decMatch[1]) * 60);
+    if (totalMins > 0) return [{ label: formatMins(totalMins), mins: totalMins }];
+    return [];
   }
   // "Nh" → suggest the +15 increments.
   const hOnly = s.match(/^(\d+)\s*h$/);

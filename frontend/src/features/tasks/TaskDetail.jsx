@@ -179,12 +179,18 @@ function formatTime(minutes) {
 function parseTime(input) {
   if (!input || !input.trim()) return null;
   const str = input.trim().toLowerCase();
+  // "1h 30m" / "1h 30"
   const hm = str.match(/^(\d+)\s*h\s*(\d+)\s*m?$/);
   if (hm) return parseInt(hm[1]) * 60 + parseInt(hm[2]);
-  const hOnly = str.match(/^(\d+)\s*h$/);
-  if (hOnly) return parseInt(hOnly[1]) * 60;
-  const mOnly = str.match(/^(\d+)\s*m$/);
-  if (mOnly) return parseInt(mOnly[1]);
+  // "1.5h" / "2.25h" (decimal hours)
+  const decH = str.match(/^(\d+(?:\.\d+)?)\s*h$/);
+  if (decH) return Math.round(parseFloat(decH[1]) * 60);
+  // "90m"
+  const mOnly = str.match(/^(\d+(?:\.\d+)?)\s*m$/);
+  if (mOnly) return Math.round(parseFloat(mOnly[1]));
+  // Bare decimal "1.5" → hours
+  const dec = str.match(/^(\d+\.\d+)$/);
+  if (dec) return Math.round(parseFloat(dec[1]) * 60);
   const num = parseInt(str);
   if (!isNaN(num)) return num;
   return null;
@@ -250,27 +256,130 @@ function DetailAssigneePicker({ taskId, members, onClose, onDone, onOptimisticAs
 }
 
 /* ── Editable Time Field ── */
+const DEFAULT_TIME_SUGGESTIONS = [
+  { label: '15m', mins: 15 },
+  { label: '30m', mins: 30 },
+  { label: '45m', mins: 45 },
+  { label: '1h', mins: 60 },
+  { label: '1h 30m', mins: 90 },
+  { label: '2h', mins: 120 },
+  { label: '3h', mins: 180 },
+  { label: '4h', mins: 240 },
+  { label: '6h', mins: 360 },
+  { label: '8h', mins: 480 },
+];
+
+// Dynamic suggestions based on user input.
+// - "1" → [1 min, 1 hour, 1h 15m, 1h 30m, 1h 45m]
+// - "1h" → [1 hour, 1h 15m, 1h 30m, 1h 45m]
+// - "1.5" or "1.5h" → [1h 30m]
+// - "" → default list
+function buildTimeSuggestions(input) {
+  const s = String(input || '').trim().toLowerCase();
+  if (!s) return DEFAULT_TIME_SUGGESTIONS;
+
+  const fmt = (m) => {
+    const h = Math.floor(m / 60);
+    const min = m % 60;
+    if (h > 0 && min > 0) return `${h}h ${String(min).padStart(2, '0')}m`;
+    if (h > 0) return `${h}h`;
+    return `${min}m`;
+  };
+
+  // Pure integer → offer minute and hour interpretations + 15-min steps
+  const num = s.match(/^(\d+)$/);
+  if (num) {
+    const n = parseInt(num[1], 10);
+    if (n <= 0) return [];
+    const out = [
+      { label: `${n}m`, mins: n },
+      { label: `${n}h`, mins: n * 60 },
+    ];
+    [15, 30, 45].forEach((m) => out.push({ label: `${n}h ${m}m`, mins: n * 60 + m }));
+    return out;
+  }
+  // Decimal "1.5" or "1.5h" → convert to h + m
+  const decMatch = s.match(/^(\d+\.\d+)\s*h?$/);
+  if (decMatch) {
+    const totalMins = Math.round(parseFloat(decMatch[1]) * 60);
+    return totalMins > 0 ? [{ label: fmt(totalMins), mins: totalMins }] : [];
+  }
+  // "Nh" → +15 increments
+  const hOnly = s.match(/^(\d+)\s*h$/);
+  if (hOnly) {
+    const n = parseInt(hOnly[1], 10);
+    return [
+      { label: `${n}h`, mins: n * 60 },
+      { label: `${n}h 15m`, mins: n * 60 + 15 },
+      { label: `${n}h 30m`, mins: n * 60 + 30 },
+      { label: `${n}h 45m`, mins: n * 60 + 45 },
+    ];
+  }
+  // Try full parse and confirm
+  const parsed = parseTime(s);
+  if (parsed != null && parsed > 0) return [{ label: fmt(parsed), mins: parsed }];
+  return [];
+}
+
 function TimeField({ label, taskId, field, value, canEdit, onUpdate, onOptimistic }) {
   const dispatch = useAppDispatch();
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const startEdit = () => { if (!canEdit) return; setInput(value != null ? formatTime(value) : ''); setEditing(true); };
-  const save = () => {
-    const mins = parseTime(input);
+  const startEdit = () => {
+    if (!canEdit) return;
+    setInput(value != null ? formatTime(value) : '');
+    setEditing(true);
+    setShowSuggestions(true);
+  };
+
+  const commit = (mins) => {
     onOptimistic?.(field, mins);
     dispatch(optimisticUpdateTask({ taskId, data: { [field]: mins } }));
     setEditing(false);
+    setShowSuggestions(false);
     dispatch(updateTask({ taskId, data: { [field]: mins } })).then(() => onUpdate());
   };
 
+  const save = () => commit(parseTime(input));
+
+  // Dynamic suggestions based on what the user is typing
+  const filtered = buildTimeSuggestions(input);
+
   return (
-    <div className="flex items-center">
+    <div className="flex items-center relative">
       <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">{label}</span>
       {editing ? (
-        <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="e.g. 1h 30m" autoFocus
-          className="bg-transparent border-b border-asana-blue/40 py-1 px-1.5 text-sm text-[var(--asana-text-primary)] outline-none flex-1"
-          onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }} />
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => { setInput(e.target.value); setShowSuggestions(true); }}
+            placeholder="e.g. 1h 30m"
+            autoFocus
+            className="w-full bg-transparent border-b border-asana-blue/40 py-1 px-1.5 text-sm text-[var(--asana-text-primary)] outline-none"
+            onBlur={() => setTimeout(save, 150)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') save();
+              if (e.key === 'Escape') { setEditing(false); setShowSuggestions(false); }
+            }}
+          />
+          {showSuggestions && filtered.length > 0 && (
+            <div className="absolute left-0 top-full mt-1 w-40 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl z-50 py-1 max-h-56 overflow-y-auto">
+              {filtered.map(s => (
+                <button
+                  key={s.label}
+                  onMouseDown={(e) => { e.preventDefault(); commit(s.mins); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 flex items-center justify-between"
+                >
+                  <span className="font-medium">{s.label}</span>
+                  <span className="text-[10px] text-[var(--asana-text-secondary)]">{s.mins} min</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       ) : (
         <span onClick={startEdit}
           className={`text-sm p-1.5 rounded transition-colors flex-1 ${canEdit ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : ''} ${value != null ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)]'}`}>
