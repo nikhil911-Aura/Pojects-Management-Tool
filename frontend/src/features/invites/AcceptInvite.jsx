@@ -76,10 +76,11 @@ function AcceptInvite() {
   }, [token, currentUser]);
 
   const handleAccept = async () => {
-    // If not logged in, store token in localStorage (survives refresh/close) and redirect
+    // If not logged in, redirect to login (existing user) or register (new user)
     if (!isAuthenticated) {
       localStorage.setItem(INVITE_TOKEN_KEY, token);
-      navigate('/login', { state: { from: `/invite/accept/${token}` } });
+      const redirectTo = invite?.userExists ? '/login' : '/register';
+      navigate(redirectTo, { state: { from: `/invite/accept/${token}` } });
       return;
     }
 
@@ -220,11 +221,15 @@ function AcceptInvite() {
                   : 'bg-white border-2 border-primary-600 text-primary-600 hover:bg-primary-50'
               }`}
             >
-              {processing ? 'Accepting...' : currentUser ? 'Accept Invitation' : 'Sign up to join'}
+              {processing ? 'Accepting...' : currentUser ? 'Accept Invitation' : invite?.userExists ? 'Log in to accept' : 'Sign up to join'}
             </button>
             {!currentUser && (
               <p className="text-xs text-center text-gray-500 mt-2">
-                Already have an account? <button onClick={() => { localStorage.setItem(INVITE_TOKEN_KEY, token); navigate('/login', { state: { from: `/invite/accept/${token}` } }); }} className="text-primary-600 hover:underline font-medium">Log in</button>
+                {invite?.userExists ? (
+                  <>Don't have access? <button onClick={() => { localStorage.setItem(INVITE_TOKEN_KEY, token); navigate('/register', { state: { from: `/invite/accept/${token}` } }); }} className="text-primary-600 hover:underline font-medium">Create account</button></>
+                ) : (
+                  <>Already have an account? <button onClick={() => { localStorage.setItem(INVITE_TOKEN_KEY, token); navigate('/login', { state: { from: `/invite/accept/${token}` } }); }} className="text-primary-600 hover:underline font-medium">Log in</button></>
+                )}
               </p>
             )}
             <p className="text-xs text-center text-gray-400">

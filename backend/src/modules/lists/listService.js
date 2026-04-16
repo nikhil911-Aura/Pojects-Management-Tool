@@ -27,7 +27,7 @@ async function getContextFromBoard(boardId, userId) {
     include: {
       project: {
         include: {
-          workspace: { include: { members: { where: { userId } } } },
+          workspace: { include: { members: { where: { userId }, select: { role: true, customRoleId: true } } } },
           members: { where: { userId }, include: { customRole: true } }
         }
       }
@@ -45,7 +45,20 @@ async function getContextFromBoard(boardId, userId) {
   const customPermissions = projectMember?.customRole?.permissions ?? null;
 
   if (!canAccessProject(workspaceMember.role, project.visibility, projectRole)) {
-    throw ApiError.forbidden('You do not have access to this board');
+    // Only a workspace-level custom role with `project.viewPrivate` grants access
+    // to private projects the user isn't a member of. Project-level roles must not
+    // leak cross-project visibility.
+    const wsPerms = workspaceMember.customRoleId
+      ? (await prisma.customProjectRole.findUnique({
+          where: { id: workspaceMember.customRoleId },
+          select: { permissions: true },
+        }))?.permissions
+      : null;
+    const canViewAllPrivate = !!(wsPerms && typeof wsPerms === 'object' && wsPerms['project.viewPrivate']);
+
+    if (!canViewAllPrivate) {
+      throw ApiError.forbidden('You do not have access to this board');
+    }
   }
 
   return { board, workspaceMember, projectRole, customPermissions };
@@ -59,7 +72,7 @@ async function getContextFromList(listId, userId) {
         include: {
           project: {
             include: {
-              workspace: { include: { members: { where: { userId } } } },
+              workspace: { include: { members: { where: { userId }, select: { role: true, customRoleId: true } } } },
               members: { where: { userId }, include: { customRole: true } }
             }
           }
@@ -79,7 +92,17 @@ async function getContextFromList(listId, userId) {
   const customPermissions = projectMember?.customRole?.permissions ?? null;
 
   if (!canAccessProject(workspaceMember.role, project.visibility, projectRole)) {
-    throw ApiError.forbidden('You do not have access to this list');
+    const wsPerms = workspaceMember.customRoleId
+      ? (await prisma.customProjectRole.findUnique({
+          where: { id: workspaceMember.customRoleId },
+          select: { permissions: true },
+        }))?.permissions
+      : null;
+    const canViewAllPrivate = !!(wsPerms && typeof wsPerms === 'object' && wsPerms['project.viewPrivate']);
+
+    if (!canViewAllPrivate) {
+      throw ApiError.forbidden('You do not have access to this list');
+    }
   }
 
   return { list, workspaceMember, projectRole, customPermissions };

@@ -164,7 +164,13 @@ export const workspaceInviteService = {
       throw ApiError.badRequest('Invitation has expired');
     }
 
-    return invite;
+    // Check if the invited email already has an account
+    const existingUser = await prisma.user.findUnique({
+      where: { email: invite.email },
+      select: { id: true },
+    });
+
+    return { ...invite, userExists: !!existingUser };
   },
 
   /**

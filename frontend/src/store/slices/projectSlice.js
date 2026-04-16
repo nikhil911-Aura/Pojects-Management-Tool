@@ -185,6 +185,8 @@ const projectSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Clear all project data on logout so stale projects don't bleed across users
+      .addCase(logout.fulfilled, () => initialState)
       .addCase(fetchProjects.pending, (state, action) => {
         state.projectsLoading = true;
         const requestedWorkspaceId = action.meta.arg;
@@ -280,9 +282,7 @@ const projectSlice = createSlice({
             m => m.userId !== action.payload.memberId
           );
         }
-      })
-      // Reset all project state on logout
-      .addCase(logout.fulfilled, () => initialState);
+      });
   }
 });
 

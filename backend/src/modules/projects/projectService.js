@@ -134,20 +134,19 @@ export const projectService = {
 
     const isAdmin = membership.role === 'OWNER' || membership.role === 'ADMIN';
 
-    // Check if user has any custom role in this workspace that grants
-    // `project.viewPrivate` — if so they also see all private projects.
+    // Check if the user has a workspace-level custom role that grants
+    // `project.viewPrivate` — only a workspace-scoped permission should allow
+    // seeing private projects the user isn't a member of. Project-level roles
+    // (e.g. "Manager" on project A) must NOT leak visibility into other projects.
     let canViewAllPrivate = false;
-    if (!isAdmin) {
-      const privilegedMembership = await prisma.projectMember.findFirst({
-        where: {
-          userId,
-          project: { workspaceId },
-          customRole: { isNot: null },
-        },
-        include: { customRole: { select: { permissions: true } } },
-      });
-      const perms = privilegedMembership?.customRole?.permissions;
-      canViewAllPrivate = !!(perms && typeof perms === 'object' && perms['project.viewPrivate']);
+    if (!isAdmin && membership.customRoleId) {
+      const wsPerms = (await prisma.customProjectRole.findUnique({
+        where: { id: membership.customRoleId },
+        select: { permissions: true },
+      }))?.permissions;
+      if (wsPerms && typeof wsPerms === 'object' && wsPerms['project.viewPrivate']) {
+        canViewAllPrivate = true;
+      }
     }
 
     const projects = await prisma.project.findMany({
@@ -258,7 +257,7 @@ export const projectService = {
             name: true,
             members: {
               where: { userId },
-              select: { role: true },
+              select: { role: true, customRoleId: true },
               take: 1
             }
           }
@@ -296,19 +295,16 @@ export const projectService = {
       const isProjectMember = project.members.some(m => m.userId === userId);
       const isPublic = project.visibility === 'PUBLIC';
 
-      // Check if user has a custom role with `project.viewPrivate` elsewhere in workspace
+      // Only a workspace-level custom role may grant `project.viewPrivate`.
+      // A project-level role (e.g. "Manager" on project A) must NOT leak
+      // visibility into other private projects.
       let canViewAllPrivate = false;
-      if (!isProjectMember && !isPublic) {
-        const privilegedMembership = await prisma.projectMember.findFirst({
-          where: {
-            userId,
-            project: { workspaceId: project.workspaceId },
-            customRole: { isNot: null },
-          },
-          include: { customRole: { select: { permissions: true } } },
-        });
-        const perms = privilegedMembership?.customRole?.permissions;
-        canViewAllPrivate = !!(perms && typeof perms === 'object' && perms['project.viewPrivate']);
+      if (!isProjectMember && !isPublic && membership.customRoleId) {
+        const wsPerms = (await prisma.customProjectRole.findUnique({
+          where: { id: membership.customRoleId },
+          select: { permissions: true },
+        }))?.permissions;
+        canViewAllPrivate = !!(wsPerms && typeof wsPerms === 'object' && wsPerms['project.viewPrivate']);
       }
 
       if (!isProjectMember && !isPublic && !canViewAllPrivate) {

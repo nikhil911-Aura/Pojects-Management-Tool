@@ -136,6 +136,8 @@ const workspaceSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Clear all workspace data on logout
+      .addCase(logout.fulfilled, () => initialState)
       .addCase(fetchWorkspaces.pending, (state) => {
         state.loading = true;
       })
@@ -207,9 +209,7 @@ const workspaceSlice = createSlice({
           state.workspaces = workspaces;
           state.loading = false;
         }
-      })
-      // Reset all workspace state on logout
-      .addCase(logout.fulfilled, () => initialState);
+      });
   }
 });
 
