@@ -30,6 +30,7 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
   });
   const [saving, setSaving] = useState(false);
   const [roleName, setRoleName] = useState(initialName || '');
+  const [error, setError] = useState('');
 
   // When no fixed projectId, let the admin pick a project to load its columns
   const [selectedProjectId, setSelectedProjectId] = useState(fixedProjectId || '');
@@ -131,11 +132,20 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
     const colNext = {}; customColumns.forEach((c) => { colNext[c.id] = false; }); setColumnPerms(colNext);
   };
 
-  const handleSave = () => {
-    if (showNameField && !roleName.trim()) return;
+  const handleSave = async () => {
+    setError('');
+    if (showNameField && !roleName.trim()) {
+      setError('Role name is required');
+      return;
+    }
     setSaving(true);
     const finalPerms = { ...perms, columns: columnPerms };
-    onSave(finalPerms, roleName.trim());
+    try {
+      await onSave(finalPerms, roleName.trim());
+    } catch (err) {
+      setError(err?.message || err?.response?.data?.message || 'Failed to save role');
+      setSaving(false);
+    }
   };
 
   const groups = {};
@@ -176,10 +186,23 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
                 <div className="mb-4">
                   <label className="block text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-1.5">Role name</label>
                   <input
-                    type="text" value={roleName} onChange={(e) => setRoleName(e.target.value)}
+                    type="text" value={roleName}
+                    onChange={(e) => { setRoleName(e.target.value); if (error) setError(''); }}
                     placeholder="e.g. QA Tester, Client Reviewer" autoFocus
-                    className="w-full px-3 py-2 text-sm bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-lg text-[var(--asana-text-primary)] outline-none focus:border-asana-blue focus:ring-1 focus:ring-asana-blue"
+                    className={`w-full px-3 py-2 text-sm bg-[var(--asana-bg)] border rounded-lg text-[var(--asana-text-primary)] outline-none focus:ring-1 ${
+                      error
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                        : 'border-[var(--asana-border)] focus:border-asana-blue focus:ring-asana-blue'
+                    }`}
                   />
+                  {error && (
+                    <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      {error}
+                    </p>
+                  )}
                 </div>
               )}
 

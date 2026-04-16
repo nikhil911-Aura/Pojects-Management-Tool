@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchWorkspace, fetchInvites, resendInvite, cancelInvite, updateWorkspace } from '../../store/slices/workspaceSlice';
+import { fetchProjects } from '../../store/slices/projectSlice';
 import InviteModal from './InviteModal';
 import CustomRoleModal from '../projects/CustomRoleModal';
 import { useConfirm } from '../../hooks/useConfirm';
@@ -66,7 +67,13 @@ function ProjectRolesCard({ workspaceId }) {
                       {role.name}
                     </span>
                     <span className="text-xs text-[var(--asana-text-secondary)]">
-                      {role.name === 'Editor' ? 'Full edit access' : role.name === 'Commenter' ? 'View + comment only' : 'Read-only'}
+                      {role.name === 'Manager'
+                        ? 'Can view and edit projects they have access to'
+                        : role.name === 'Commenter'
+                          ? 'View + comment only'
+                          : role.name === 'Guest'
+                            ? 'Can only view projects they are explicitly added to'
+                            : 'Read-only'}
                     </span>
                     <span className="text-[9px] text-[var(--asana-text-muted)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded ml-auto flex-shrink-0">
                       Default
@@ -153,11 +160,14 @@ function ProjectRolesCard({ workspaceId }) {
                 const res = await api.post(`/api/v1/projects/roles/workspace/${workspaceId}`, { name: roleName, permissions, color: '#8B5CF6' });
                 setRoles(prev => [...prev, res.data.data]);
               } else {
-                await api.put(`/api/v1/projects/roles/${roleId}`, { permissions });
-                setRoles(prev => prev.map(r => r.id === roleId ? { ...r, permissions } : r));
+                await api.put(`/api/v1/projects/roles/${roleId}`, { name: roleName, permissions });
+                setRoles(prev => prev.map(r => r.id === roleId ? { ...r, name: roleName || r.name, permissions } : r));
               }
-            } catch (err) { console.error(err); }
-            setCustomModalTarget(null);
+              setCustomModalTarget(null);
+            } catch (err) {
+              // Re-throw so CustomRoleModal can display the error inline
+              throw new Error(err.response?.data?.message || err.message || 'Failed to save role');
+            }
           }}
           onCancel={() => setCustomModalTarget(null)}
         />
@@ -283,6 +293,54 @@ function Workspace() {
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [invitesReady, setInvitesReady] = useState(false);
 
+  // Custom project roles (for the workspace member role dropdown)
+  const [wsCustomRoles, setWsCustomRoles] = useState([]);
+  useEffect(() => {
+    if (!workspaceId) return;
+    api.get(`/api/v1/projects/roles/workspace/${workspaceId}`)
+      .then(res => setWsCustomRoles((res.data.data || []).filter(r => !r.isSystem)))
+      .catch(() => {});
+  }, [workspaceId]);
+
+  // Real-time: refresh when an invite is accepted (so pending list clears + new member shows)
+  useEffect(() => {
+    if (!workspaceId) return;
+    const socketUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    const token = localStorage.getItem('accessToken');
+    let socket;
+    (async () => {
+      const ioMod = await import('socket.io-client');
+      socket = ioMod.default(socketUrl, { auth: { token }, transports: ['websocket'] });
+      socket.on('connect', () => socket.emit('join_workspace', workspaceId));
+      socket.on('invite_accepted', () => {
+        dispatch(fetchWorkspace(workspaceId));
+        dispatch(fetchInvites(workspaceId));
+      });
+      // Workspace-level role changes (Members tab dropdown)
+      socket.on('workspace_member_role_changed', () => {
+        dispatch(fetchWorkspace(workspaceId));
+      });
+      // Workspace member removed
+      socket.on('workspace_member_removed', () => {
+        dispatch(fetchWorkspace(workspaceId));
+      });
+      // Also refresh when a project member changes — someone picking a custom
+      // role in the Members dropdown applies it to every project, and each
+      // project emits its own `member_role_changed` via the existing API.
+      socket.on('member_role_changed', () => {
+        dispatch(fetchWorkspace(workspaceId));
+      });
+    })();
+    return () => { if (socket) socket.disconnect(); };
+  }, [workspaceId, dispatch]);
+
+  // Toast for role change confirmation
+  const [toast, setToast] = useState(null);
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 2500);
+  };
+
   useEffect(() => {
     // Reset readiness when the workspaceId changes so the skeleton reappears
     // for the new workspace's load.
@@ -295,7 +353,14 @@ function Workspace() {
     Promise.resolve(dispatch(fetchInvites(workspaceId))).finally(() => {
       if (!cancelled) setInvitesReady(true);
     });
+    // Ensure projects for this workspace are fetched — without this,
+    // projectsForWorkspaceId stays stale after joining a new workspace
+    // and the skeleton never clears.
+    if (projectsForWorkspaceId !== workspaceId) {
+      dispatch(fetchProjects(workspaceId));
+    }
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, dispatch]);
 
   // The Workspace.members list and current-workspace identity must match the
@@ -303,7 +368,9 @@ function Workspace() {
   // currentWorkspace still points at the previous workspace.
   const workspaceMatches = currentWorkspace?.id === workspaceId;
   const projectsMatch = projectsForWorkspaceId === workspaceId;
-  const allReady = workspaceReady && invitesReady && workspaceMatches && projectsMatch;
+  // projectsMatch is "best-effort" — if projects fail to load we still render
+  // the page (workspace data is enough for the Overview and Members tabs).
+  const allReady = workspaceReady && invitesReady && workspaceMatches;
 
   // Keep the draft in sync with the current workspace whenever it changes
   // (e.g., after fetchWorkspace resolves or after another admin edits it).
@@ -360,6 +427,8 @@ function Workspace() {
     email: m.user?.email,
     avatar: m.user?.avatar,
     role: m.role,
+    customRoleId: m.customRoleId || m.customRole?.id || null,
+    customRoleName: m.customRole?.name || null,
     status: 'active',
   })) || [];
 
@@ -698,25 +767,70 @@ function Workspace() {
                         <div className="flex items-center space-x-2">
                           {isAdmin && person.role !== 'OWNER' && person.id !== currentUser?.id ? (
                             <select
-                              value={person.role}
+                              value={person.customRoleId ? `custom:${person.customRoleId}` : person.role}
                               onChange={async (e) => {
-                                const newRole = e.target.value;
+                                const value = e.target.value;
+                                const isCustom = value.startsWith('custom:');
+                                const customRoleId = isCustom ? value.slice(7) : null;
+                                const newRole = isCustom ? 'MEMBER' : value;
                                 try {
-                                  await api.put(`/api/v1/workspaces/${workspaceId}/members/${person.id}/role`, { userId: person.id, role: newRole });
+                                  // 1. Update the workspace-level role (persists customRoleId too)
+                                  await api.put(`/api/v1/workspaces/${workspaceId}/members/${person.id}/role`, {
+                                    userId: person.id,
+                                    role: newRole,
+                                    customRoleId,
+                                  });
+
+                                  // 2. If custom role selected, apply it to EVERY project in the workspace
+                                  if (customRoleId) {
+                                    // Fetch the authoritative list of workspace projects (Redux might be stale)
+                                    const wsProjectsRes = await api.get(`/api/v1/projects/workspace/${workspaceId}`);
+                                    const wsProjects = wsProjectsRes.data.data || [];
+
+                                    // For each project: try update first, fall back to add if not a member
+                                    await Promise.all(wsProjects.map(async (p) => {
+                                      try {
+                                        await api.put(`/api/v1/projects/${p.id}/members/${person.id}/role`, { roleId: customRoleId });
+                                      } catch (err) {
+                                        if (err.response?.status === 404 || err.response?.status === 400) {
+                                          // Not a project member yet → add them
+                                          try {
+                                            await api.post(`/api/v1/projects/${p.id}/members`, { userId: person.id, roleId: customRoleId });
+                                          } catch (addErr) {
+                                            console.warn(`Failed to add ${person.name} to project ${p.name}:`, addErr.response?.data?.message);
+                                          }
+                                        } else {
+                                          console.warn(`Failed to update role in project ${p.name}:`, err.response?.data?.message);
+                                        }
+                                      }
+                                    }));
+                                  }
+
+                                  const label = isCustom
+                                    ? (wsCustomRoles.find(r => r.id === customRoleId)?.name || 'custom role')
+                                    : newRole;
+                                  showToast(`${person.name}'s role updated to ${label}`);
                                   dispatch(fetchWorkspace(workspaceId));
                                 } catch (err) {
+                                  showToast(err.response?.data?.message || 'Failed to update role', 'error');
                                   console.error('Failed to update role:', err);
                                 }
                               }}
                               className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--asana-surface)] border border-[var(--asana-border)] text-[var(--asana-text-primary)] cursor-pointer focus:outline-none focus:ring-1 focus:ring-asana-blue"
                             >
                               <option value="ADMIN">ADMIN</option>
-                              <option value="MEMBER">MEMBER</option>
+                              <option value="MEMBER">MANAGER</option>
                               <option value="GUEST">GUEST</option>
+                              {wsCustomRoles.length > 0 && <option disabled>──────────</option>}
+                              {wsCustomRoles.map(cr => (
+                                <option key={cr.id} value={`custom:${cr.id}`}>{cr.name.toUpperCase()}</option>
+                              ))}
                             </select>
                           ) : (
                             <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${ROLE_STYLE[person.role] || ROLE_STYLE.MEMBER}`}>
-                              {person.role}
+                              {person.customRoleName
+                                ? person.customRoleName.toUpperCase()
+                                : person.role === 'MEMBER' ? 'MANAGER' : person.role}
                             </span>
                           )}
                           {isAdmin && person.role !== 'OWNER' && person.id !== currentUser?.id && (
@@ -754,6 +868,44 @@ function Workspace() {
         <InviteModal workspaceId={workspaceId} onClose={() => setShowInviteModal(false)} />
       )}
       {ConfirmDialog}
+
+      {/* Toast notification for role change confirmation */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[300] animate-slide-in-right">
+          <div className={`flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl border ${
+            toast.type === 'success'
+              ? 'bg-green-50 dark:bg-green-900/40 border-green-200 dark:border-green-700/50'
+              : 'bg-red-50 dark:bg-red-900/40 border-red-200 dark:border-red-700/50'
+          }`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+              toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+            }`}>
+              {toast.type === 'success' ? (
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
+            </div>
+            <div>
+              <p className={`text-sm font-semibold ${toast.type === 'success' ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
+                {toast.type === 'success' ? 'Role Updated' : 'Failed'}
+              </p>
+              <p className={`text-xs ${toast.type === 'success' ? 'text-green-600 dark:text-green-300' : 'text-red-600 dark:text-red-300'}`}>
+                {toast.message}
+              </p>
+            </div>
+            <button onClick={() => setToast(null)} className="ml-2 p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+              <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

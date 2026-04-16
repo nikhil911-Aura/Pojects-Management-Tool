@@ -136,27 +136,62 @@ const STANDARD_INCLUDE = {
 
 export const reportService = {
 
-  // My timesheet — current user only, completed tasks only.
-  // Restricts to tasks where the current user is an ASSIGNEE, so users don't
-  // see entries they happened to log on tasks owned by other people.
+  // My timesheet — completed tasks where the user is the PRIMARY assignee.
+  // Uses Task.actualTime (the recomputed total) so it always reflects what's
+  // shown on the task, regardless of who logged the time entries.
   async getMyTimesheet(userId, workspaceId, filters = {}) {
     const membership = await prisma.workspaceMember.findFirst({ where: { workspaceId, userId } });
     if (!membership) throw ApiError.forbidden('You are not a member of this workspace');
 
-    const where = buildWhereClause({
-      workspaceId,
-      userId,                  // entries logged by me
-      assigneeUserId: userId,  // …on tasks where I'm an assignee
-      filters,
+    const { startDate, endDate } = parseDateFilter(filters);
+
+    // Task-level filter: completed, scoped to workspace, user is an assignee
+    const taskWhere = {
+      status: 'DONE',
+      list: { board: { project: { workspaceId } } },
+      assignees: { some: { userId } },
+    };
+
+    if (filters.projectIds?.length) {
+      taskWhere.list = { board: { project: { workspaceId, id: { in: filters.projectIds } } } };
+    }
+
+    // Date filter — uses the task's updatedAt as a proxy for completion date
+    if (startDate || endDate) {
+      taskWhere.updatedAt = {};
+      if (startDate) taskWhere.updatedAt.gte = startDate;
+      if (endDate) taskWhere.updatedAt.lte = endDate;
+    }
+
+    const tasks = await prisma.task.findMany({
+      where: taskWhere,
+      include: {
+        list: {
+          select: {
+            name: true,
+            board: {
+              select: {
+                project: { select: { id: true, name: true, color: true } }
+              }
+            }
+          }
+        },
+        assignees: {
+          include: { user: { select: { id: true, name: true, avatar: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+        timeEntries: {
+          include: { user: { select: { id: true, name: true, avatar: true } } },
+          orderBy: { date: 'desc' },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
     });
 
-    const entries = await prisma.timeEntry.findMany({
-      where,
-      include: STANDARD_INCLUDE,
-      orderBy: { date: 'desc' },
-    });
+    // Keep only tasks where the current user is the PRIMARY (first) assignee
+    const filtered = tasks.filter(t => t.assignees?.[0]?.userId === userId);
 
-    return groupByProject(entries);
+    return groupTasksByProject(filtered);
   },
 
   // Team report — admin/owner only
@@ -181,40 +216,69 @@ export const reportService = {
     return groupByPersonProject(entries);
   },
 
-  // Summary cards — uses the same WHERE so numbers match the visible report
+  // Summary cards — task-based (uses Task.actualTime) so numbers match My Timesheet
   async getReportSummary(workspaceId, userId, filters = {}) {
     const membership = await prisma.workspaceMember.findFirst({ where: { workspaceId, userId } });
     if (!membership) throw ApiError.forbidden('You are not a member of this workspace');
 
     const isAdmin = isWorkspaceAdmin(membership.role);
-    // Non-admins only see their own numbers (same assignee restriction as My Timesheet)
-    const where = buildWhereClause({
-      workspaceId,
-      userId: isAdmin ? null : userId,
-      assigneeUserId: isAdmin ? null : userId,
-      filters,
+    const { startDate, endDate } = parseDateFilter(filters);
+
+    const taskWhere = {
+      status: 'DONE',
+      list: { board: { project: { workspaceId } } },
+    };
+    if (filters.projectIds?.length) {
+      taskWhere.list = { board: { project: { workspaceId, id: { in: filters.projectIds } } } };
+    }
+    if (!isAdmin) {
+      taskWhere.assignees = { some: { userId } };
+    }
+    if (filters.userIds?.length) {
+      taskWhere.assignees = { some: { userId: { in: filters.userIds } } };
+    }
+    if (startDate || endDate) {
+      taskWhere.updatedAt = {};
+      if (startDate) taskWhere.updatedAt.gte = startDate;
+      if (endDate) taskWhere.updatedAt.lte = endDate;
+    }
+
+    const tasks = await prisma.task.findMany({
+      where: taskWhere,
+      include: {
+        list: { select: { board: { select: { project: { select: { id: true, name: true } } } } } },
+        assignees: {
+          include: { user: { select: { id: true, name: true, avatar: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
     });
 
-    const entries = await prisma.timeEntry.findMany({
-      where,
-      include: STANDARD_INCLUDE,
-    });
+    // For non-admins, keep only tasks where THEY are the primary assignee
+    const filteredTasks = !isAdmin
+      ? tasks.filter(t => t.assignees?.[0]?.userId === userId)
+      : tasks;
 
     let totalMinutes = 0;
-    const projectMinutes = {};   // projectId → { name, minutes, taskIds }
-    const memberMinutes = {};    // userId → { user, minutes, taskIds }
+    const projectMinutes = {};
+    const memberMinutes = {};
 
-    for (const e of entries) {
-      const project = e.task.list.board.project;
-      totalMinutes += e.minutes;
+    for (const t of filteredTasks) {
+      const project = t.list.board.project;
+      const mins = t.actualTime || 0;
+      totalMinutes += mins;
 
       if (!projectMinutes[project.id]) projectMinutes[project.id] = { name: project.name, minutes: 0, taskIds: new Set() };
-      projectMinutes[project.id].minutes += e.minutes;
-      projectMinutes[project.id].taskIds.add(e.task.id);
+      projectMinutes[project.id].minutes += mins;
+      projectMinutes[project.id].taskIds.add(t.id);
 
-      if (!memberMinutes[e.user.id]) memberMinutes[e.user.id] = { user: e.user, minutes: 0, taskIds: new Set() };
-      memberMinutes[e.user.id].minutes += e.minutes;
-      memberMinutes[e.user.id].taskIds.add(e.task.id);
+      // Attribute time to the PRIMARY assignee (for team breakdown)
+      const primary = t.assignees?.[0]?.user;
+      if (primary) {
+        if (!memberMinutes[primary.id]) memberMinutes[primary.id] = { user: primary, minutes: 0, taskIds: new Set() };
+        memberMinutes[primary.id].minutes += mins;
+        memberMinutes[primary.id].taskIds.add(t.id);
+      }
     }
 
     const hoursPerProject = Object.entries(projectMinutes)
@@ -230,7 +294,7 @@ export const reportService = {
 
     return {
       totalHours: +(totalMinutes / 60).toFixed(2),
-      totalEntries: entries.length,
+      totalEntries: filteredTasks.length,  // now counts completed tasks, not time entries
       hoursPerProject,
       hoursPerMember,
       topContributor: hoursPerMember[0] || null,
@@ -834,7 +898,56 @@ async function calculateCompletionRate(workspaceId, filters, scopedUserId) {
 
 // ── Grouping helpers ────────────────────────────────────────────────────────
 
-// My Timesheet: project → tasks → entries (with totals)
+// My Timesheet (task-based): project → tasks (using Task.actualTime as source of truth)
+function groupTasksByProject(tasks) {
+  const projects = {};
+  let grandTotalMinutes = 0;
+
+  for (const t of tasks) {
+    const project = t.list.board.project;
+    const taskMinutes = t.actualTime || 0;
+    grandTotalMinutes += taskMinutes;
+
+    if (!projects[project.id]) {
+      projects[project.id] = {
+        project,
+        totalMinutes: 0,
+        tasks: [],
+      };
+    }
+
+    const entries = (t.timeEntries || []).map(e => ({
+      id: e.id,
+      minutes: e.minutes,
+      note: e.note,
+      date: e.date,
+      userName: e.user?.name,
+    }));
+
+    projects[project.id].totalMinutes += taskMinutes;
+    projects[project.id].tasks.push({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      priority: t.priority,
+      dueDate: t.dueDate,
+      estimatedTime: t.estimatedTime,
+      actualTime: t.actualTime,
+      section: t.list.name,
+      totalMinutes: taskMinutes,
+      entries,
+    });
+  }
+
+  return {
+    grandTotalMinutes,
+    groups: Object.values(projects)
+      .map(g => ({ ...g, tasks: g.tasks.sort((a, b) => b.totalMinutes - a.totalMinutes) }))
+      .sort((a, b) => b.totalMinutes - a.totalMinutes),
+  };
+}
+
+// My Timesheet (entry-based, legacy): project → tasks → entries (with totals)
 function groupByProject(entries) {
   const projects = {};
   let grandTotalMinutes = 0;

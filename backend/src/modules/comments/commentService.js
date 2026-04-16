@@ -7,7 +7,9 @@ function isWorkspaceAdmin(workspaceRole) {
 
 function canAccessProject(workspaceRole, projectVisibility, projectRole) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
-  if (workspaceRole === 'MEMBER' && projectVisibility === 'PUBLIC') return true;
+  // Public projects: any workspace member (MEMBER or GUEST) can view
+  if (projectVisibility === 'PUBLIC') return true;
+  // Private projects: must be an explicit project member
   return projectRole !== null;
 }
 

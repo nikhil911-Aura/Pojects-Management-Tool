@@ -8,10 +8,14 @@ const ALL_PERMS = Object.fromEntries(PROJECT_PERMISSION_KEYS.map(p => [p.key, tr
 const COMMENTER_PERMS = { 'comment.create': true, 'comment.delete': true, 'time.track': true };
 const VIEWER_PERMS = {};
 
+// System role names are kept in sync with workspace role labels:
+//   Manager (was Editor) — full edit access
+//   Commenter            — view + comment only
+//   Guest (was Viewer)   — read-only
 export const SYSTEM_ROLE_DEFS = [
-  { name: 'Editor',    color: '#3B82F6', permissions: ALL_PERMS,       position: 0 },
+  { name: 'Manager',   color: '#3B82F6', permissions: ALL_PERMS,       position: 0 },
   { name: 'Commenter', color: '#F59E0B', permissions: COMMENTER_PERMS, position: 1 },
-  { name: 'Viewer',    color: '#6B7280', permissions: VIEWER_PERMS,    position: 2 },
+  { name: 'Guest',     color: '#6B7280', permissions: VIEWER_PERMS,    position: 2 },
 ];
 
 const projectRoleService = {
@@ -57,7 +61,20 @@ const projectRoleService = {
   async createRole(workspaceId, userId, data) {
     await this._checkAdmin(workspaceId, userId);
     const { name, description, color, permissions } = data;
-    if (!name?.trim()) throw ApiError.badRequest('Role name is required');
+    const trimmedName = name?.trim();
+    if (!trimmedName) throw ApiError.badRequest('Role name is required');
+
+    // Case-insensitive duplicate check within the workspace
+    const existing = await prisma.customProjectRole.findFirst({
+      where: {
+        workspaceId,
+        name: { equals: trimmedName, mode: 'insensitive' },
+      },
+      select: { id: true, name: true },
+    });
+    if (existing) {
+      throw ApiError.conflict(`A role named "${existing.name}" already exists in this workspace`);
+    }
 
     const maxPos = await prisma.customProjectRole.aggregate({
       where: { workspaceId },
@@ -66,7 +83,7 @@ const projectRoleService = {
 
     return prisma.customProjectRole.create({
       data: {
-        name: name.trim(),
+        name: trimmedName,
         description: description?.trim() || null,
         color: color || '#8B5CF6',
         isSystem: false,
@@ -90,9 +107,27 @@ const projectRoleService = {
     if (data.permissions !== undefined) update.permissions = data.permissions;
     if (data.color) update.color = data.color;
     if (data.description !== undefined) update.description = data.description?.trim() || null;
-    if (data.name && !role.isSystem) update.name = data.name.trim();
-    if (role.isSystem && data.name && data.name.trim() !== role.name) {
-      throw ApiError.badRequest('Cannot rename a system role');
+
+    if (data.name) {
+      const newName = data.name.trim();
+      if (role.isSystem && newName !== role.name) {
+        throw ApiError.badRequest('Cannot rename a system role');
+      }
+      if (!role.isSystem && newName.toLowerCase() !== role.name.toLowerCase()) {
+        // Check for duplicate name (case-insensitive) in the same workspace
+        const duplicate = await prisma.customProjectRole.findFirst({
+          where: {
+            workspaceId: role.workspaceId,
+            id: { not: roleId },
+            name: { equals: newName, mode: 'insensitive' },
+          },
+          select: { name: true },
+        });
+        if (duplicate) {
+          throw ApiError.conflict(`A role named "${duplicate.name}" already exists in this workspace`);
+        }
+      }
+      if (!role.isSystem) update.name = newName;
     }
 
     const updated = await prisma.customProjectRole.update({
@@ -121,9 +156,9 @@ const projectRoleService = {
     if (role.isSystem) throw ApiError.badRequest('Cannot delete a system role');
     await this._checkAdmin(role.workspaceId, userId);
 
-    // Reassign members to Viewer
+    // Reassign members to the default Guest role
     const viewerRole = await prisma.customProjectRole.findFirst({
-      where: { workspaceId: role.workspaceId, isSystem: true, name: 'Viewer' },
+      where: { workspaceId: role.workspaceId, isSystem: true, name: 'Guest' },
     });
     if (viewerRole) {
       await prisma.projectMember.updateMany({

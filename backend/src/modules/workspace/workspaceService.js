@@ -1,5 +1,6 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
+import { emitToWorkspace } from '../../core/socket.js';
 
 export const workspaceService = {
   // Create workspace
@@ -77,7 +78,8 @@ export const workspaceService = {
                     email: true,
                     avatar: true
                   }
-                }
+                },
+                customRole: { select: { id: true, name: true, color: true } }
               }
             },
             projects: {
@@ -262,12 +264,18 @@ export const workspaceService = {
       }
     });
 
+    // Broadcast so all open workspace pages refresh live
+    emitToWorkspace(workspaceId, 'workspace_member_removed', {
+      userId: userIdToRemove,
+      workspaceId,
+    });
+
     return true;
   },
 
   // Update member role
   async updateMemberRole(workspaceId, ownerId, updateData) {
-    const { userId, role } = updateData;
+    const { userId, role, customRoleId } = updateData;
 
     const membership = await prisma.workspaceMember.findFirst({
       where: {
@@ -293,6 +301,14 @@ export const workspaceService = {
       throw ApiError.forbidden('Cannot change owner role');
     }
 
+    // Validate customRoleId if provided (null/undefined explicitly clears it)
+    if (customRoleId) {
+      const cr = await prisma.customProjectRole.findUnique({ where: { id: customRoleId } });
+      if (!cr || cr.workspaceId !== workspaceId) {
+        throw ApiError.badRequest('Invalid custom role for this workspace');
+      }
+    }
+
     const updated = await prisma.workspaceMember.update({
       where: {
         userId_workspaceId: {
@@ -300,7 +316,11 @@ export const workspaceService = {
           workspaceId
         }
       },
-      data: { role },
+      data: {
+        role,
+        // Explicitly set to null when no custom role chosen (clears previous)
+        customRoleId: customRoleId || null,
+      },
       include: {
         user: {
           select: {
@@ -309,8 +329,18 @@ export const workspaceService = {
             email: true,
             avatar: true
           }
-        }
+        },
+        customRole: { select: { id: true, name: true, color: true } }
       }
+    });
+
+    // Broadcast so all open workspace pages (admin views, target user's own session,
+    // project share modals) refresh live.
+    emitToWorkspace(workspaceId, 'workspace_member_role_changed', {
+      userId,
+      workspaceId,
+      role,
+      member: updated,
     });
 
     return updated;

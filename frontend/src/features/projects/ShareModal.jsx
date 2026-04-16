@@ -216,7 +216,6 @@ function ShareModal({ projectId, onClose, emitInstant }) {
   const handleSaveCustomRole = async (permissions, roleName) => {
     if (!customModalTarget) return;
     try {
-      // Create the new custom role
       const res = await api.post(`/api/v1/projects/roles/workspace/${currentWorkspace?.id}`, {
         name: roleName || `Custom Role`,
         permissions,
@@ -225,14 +224,14 @@ function ShareModal({ projectId, onClose, emitInstant }) {
       const newRole = res.data.data;
       setProjectRoles(prev => [...prev, newRole]);
 
-      // Assign the member to this new role
       if (customModalTarget.memberId) {
         dispatch(updateProjectMemberRole({ projectId, memberId: customModalTarget.memberId, roleId: newRole.id }));
       }
+      setCustomModalTarget(null);
     } catch (err) {
-      console.error('Failed to create custom role:', err);
+      // Re-throw so CustomRoleModal can display the error inline (e.g. duplicate name)
+      throw new Error(err.response?.data?.message || err.message || 'Failed to create role');
     }
-    setCustomModalTarget(null);
   };
 
   const handleEditRole = (role) => {

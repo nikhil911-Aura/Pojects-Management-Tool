@@ -107,6 +107,8 @@ model WorkspaceMember {
   status          MemberStatus @default(ACTIVE)
   joinedAt        DateTime?
   lastInboxSeenAt DateTime?
+  customRoleId    String?
+  customRole      CustomProjectRole? @relation("WorkspaceMemberCustomRole", fields: [customRoleId], references: [id], onDelete: SetNull)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
@@ -122,20 +124,23 @@ model WorkspaceMember {
 }
 
 model WorkspaceInvite {
-  id          String       @id @default(uuid())
-  email       String
-  role        Role         @default(MEMBER)
-  token       String       @unique
-  status      InviteStatus @default(PENDING)
-  expiresAt   DateTime
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id            String       @id @default(uuid())
+  email         String
+  role          Role         @default(MEMBER)
+  customRoleId  String?
+  customRole    CustomProjectRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  projectIds    String[]     @default([])
+  token         String       @unique
+  status        InviteStatus @default(PENDING)
+  expiresAt     DateTime
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   // Relations
-  workspaceId String
-  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  invitedById String
-  invitedBy   User         @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  workspaceId   String
+  workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedById   String
+  invitedBy     User         @relation(fields: [invitedById], references: [id], onDelete: Cascade)
 
   @@unique([email, workspaceId])
   @@index([email])
@@ -223,6 +228,8 @@ model CustomProjectRole {
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   members     ProjectMember[]
+  invites     WorkspaceInvite[]
+  workspaceMembers WorkspaceMember[] @relation("WorkspaceMemberCustomRole")
 
   @@unique([workspaceId, name])
   @@index([workspaceId])

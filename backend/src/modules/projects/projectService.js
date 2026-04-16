@@ -112,10 +112,10 @@ export const projectService = {
     // Ensure the workspace has system roles (Editor / Commenter / Viewer).
     // seedSystemRoles is idempotent — only creates if missing.
     const roleMap = await projectRoleService.seedSystemRoles(workspaceId);
-    // Assign the project creator to the Editor role.
+    // Assign the project creator to the Manager role (full edit access).
     await prisma.projectMember.updateMany({
       where: { projectId: project.id, userId },
-      data: { projectRoleId: roleMap['Editor'] },
+      data: { projectRoleId: roleMap['Manager'] },
     });
 
     emitToWorkspace(workspaceId, 'project_created', { project }, excludeSocketId);
@@ -134,15 +134,31 @@ export const projectService = {
 
     const isAdmin = membership.role === 'OWNER' || membership.role === 'ADMIN';
 
+    // Check if user has any custom role in this workspace that grants
+    // `project.viewPrivate` — if so they also see all private projects.
+    let canViewAllPrivate = false;
+    if (!isAdmin) {
+      const privilegedMembership = await prisma.projectMember.findFirst({
+        where: {
+          userId,
+          project: { workspaceId },
+          customRole: { isNot: null },
+        },
+        include: { customRole: { select: { permissions: true } } },
+      });
+      const perms = privilegedMembership?.customRole?.permissions;
+      canViewAllPrivate = !!(perms && typeof perms === 'object' && perms['project.viewPrivate']);
+    }
+
     const projects = await prisma.project.findMany({
       where: {
         workspaceId,
         // Admins/Owners see all projects
-        // Members see: PUBLIC projects + PRIVATE projects they're explicitly in
-        // Guests see: ONLY projects they're explicitly in (regardless of visibility)
-        ...(!isAdmin && {
+        // canViewAllPrivate roles also see all projects
+        // Everyone else (MEMBER + GUEST): PUBLIC projects + PRIVATE projects they're in
+        ...(!isAdmin && !canViewAllPrivate && {
           OR: [
-            ...(membership.role === 'MEMBER' ? [{ visibility: 'PUBLIC' }] : []),
+            { visibility: 'PUBLIC' },
             { members: { some: { userId } } }
           ]
         })
@@ -278,9 +294,24 @@ export const projectService = {
 
     if (!isAdmin) {
       const isProjectMember = project.members.some(m => m.userId === userId);
-      const isPublicForMember = membership.role === 'MEMBER' && project.visibility === 'PUBLIC';
+      const isPublic = project.visibility === 'PUBLIC';
 
-      if (!isProjectMember && !isPublicForMember) {
+      // Check if user has a custom role with `project.viewPrivate` elsewhere in workspace
+      let canViewAllPrivate = false;
+      if (!isProjectMember && !isPublic) {
+        const privilegedMembership = await prisma.projectMember.findFirst({
+          where: {
+            userId,
+            project: { workspaceId: project.workspaceId },
+            customRole: { isNot: null },
+          },
+          include: { customRole: { select: { permissions: true } } },
+        });
+        const perms = privilegedMembership?.customRole?.permissions;
+        canViewAllPrivate = !!(perms && typeof perms === 'object' && perms['project.viewPrivate']);
+      }
+
+      if (!isProjectMember && !isPublic && !canViewAllPrivate) {
         throw ApiError.forbidden('You do not have access to this project');
       }
     }
@@ -415,8 +446,8 @@ export const projectService = {
     // Accepts either `roleId` (new) or `projectRole` string (legacy compat).
     let projectRoleId = memberData.roleId || null;
     if (!projectRoleId && projectRole) {
-      const nameMap = { EDITOR: 'Editor', COMMENTER: 'Commenter', VIEWER: 'Viewer' };
-      const roleName = nameMap[projectRole] || 'Editor';
+      const nameMap = { EDITOR: 'Manager', COMMENTER: 'Commenter', VIEWER: 'Guest' };
+      const roleName = nameMap[projectRole] || 'Manager';
       const systemRole = await prisma.customProjectRole.findFirst({
         where: { workspaceId: project.workspaceId, isSystem: true, name: roleName },
       });
@@ -570,7 +601,7 @@ export const projectService = {
 
     // If caller sent `projectRole` string instead of `roleId`, resolve it to the system role.
     if (!targetRoleId && projectRole) {
-      const nameMap = { EDITOR: 'Editor', COMMENTER: 'Commenter', VIEWER: 'Viewer' };
+      const nameMap = { EDITOR: 'Manager', COMMENTER: 'Commenter', VIEWER: 'Guest' };
       const roleName = nameMap[projectRole];
       if (roleName) {
         const systemRole = await prisma.customProjectRole.findFirst({

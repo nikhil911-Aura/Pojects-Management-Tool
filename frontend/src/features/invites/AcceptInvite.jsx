@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { acceptInvite } from '../../store/slices/workspaceSlice';
+import { acceptInvite, fetchWorkspace, setCurrentWorkspace } from '../../store/slices/workspaceSlice';
+import { fetchProjects } from '../../store/slices/projectSlice';
 import api from '../../services/api';
 
 const INVITE_TOKEN_KEY = 'pendingInviteToken';
@@ -93,6 +94,17 @@ function AcceptInvite() {
       const result = await dispatch(acceptInvite(token)).unwrap();
       // Clear token on successful acceptance
       localStorage.removeItem(INVITE_TOKEN_KEY);
+
+      // Fetch the new workspace and set it as the active workspace
+      // BEFORE navigating — so the Layout, Sidebar, and Workspace page
+      // all have the correct currentWorkspace immediately.
+      const wsResult = await dispatch(fetchWorkspace(result.workspaceId)).unwrap();
+      dispatch(setCurrentWorkspace(wsResult));
+      dispatch(fetchProjects(result.workspaceId));
+
+      // Persist so page reloads keep this workspace selected
+      localStorage.setItem('lastWorkspaceId', result.workspaceId);
+
       navigate(`/workspace/${result.workspaceId}`);
     } catch (err) {
       setError(err || 'Failed to accept invitation');

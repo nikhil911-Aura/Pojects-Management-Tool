@@ -52,9 +52,12 @@ export const updateWorkspace = createAsyncThunk(
 
 export const inviteUser = createAsyncThunk(
   'workspace/inviteUser',
-  async ({ workspaceId, email, role }, { rejectWithValue }) => {
+  async ({ workspaceId, email, role, customRoleId, projectIds }, { rejectWithValue }) => {
     try {
-      const response = await api.post(`/api/v1/workspaces/${workspaceId}/invite`, { email, role });
+      const body = { email, role };
+      if (customRoleId) body.customRoleId = customRoleId;
+      if (Array.isArray(projectIds) && projectIds.length) body.projectIds = projectIds;
+      const response = await api.post(`/api/v1/workspaces/${workspaceId}/invite`, body);
       return response.data.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to invite user');
