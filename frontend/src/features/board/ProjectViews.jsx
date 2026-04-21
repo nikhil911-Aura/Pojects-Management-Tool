@@ -438,7 +438,7 @@ export function GanttView({ lists, onTaskClick }) {
               const color = BAR_COLORS[(li + ti) % BAR_COLORS.length];
               const isMilestone = task.taskType === 'MILESTONE';
               const due = task.dueDate ? new Date(task.dueDate) : null;
-              const taskStart = due ? addDays(due, isMilestone ? 0 : -5) : today;
+              const taskStart = isMilestone ? (due || today) : (task.createdAt ? new Date(new Date(task.createdAt).setHours(0,0,0,0)) : (due ? addDays(due, -1) : today));
               const taskEnd = due || addDays(today, 2);
               const left = getLeft(taskStart);
               const width = isMilestone ? 0 : Math.max(getLeft(taskEnd) - left, dayWidth * 2);
