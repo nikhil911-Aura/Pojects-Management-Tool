@@ -79,7 +79,7 @@ export const workspaceService = {
                     avatar: true
                   }
                 },
-                customRole: { select: { id: true, name: true, color: true } }
+                customRole: { select: { id: true, name: true, color: true, permissions: true } }
               }
             },
             projects: {
@@ -330,7 +330,7 @@ export const workspaceService = {
             avatar: true
           }
         },
-        customRole: { select: { id: true, name: true, color: true } }
+        customRole: { select: { id: true, name: true, color: true, permissions: true } }
       }
     });
 

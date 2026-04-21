@@ -19,6 +19,15 @@ export function useRole() {
   const isWorkspaceAdmin = workspaceRole === 'OWNER' || workspaceRole === 'ADMIN';
   const isGuest = workspaceRole === 'GUEST';
 
+  // Workspace-level custom role permissions (set by OWNER/ADMIN on workspace members)
+  const workspaceMember = currentWorkspace?.members?.find((m) => m.userId === user?.id);
+  const workspaceCustomRolePerms =
+    workspaceMember?.customRole?.permissions &&
+    typeof workspaceMember.customRole.permissions === 'object'
+      ? workspaceMember.customRole.permissions
+      : {};
+  const canWorkspace = (key) => isWorkspaceAdmin || !!workspaceCustomRolePerms[key];
+
   // Find the current user's project membership
   const projectMember = currentProject?.members?.find((m) => m.userId === user?.id);
 
@@ -85,6 +94,7 @@ export function useRole() {
     // Workspace-scoped
     canManageWorkspace: isWorkspaceAdmin,
     canCreateProject:   workspaceRole !== null,
+    canWorkspace,       // canWorkspace('report.viewTeam'), canWorkspace('project.viewPrivate'), etc.
   };
 }
 

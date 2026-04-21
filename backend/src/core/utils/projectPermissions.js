@@ -42,6 +42,8 @@ export const PROJECT_PERMISSION_KEYS = [
   { key: 'milestone.remove',       group: 'Milestones', label: 'Remove milestones from projects' },
   // Time tracking
   { key: 'time.track',     group: 'Time',     label: 'Log and edit time entries' },
+  // Reports
+  { key: 'report.viewTeam', group: 'Reports', label: 'View team reports (all members\' time & tasks)' },
 ];
 
 /**

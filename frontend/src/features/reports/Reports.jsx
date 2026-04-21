@@ -66,7 +66,7 @@ function Reports() {
     exportLoading,
     emailLoading,
   } = useAppSelector((state) => state.report);
-  const { isWorkspaceAdmin } = useRole();
+  const { isWorkspaceAdmin, canWorkspace } = useRole();
 
   const [activeTab, setActiveTab] = useState('timesheet'); // 'timesheet' | 'team'
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -74,7 +74,7 @@ function Reports() {
   const [toast, setToast] = useState(null); // { type: 'success'|'error', message, count }
 
   const workspaceId = currentWorkspace?.id;
-  const canViewTeam = isWorkspaceAdmin;
+  const canViewTeam = isWorkspaceAdmin || canWorkspace('report.viewTeam');
 
   // Ensure workspace members are loaded (needed for email modal + member filter)
   useEffect(() => {

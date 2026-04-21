@@ -194,12 +194,22 @@ export const reportService = {
     return groupTasksByProject(filtered);
   },
 
-  // Team report — admin/owner only
+  // Team report — admin/owner or users with report.viewTeam custom role permission
   async getTeamReport(workspaceId, userId, filters = {}) {
-    const membership = await prisma.workspaceMember.findFirst({ where: { workspaceId, userId } });
+    const membership = await prisma.workspaceMember.findFirst({
+      where: { workspaceId, userId },
+      include: { customRole: { select: { permissions: true } } },
+    });
     if (!membership) throw ApiError.forbidden('You are not a member of this workspace');
-    if (!isWorkspaceAdmin(membership.role)) {
-      throw ApiError.forbidden('Only workspace admins can view team reports');
+
+    const hasCustomPermission = !!(
+      membership.customRole?.permissions &&
+      typeof membership.customRole.permissions === 'object' &&
+      membership.customRole.permissions['report.viewTeam']
+    );
+
+    if (!isWorkspaceAdmin(membership.role) && !hasCustomPermission) {
+      throw ApiError.forbidden('You do not have permission to view team reports');
     }
 
     const where = buildWhereClause({ workspaceId, filters });

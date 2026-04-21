@@ -132,7 +132,38 @@ const workspaceSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
-    }
+    },
+    // Fired when a workspace member is assigned a new role/customRole.
+    // Patches currentWorkspace.members so canWorkspace() updates live.
+    socketWorkspaceMemberRoleChanged: (state, action) => {
+      const { member } = action.payload;
+      if (!member?.userId) return;
+      const patch = (members) => {
+        if (!members) return;
+        const idx = members.findIndex(m => m.userId === member.userId);
+        if (idx !== -1) members[idx] = { ...members[idx], ...member };
+      };
+      patch(state.currentWorkspace?.members);
+      state.workspaces.forEach(w => patch(w.members));
+    },
+    // Fired when a role's permissions are edited.
+    // Patches the customRole.permissions on every workspace member using that role.
+    socketWorkspaceRoleUpdated: (state, action) => {
+      const { roleId, permissions, name, color } = action.payload;
+      if (!roleId) return;
+      const patch = (members) => {
+        if (!members) return;
+        members.forEach(m => {
+          if (m.customRole?.id === roleId) {
+            m.customRole.permissions = permissions;
+            if (name) m.customRole.name = name;
+            if (color) m.customRole.color = color;
+          }
+        });
+      };
+      patch(state.currentWorkspace?.members);
+      state.workspaces.forEach(w => patch(w.members));
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -213,5 +244,5 @@ const workspaceSlice = createSlice({
   }
 });
 
-export const { setCurrentWorkspace, clearError } = workspaceSlice.actions;
+export const { setCurrentWorkspace, clearError, socketWorkspaceMemberRoleChanged, socketWorkspaceRoleUpdated } = workspaceSlice.actions;
 export default workspaceSlice.reducer;
