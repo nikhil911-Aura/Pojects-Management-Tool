@@ -8,7 +8,7 @@ import { useConfirm } from '../../hooks/useConfirm';
 import api from '../../services/api';
 
 /* ── Role dropdown — reads from the project's named roles ── */
-function RoleDropdown({ roles, value, onChange, compact = false }) {
+function RoleDropdown({ roles, value, onChange, compact = false, canCreateRole = true }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const ref = useRef(null);
@@ -79,16 +79,18 @@ function RoleDropdown({ roles, value, onChange, compact = false }) {
               </button>
             );
           })}
-          {/* Create custom role option at the bottom */}
-          <div className="border-t border-[var(--asana-border)] mt-1 pt-1">
-            <button onClick={() => { onChange('__CREATE_CUSTOM__'); setOpen(false); }}
-              className="w-full flex items-center px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-              <svg className="w-3.5 h-3.5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">Create custom role...</span>
-            </button>
-          </div>
+          {/* Create custom role option — admins only */}
+          {canCreateRole && (
+            <div className="border-t border-[var(--asana-border)] mt-1 pt-1">
+              <button onClick={() => { onChange('__CREATE_CUSTOM__'); setOpen(false); }}
+                className="w-full flex items-center px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <svg className="w-3.5 h-3.5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">Create custom role...</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </>
@@ -100,8 +102,9 @@ function ShareModal({ projectId, onClose, emitInstant }) {
   const { currentProject } = useAppSelector(state => state.project);
   const { currentWorkspace } = useAppSelector(state => state.workspace);
   const { user: currentUser } = useAppSelector(state => state.auth);
-  const { isWorkspaceAdmin, can, workspaceRole } = useRole();
-  const canInvite = isWorkspaceAdmin || can('project.invite');
+  const { isWorkspaceAdmin, can, workspaceRole, isProjectMember } = useRole();
+  const canInvite = isWorkspaceAdmin || isProjectMember || can('project.invite');
+  const canManageRoles = isWorkspaceAdmin || can('project.invite');
   const canChangeRole = isWorkspaceAdmin || can('project.changeRole');
   const isWorkspaceOwner = workspaceRole === 'OWNER';
   const { confirm, ConfirmDialog } = useConfirm();
@@ -313,17 +316,22 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                     </div>
                   )}
                 </div>
-                <RoleDropdown roles={projectRoles} value={selectedRoleId} onChange={(id) => {
-                  if (id === '__CREATE_CUSTOM__') {
-                    setCustomModalTarget({ mode: 'create', memberId: null, memberName: '' });
-                  } else {
-                    setSelectedRoleId(id);
-                  }
-                }} />
+                <RoleDropdown
+                  roles={canManageRoles ? projectRoles : projectRoles.filter(r => r.isSystem)}
+                  value={selectedRoleId}
+                  canCreateRole={canManageRoles}
+                  onChange={(id) => {
+                    if (id === '__CREATE_CUSTOM__') {
+                      setCustomModalTarget({ mode: 'create', memberId: null, memberName: '' });
+                    } else {
+                      setSelectedRoleId(id);
+                    }
+                  }}
+                />
                 <button
                   onClick={handleAdd}
-                  disabled={!selectedUserId || adding}
-                  className="asana-button-primary text-sm px-4 disabled:opacity-50"
+                  disabled={!selectedUserId || !selectedRoleId || adding}
+                  className={`asana-button-primary text-sm px-4 transition-opacity ${(!selectedUserId || !selectedRoleId || adding) ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'opacity-100'}`}
                 >
                   {adding ? '...' : 'Invite'}
                 </button>
@@ -412,8 +420,8 @@ function ShareModal({ projectId, onClose, emitInstant }) {
             </div>
           </div>
 
-          {/* Roles management — admins can edit/delete, others see a read-only legend */}
-          <div className="pt-2 border-t border-[var(--asana-border)]">
+          {/* Roles management — admins + users with project.invite permission */}
+          {canManageRoles && <div className="pt-2 border-t border-[var(--asana-border)]">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Project roles</p>
               {canInvite && (
@@ -486,7 +494,7 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
       </div>
 

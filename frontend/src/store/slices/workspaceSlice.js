@@ -101,6 +101,18 @@ export const cancelInvite = createAsyncThunk(
   }
 );
 
+export const deleteWorkspace = createAsyncThunk(
+  'workspace/deleteWorkspace',
+  async (workspaceId, { rejectWithValue }) => {
+    try {
+      await api.delete(`/api/v1/workspaces/${workspaceId}`);
+      return workspaceId;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to delete workspace');
+    }
+  }
+);
+
 export const acceptInvite = createAsyncThunk(
   'workspace/acceptInvite',
   async (token, { rejectWithValue }) => {
@@ -126,9 +138,13 @@ const workspaceSlice = createSlice({
   initialState,
   reducers: {
     setCurrentWorkspace: (state, action) => {
-      state.currentWorkspace = action.payload;
-      // Persist so the next login session restores this workspace.
-      try { localStorage.setItem('lastWorkspaceId', action.payload?.id || ''); } catch {}
+      const payload = action.payload;
+      // role lives on the WorkspaceMember join row and is only present when the
+      // workspace was fetched via getAll/getById. Fall back to the cached entry
+      // in workspaces[] so we never lose it (e.g. after workspace creation).
+      const role = payload?.role ?? state.workspaces.find(w => w.id === payload?.id)?.role ?? null;
+      state.currentWorkspace = { ...payload, role };
+      try { localStorage.setItem('lastWorkspaceId', payload?.id || ''); } catch {}
     },
     clearError: (state) => {
       state.error = null;
@@ -211,11 +227,22 @@ const workspaceSlice = createSlice({
       })
       .addCase(updateWorkspace.fulfilled, (state, action) => {
         const index = state.workspaces.findIndex(w => w.id === action.payload.id);
+        // Preserve role — the update endpoint returns a raw workspace object
+        // without the role field (role lives on the WorkspaceMember join row).
+        const role = state.workspaces[index]?.role ?? state.currentWorkspace?.role;
+        const updated = { ...action.payload, role };
         if (index !== -1) {
-          state.workspaces[index] = action.payload;
+          state.workspaces[index] = updated;
         }
         if (state.currentWorkspace?.id === action.payload.id) {
-          state.currentWorkspace = action.payload;
+          state.currentWorkspace = updated;
+        }
+      })
+      .addCase(deleteWorkspace.fulfilled, (state, action) => {
+        const deletedId = action.payload;
+        state.workspaces = state.workspaces.filter(w => w.id !== deletedId);
+        if (state.currentWorkspace?.id === deletedId) {
+          state.currentWorkspace = state.workspaces[0] ?? null;
         }
       })
       .addCase(inviteUser.fulfilled, (state) => {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchWorkspace, fetchInvites, resendInvite, cancelInvite, updateWorkspace } from '../../store/slices/workspaceSlice';
+import { fetchWorkspace, fetchInvites, resendInvite, cancelInvite, updateWorkspace, deleteWorkspace } from '../../store/slices/workspaceSlice';
 import { fetchProjects } from '../../store/slices/projectSlice';
 import InviteModal from './InviteModal';
 import CustomRoleModal from '../projects/CustomRoleModal';
@@ -20,7 +20,7 @@ const ROLE_STYLE = {
  * System roles (Editor/Commenter/Viewer) are read-only. Custom roles can be edited/deleted.
  * A "Create Role" button opens the permission modal for any selected project.
  */
-function ProjectRolesCard({ workspaceId }) {
+function ProjectRolesCard({ workspaceId, isAdmin }) {
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [customModalTarget, setCustomModalTarget] = useState(null);
@@ -56,17 +56,17 @@ function ProjectRolesCard({ workspaceId }) {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* System roles — read-only, no edit/delete */}
+            {/* System roles — permissions editable by admin/owner, name locked */}
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] mb-2">Default Roles</p>
               <div className="space-y-1.5">
                 {uniqueSystem.map(role => (
-                  <div key={role.name} className="flex items-center space-x-2.5 py-1.5 px-2 rounded-md">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  <div key={role.name} className="flex items-center space-x-2.5 py-1.5 px-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/30 group/sr transition-colors">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: `${role.color}20`, color: role.color }}>
                       {role.name}
                     </span>
-                    <span className="text-xs text-[var(--asana-text-secondary)]">
+                    <span className="text-xs text-[var(--asana-text-secondary)] truncate">
                       {role.name === 'Manager'
                         ? 'Can view and edit projects they have access to'
                         : role.name === 'Commenter'
@@ -75,9 +75,21 @@ function ProjectRolesCard({ workspaceId }) {
                             ? 'Can only view projects they are explicitly added to'
                             : 'Read-only'}
                     </span>
-                    <span className="text-[9px] text-[var(--asana-text-muted)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded ml-auto flex-shrink-0">
-                      Default
-                    </span>
+                    <div className="ml-auto flex items-center space-x-1 flex-shrink-0">
+                      <span className="text-[9px] text-[var(--asana-text-muted)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                        Default
+                      </span>
+                      {isAdmin && (
+                        <button
+                          onClick={() => setCustomModalTarget({ mode: 'edit', roleId: role.id, roleName: role.name, permissions: role.permissions, isSystem: true })}
+                          className="p-1 rounded text-[var(--asana-text-secondary)] hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-[var(--asana-text-primary)] transition-colors opacity-0 group-hover/sr:opacity-100"
+                          title="Edit permissions">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -275,6 +287,7 @@ function WorkspaceSkeleton() {
 function Workspace() {
   const { workspaceId } = useParams();
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { confirm, ConfirmDialog } = useConfirm();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -287,6 +300,12 @@ function Workspace() {
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [savingDescription, setSavingDescription] = useState(false);
   const descriptionInputRef = useRef(null);
+
+  // Inline-edit state for workspace name (owner only).
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const nameInputRef = useRef(null);
 
   // Track per-workspaceId readiness for both async dependencies so the page
   // shows a single skeleton until everything is loaded — no partial flashes.
@@ -411,7 +430,41 @@ function Workspace() {
   };
 
   const currentMember = currentWorkspace?.members?.find(m => m.userId === currentUser?.id || m.user?.id === currentUser?.id);
-  const isAdmin = currentMember?.role === 'OWNER' || currentMember?.role === 'ADMIN';
+  const isAdmin = currentMember?.role === 'OWNER' || currentMember?.role === 'ADMIN'
+    || currentWorkspace?.role === 'OWNER' || currentWorkspace?.role === 'ADMIN';
+  const isOwner = currentMember?.role === 'OWNER' || currentWorkspace?.role === 'OWNER';
+
+  const startEditingName = () => {
+    setNameDraft(currentWorkspace?.name || '');
+    setEditingName(true);
+    setTimeout(() => nameInputRef.current?.focus(), 0);
+  };
+
+  const saveName = async () => {
+    const next = nameDraft.trim();
+    if (!next || next === currentWorkspace?.name) { setEditingName(false); return; }
+    setSavingName(true);
+    try {
+      await dispatch(updateWorkspace({ workspaceId, data: { name: next } })).unwrap();
+      setEditingName(false);
+    } catch {} finally { setSavingName(false); }
+  };
+
+  const handleDeleteWorkspace = async () => {
+    const ok = await confirm({
+      title: 'Delete workspace?',
+      message: `All projects, tasks, and members will be permanently removed. Type the workspace name to confirm.`,
+      confirmText: 'Delete Workspace',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await dispatch(deleteWorkspace(workspaceId)).unwrap();
+      navigate('/');
+    } catch (err) {
+      showToast(err || 'Failed to delete workspace', 'error');
+    }
+  };
 
   if (!allReady) {
     return <WorkspaceSkeleton />;
@@ -501,7 +554,42 @@ function Workspace() {
                   <div className="w-16 h-16 rounded-full bg-gray-400 dark:bg-gray-600 border-4 border-[var(--asana-surface)] flex items-center justify-center text-white text-2xl font-bold shadow-lg">
                     {currentWorkspace.name?.charAt(0).toUpperCase()}
                   </div>
-                  <h2 className="text-xl font-bold text-[var(--asana-text-primary)] mt-3">{currentWorkspace.name}</h2>
+                  {editingName ? (
+                    <div className="mt-3 flex items-center gap-2">
+                      <input
+                        ref={nameInputRef}
+                        value={nameDraft}
+                        onChange={e => setNameDraft(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.preventDefault(); saveName(); }
+                          if (e.key === 'Escape') { e.preventDefault(); setEditingName(false); }
+                        }}
+                        disabled={savingName}
+                        className="text-xl font-bold bg-[var(--asana-bg)] border border-asana-blue rounded-md px-2 py-0.5 text-[var(--asana-text-primary)] outline-none focus:ring-1 focus:ring-asana-blue disabled:opacity-50 w-64"
+                      />
+                      <button onClick={saveName} disabled={savingName}
+                        className="asana-button-primary text-xs px-3 py-1.5 disabled:opacity-50">
+                        {savingName ? 'Saving…' : 'Save'}
+                      </button>
+                      <button onClick={() => setEditingName(false)} disabled={savingName}
+                        className="text-xs px-3 py-1.5 rounded text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex items-center gap-2 group/name">
+                      <h2 className="text-xl font-bold text-[var(--asana-text-primary)]">{currentWorkspace.name}</h2>
+                      {isOwner && (
+                        <button onClick={startEditingName}
+                          className="opacity-0 group-hover/name:opacity-100 p-1 rounded text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                          title="Edit workspace name">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {editingDescription ? (
                     <div className="mt-2">
                       <textarea
@@ -684,9 +772,34 @@ function Workspace() {
                   )}
 
                   {/* Project Roles card — admin-only, workspace-level roles */}
-                  {isAdmin && <ProjectRolesCard workspaceId={workspaceId} />}
+                  {isAdmin && <ProjectRolesCard workspaceId={workspaceId} isAdmin={isAdmin} />}
                 </div>
               </div>
+
+              {/* Danger Zone — owner only */}
+              {isOwner && (
+                <div className="bg-[var(--asana-surface)] rounded-xl border border-red-200 dark:border-red-800/50 overflow-hidden">
+                  <div className="px-6 py-4 border-b border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10">
+                    <h3 className="text-sm font-bold text-red-600 dark:text-red-400">Danger Zone</h3>
+                    <p className="text-xs text-red-500/80 dark:text-red-400/70 mt-0.5">Actions here are irreversible. Proceed with caution.</p>
+                  </div>
+                  <div className="px-6 py-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-[var(--asana-text-primary)]">Delete this workspace</p>
+                      <p className="text-xs text-[var(--asana-text-secondary)] mt-0.5">Permanently removes all projects, tasks, and members.</p>
+                    </div>
+                    <button
+                      onClick={handleDeleteWorkspace}
+                      className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete Workspace
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             /* ── Members tab ── */

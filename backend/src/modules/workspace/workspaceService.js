@@ -48,14 +48,16 @@ export const workspaceService = {
           include: {
             _count: { select: { members: true, projects: true } }
           }
-        }
+        },
+        customRole: { select: { id: true, name: true, color: true } }
       },
       orderBy: { updatedAt: 'desc' }
     });
 
     return memberships.map(m => ({
       ...m.workspace,
-      role: m.role
+      role: m.role,
+      customRole: m.customRole || null,
     }));
   },
 

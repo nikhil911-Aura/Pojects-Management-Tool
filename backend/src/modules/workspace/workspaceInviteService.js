@@ -113,20 +113,18 @@ export const workspaceInviteService = {
     });
     */
 
-    // 5. Send email
+    // 5. Send email in background — don't block the response on SMTP latency
     const inviteLink = `${config.frontendUrl}/invite/accept/${rawToken}`;
-    console.log(`[WorkspaceInviteService] New Token Generated: ${rawToken}`);
-    console.log(`[WorkspaceInviteService] Hashed Token: ${hashedToken}`);
-    console.log(`[WorkspaceInviteService] Invite Saved: ${invite.id} (Status: ${invite.status})`);
-    
-    await emailService.sendInviteEmail(
+    emailService.sendInviteEmail(
       email,
       inviterMembership.workspace.name,
       inviterMembership.user.name,
       inviteLink
-    );
+    ).catch(err => {
+      console.error(`[WorkspaceInviteService] Email delivery failed for ${email}:`, err?.message);
+    });
 
-    return { message: `Invitation sent to ${email}`, inviteId: invite.id, debugToken: rawToken };
+    return { message: `Invitation sent to ${email}`, inviteId: invite.id };
   },
 
   /**
@@ -200,11 +198,13 @@ export const workspaceInviteService = {
           userId,
           workspaceId: invite.workspaceId,
           role: invite.role,
+          customRoleId: invite.customRoleId || null,
           status: 'ACTIVE',
           joinedAt: new Date()
         },
         update: {
           role: invite.role,
+          customRoleId: invite.customRoleId || null,
           status: 'ACTIVE',
           joinedAt: new Date()
         }

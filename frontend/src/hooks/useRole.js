@@ -30,6 +30,7 @@ export function useRole() {
 
   // Find the current user's project membership
   const projectMember = currentProject?.members?.find((m) => m.userId === user?.id);
+  const isProjectMember = !!projectMember;
 
   // Read the named role from the new customRole FK (preferred),
   // falling back to the legacy projectRole enum for un-migrated data.
@@ -58,8 +59,12 @@ export function useRole() {
     }
   }
 
-  // Granular permission checker
-  const can = (key) => !!perms[key];
+  // Granular permission checker — project-level perms first, workspace custom role as fallback
+  const can = (key) => {
+    if (isWorkspaceAdmin) return true;
+    if (!!perms[key]) return true;
+    return !!workspaceCustomRolePerms[key];
+  };
 
   // The role name to display in the UI (badge text)
   const roleName = isWorkspaceAdmin
@@ -81,6 +86,7 @@ export function useRole() {
     roleName,                      // "Editor", "QA Tester", etc.
     roleColor,                     // badge color
     isWorkspaceAdmin,
+    isProjectMember,
     isGuest,
 
     // Granular: can('task.delete'), can('project.invite'), etc.

@@ -153,12 +153,12 @@ function ProjectBoard() {
 
   const { pendingItems, addPendingItem, clearPendingItems, liveEdits, emitLiveEdit, emitInstant, customFieldEvent, setCustomFieldCallback, releaseEditLock } = useSocket(projectId, currentProject?.board?.id);
 
-  const { canEdit, can, isWorkspaceAdmin } = useRole();
+  const { canEdit, can, isWorkspaceAdmin, isProjectMember } = useRole();
   const { confirm, ConfirmDialog } = useConfirm();
   // Project-level permissions — used to gate UI elements that were previously
   // restricted to workspace admins only but should now be available to custom
   // roles with the right permissions.
-  const canInvite = isWorkspaceAdmin || can('project.invite');
+  const canInvite = isWorkspaceAdmin || isProjectMember || can('project.invite');
   const canEditProject = isWorkspaceAdmin || can('project.edit');
   const canDeleteProject = isWorkspaceAdmin || can('project.delete');
   const { celebrate, CelebrationComponent } = useCelebration();
@@ -180,6 +180,10 @@ function ProjectBoard() {
   const [listGroupBy, setListGroupBy] = useState(null);
   const [listColumns, setListColumns] = useState({ assignee: true, dueDate: true, status: true, estimatedTime: true, actualTime: true, priority: false });
   const [listSearch, setListSearch] = useState('');
+  // Save View — incremented to tell ProjectListView to persist its current collapsed state
+  const [saveViewTrigger, setSaveViewTrigger] = useState(0);
+  const savedViewKey = projectId ? `listview:${projectId}:collapsed` : null;
+  const hasSavedView = savedViewKey ? !!localStorage.getItem(savedViewKey) : false;
   const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [editingProjectName, setEditingProjectName] = useState(false);
   const [projectNameInput, setProjectNameInput] = useState('');
@@ -601,6 +605,8 @@ function ProjectBoard() {
           searchQuery={listSearch}
           onSearchChange={setListSearch}
           onAddTask={() => setAddTaskTrigger(prev => prev + 1)}
+          onSaveView={() => setSaveViewTrigger(p => p + 1)}
+          hasSavedView={hasSavedView}
         />
       )}
 
@@ -794,6 +800,7 @@ function ProjectBoard() {
               return processed;
             })()}
             boardId={currentProject?.board?.id}
+            projectId={projectId}
             onTaskClick={openTask}
             columns={listColumns}
             pendingItems={pendingItems}
@@ -810,6 +817,7 @@ function ProjectBoard() {
             setCustomFieldCallback={setCustomFieldCallback}
             prefetchedCustomFields={prefetchedCF.fields}
             prefetchedFieldValues={prefetchedCF.values}
+            saveViewTrigger={saveViewTrigger}
           />
           </div>
         ) : activeView === 'overview' ? (

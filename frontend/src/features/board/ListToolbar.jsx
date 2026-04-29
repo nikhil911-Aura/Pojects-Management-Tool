@@ -197,9 +197,52 @@ function OptionsPanel({ columns, onChange, onClose }) {
 }
 
 /* ═════════════════════════════════════════════
+   Save View Button
+   ═════════════════════════════════════════════ */
+function SaveViewButton({ onSave, hasSaved }) {
+  const [flash, setFlash] = useState(false);
+
+  const handleClick = () => {
+    onSave();
+    setFlash(true);
+    setTimeout(() => setFlash(false), 1800);
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      title="Save current section layout as your default view"
+      className={`flex items-center text-[11px] px-2.5 py-1.5 rounded-md border transition-all ${
+        flash
+          ? 'border-green-400 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400'
+          : hasSaved
+            ? 'border-asana-blue/40 bg-asana-blue/5 text-asana-blue'
+            : 'border-[var(--asana-border)] text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-[var(--asana-text-primary)]'
+      }`}
+    >
+      {flash ? (
+        <>
+          <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+          </svg>
+          Saved
+        </>
+      ) : (
+        <>
+          <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3h11l5 5v13a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1zm7 0v5H6V3m6 14a3 3 0 100-6 3 3 0 000 6z" />
+          </svg>
+          Save view
+        </>
+      )}
+    </button>
+  );
+}
+
+/* ═════════════════════════════════════════════
    Main Toolbar
    ═════════════════════════════════════════════ */
-function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, groupBy, onGroupChange, columns, onColumnsChange, members, canEdit, canCreateTask, hasActiveFilters, searchQuery, onSearchChange, onAddTask }) {
+function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, groupBy, onGroupChange, columns, onColumnsChange, members, canEdit, canCreateTask, hasActiveFilters, searchQuery, onSearchChange, onAddTask, onSaveView, hasSavedView }) {
   const [openPanel, setOpenPanel] = useState(null); // 'filter' | 'sort' | 'group' | 'options' | 'search' | null
   const searchInputRef = useRef(null);
 
@@ -285,6 +328,11 @@ function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, 
             )}
           </div>
         ))}
+
+        {/* Save View */}
+        {onSaveView && (
+          <SaveViewButton onSave={onSaveView} hasSaved={hasSavedView} />
+        )}
 
         {/* Search toggle / inline input */}
         {openPanel === 'search' ? (

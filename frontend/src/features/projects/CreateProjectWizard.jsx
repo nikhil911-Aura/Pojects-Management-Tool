@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { createProject } from '../../store/slices/projectSlice';
@@ -60,6 +60,7 @@ function CreateProjectWizard({ isOpen, onClose }) {
 
   const [step, setStep] = useState(1); // 1 = details, 2 = views
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState(null);
   const [showPrivacyDropdown, setShowPrivacyDropdown] = useState(false);
   const [showWorkspaceDropdown, setShowWorkspaceDropdown] = useState(false);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(currentWorkspace?.id || '');
@@ -67,6 +68,12 @@ function CreateProjectWizard({ isOpen, onClose }) {
   const workspaceBtnRef = useRef(null);
   const [privacyPos, setPrivacyPos] = useState({ top: 0, left: 0 });
   const [workspacePos, setWorkspacePos] = useState({ top: 0, left: 0 });
+
+  // Sync selectedWorkspaceId every time the wizard opens so it always reflects
+  // the current workspace even if currentWorkspace wasn't set on first mount.
+  useEffect(() => {
+    if (isOpen) setSelectedWorkspaceId(currentWorkspace?.id || '');
+  }, [isOpen, currentWorkspace?.id]);
 
   const selectedWorkspace = workspaces?.find(w => w.id === selectedWorkspaceId) || currentWorkspace;
 
@@ -95,6 +102,7 @@ function CreateProjectWizard({ isOpen, onClose }) {
   const handleCreate = async () => {
     if (!selectedWorkspaceId || !projectData.name.trim() || creating) return;
     setCreating(true);
+    setCreateError(null);
 
     const backendVisibility = projectData.visibility === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC';
     const isPrivate = projectData.visibility === 'PRIVATE';
@@ -116,7 +124,7 @@ function CreateProjectWizard({ isOpen, onClose }) {
       const dest = `/project/${result.id}`;
       navigate(isPrivate ? `${dest}?share=1` : dest);
     } catch (err) {
-      console.error('Failed to create project:', err);
+      setCreateError(err?.message || 'Failed to create project. Please try again.');
     } finally {
       setCreating(false);
     }
@@ -124,6 +132,7 @@ function CreateProjectWizard({ isOpen, onClose }) {
 
   const resetForm = () => {
     setStep(1);
+    setCreateError(null);
     setProjectData({ name: '', description: '', color: PROJECT_COLORS[0], visibility: 'PUBLIC' });
     setSelectedViews(() => {
       const initial = {};
@@ -375,8 +384,13 @@ function CreateProjectWizard({ isOpen, onClose }) {
 
             <p className="text-xs text-asana-blue cursor-pointer hover:underline mt-4 mb-5">Show more views</p>
 
+            {/* Error message */}
+            {createError && (
+              <p className="text-xs text-red-500 mt-3">{createError}</p>
+            )}
+
             {/* Navigation buttons */}
-            <div className="flex space-x-3">
+            <div className="flex space-x-3 mt-3">
               <button
                 onClick={() => setStep(1)}
                 className="flex-1 py-3 text-sm font-semibold border border-[var(--asana-border)] rounded-lg text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"

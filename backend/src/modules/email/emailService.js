@@ -5,7 +5,9 @@ import logger from '../../core/logger/index.js';
 const transporter = nodemailer.createTransport({
   host: config.smtp.host,
   port: config.smtp.port,
-  secure: config.smtp.port === 465, // true for 465, false for other ports
+  secure: config.smtp.port === 465,
+  pool: true,        // reuse SMTP connections instead of reconnecting each time
+  maxConnections: 3,
   auth: {
     user: config.smtp.user,
     pass: config.smtp.pass,

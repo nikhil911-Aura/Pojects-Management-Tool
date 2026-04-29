@@ -499,6 +499,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
             className={`w-[18px] h-[18px] rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-3 transition-all duration-300 relative ${
               task.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
             } ${justCompleted ? 'check-pop celebrate-burst' : ''}`}>
+            {justCompleted && <span className="ripple-ring" />}
             {task.status === 'DONE' && (
               <svg className={`w-2.5 h-2.5 text-white ${justCompleted ? 'check-draw' : ''}`} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 10l4 4L15 6" className={justCompleted ? 'check-draw' : ''} />
@@ -1471,7 +1472,7 @@ function PendingRow({ title, type, depth = 0 }) {
   );
 }
 
-function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingItems = [], addPendingItem, clearPendingItems, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, addSectionTrigger = 0, addTaskTrigger = 0, customFieldEvent, setCustomFieldCallback, prefetchedCustomFields = null, prefetchedFieldValues = null }) {
+function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {}, pendingItems = [], addPendingItem, clearPendingItems, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, addSectionTrigger = 0, addTaskTrigger = 0, customFieldEvent, setCustomFieldCallback, prefetchedCustomFields = null, prefetchedFieldValues = null, saveViewTrigger = 0 }) {
   const cols = { assignee: true, dueDate: true, status: true, estimatedTime: true, actualTime: true, priority: false, ...columns };
   const dispatch = useAppDispatch();
   const { canEdit, can, customRole, isWorkspaceAdmin } = useRole();
@@ -1505,7 +1506,11 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
   // a columns map (e.g., system Editor) see everything.
   const columnAccessMap = (!isWorkspaceAdmin && customRole?.permissions?.columns) || null;
 
-  const [collapsedSections, setCollapsedSections] = useState({});
+  const viewKey = projectId ? `listview:${projectId}:collapsed` : null;
+  const [collapsedSections, setCollapsedSections] = useState(() => {
+    if (!viewKey) return {};
+    try { return JSON.parse(localStorage.getItem(viewKey) || '{}'); } catch { return {}; }
+  });
   const [expandedTasks, setExpandedTasks] = useState({});
   const [addingTaskTo, setAddingTaskTo] = useState(null);
   const [addingSubtaskTo, setAddingSubtaskTo] = useState(null);
@@ -1574,8 +1579,6 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
   const customFields = columnAccessMap
     ? customFieldsRaw.filter(cf => columnAccessMap[cf.id] !== false)
     : customFieldsRaw;
-
-  const projectId = currentProject?.id;
 
   // Fetch custom fields + values
   const fetchCustomFields = useCallback(async () => {
@@ -1670,6 +1673,12 @@ function ProjectListView({ lists, boardId, onTaskClick, columns = {}, pendingIte
   };
 
   const toggleSection = (id) => setCollapsedSections(p => ({ ...p, [id]: !p[id] }));
+
+  // Persist collapsed state when Save View is triggered
+  useEffect(() => {
+    if (saveViewTrigger === 0 || !viewKey) return;
+    try { localStorage.setItem(viewKey, JSON.stringify(collapsedSections)); } catch {}
+  }, [saveViewTrigger]);
 
   const sectionSaveTimerRef = useRef(null);
 

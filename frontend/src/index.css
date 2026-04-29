@@ -109,25 +109,31 @@ body {
   100% { width: 100%; }
 }
 
-/* Celebration burst particles */
+/* Dot burst particles around checkbox */
 @keyframes burstParticle {
-  0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+  0%   { transform: translate(0, 0) scale(1); opacity: 0.9; }
   100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+}
+
+/* Subtle ring ripple on completion */
+@keyframes rippleOut {
+  0%   { transform: scale(0.6); opacity: 0.5; }
+  100% { transform: scale(2.2); opacity: 0; }
 }
 
 /* Row fade when completed */
 @keyframes rowCompleteFade {
   0%   { opacity: 1; }
-  50%  { opacity: 0.6; }
+  40%  { opacity: 0.7; }
   100% { opacity: 1; }
 }
 
-.check-pop { animation: checkPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.check-pop { animation: checkPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 
 .check-draw {
   stroke-dasharray: 20;
   stroke-dashoffset: 0;
-  animation: checkDraw 0.35s ease-out 0.1s both;
+  animation: checkDraw 0.3s ease-out 0.08s both;
 }
 
 .strike-animate {
@@ -138,42 +144,52 @@ body {
   position: absolute;
   left: 0;
   top: 50%;
-  height: 1.5px;
+  height: 1px;
   background: currentColor;
-  animation: strikeSlide 0.3s ease-out 0.15s both;
+  opacity: 0.55;
+  animation: strikeSlide 0.25s ease-out 0.12s both;
   width: 100%;
 }
 
 .row-complete-flash {
-  animation: rowCompleteFade 0.5s ease-out;
+  animation: rowCompleteFade 0.4s ease-out;
 }
 
-/* Celebration burst container */
+/* Subtle dot burst on checkbox */
 .celebrate-burst {
   position: relative;
 }
 .celebrate-burst::before,
-.celebrate-burst::after,
-.celebrate-burst .burst-1,
-.celebrate-burst .burst-2,
-.celebrate-burst .burst-3,
-.celebrate-burst .burst-4 {
+.celebrate-burst::after {
   content: '';
   position: absolute;
-  width: 4px;
-  height: 4px;
+  width: 3px;
+  height: 3px;
   border-radius: 50%;
   pointer-events: none;
+  top: 50%;
+  left: 50%;
+  margin: -1.5px 0 0 -1.5px;
 }
 .celebrate-burst::before {
   background: #22c55e;
-  --tx: -12px; --ty: -14px;
-  animation: burstParticle 0.5s ease-out forwards;
+  --tx: -10px; --ty: -12px;
+  animation: burstParticle 0.45s ease-out forwards;
 }
 .celebrate-burst::after {
   background: #4573D2;
-  --tx: 14px; --ty: -10px;
-  animation: burstParticle 0.5s ease-out 0.05s forwards;
+  --tx: 11px; --ty: -9px;
+  animation: burstParticle 0.45s ease-out 0.04s forwards;
+}
+
+/* Ripple ring on checkbox complete */
+.celebrate-burst .ripple-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid #22c55e;
+  pointer-events: none;
+  animation: rippleOut 0.5s ease-out forwards;
 }
 
 /* ═══════════════════════════════════════════
