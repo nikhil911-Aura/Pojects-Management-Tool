@@ -86,7 +86,7 @@ function parseTime(input) {
 /* ── Uniform column width for all non-name columns ── */
 const COL_W = 'w-[120px] flex-shrink-0';
 /* ── Name column: frozen on left during horizontal scroll ── */
-const NAME_COL = 'w-[400px] flex-shrink-0 sticky left-0 z-10 bg-[var(--asana-surface)]';
+const NAME_COL = 'w-[520px] flex-shrink-0 sticky left-0 z-10 bg-[var(--asana-surface)]';
 
 /* ═══════════════════════════════════════════
    Dropdown used outside click hook
@@ -216,33 +216,155 @@ function StatusPicker({ taskId, currentStatus, onClose, onDone, onCelebrate, emi
 /* ═══════════════════════════════════════════
    Editable Time Cell (for estimated/actual)
    ═══════════════════════════════════════════ */
-function TimeCell({ taskId, field, value, canEdit, onDone, queueOrRun = (_id, fn) => fn(_id), emitInstant, resolveId = (id) => id }) {
+const TIME_PRESETS = [
+  { label: '15m', minutes: 15 },
+  { label: '30m', minutes: 30 },
+  { label: '45m', minutes: 45 },
+  { label: '1h',  minutes: 60 },
+  { label: '1h 30m', minutes: 90 },
+  { label: '2h',  minutes: 120 },
+  { label: '3h',  minutes: 180 },
+  { label: '4h',  minutes: 240 },
+  { label: '6h',  minutes: 360 },
+  { label: '8h',  minutes: 480 },
+];
+
+function getTitleSuggestions(title) {
+  if (!title) return [];
+  const t = title.toLowerCase();
+  if (/quick|fix|typo|minor|small|patch/.test(t))                         return [15, 30, 60];
+  if (/meeting|call|sync|standup|discussion|demo/.test(t))                 return [30, 60, 90];
+  if (/review|pr|code review|feedback/.test(t))                            return [30, 60, 120];
+  if (/test|testing|qa|quality|spec/.test(t))                              return [60, 120, 180];
+  if (/design|wireframe|mockup|prototype|ui|ux/.test(t))                   return [120, 180, 240];
+  if (/research|investigate|analysis|explore|spike/.test(t))               return [120, 180, 240];
+  if (/implement|develop|build|create|feature|integration/.test(t))        return [180, 240, 360, 480];
+  if (/refactor|cleanup|clean up|optimiz|performance/.test(t))             return [120, 180, 240];
+  if (/deploy|release|launch|migration/.test(t))                           return [60, 120, 180];
+  if (/document|docs|readme|write/.test(t))                                return [60, 120, 180];
+  return [];
+}
+
+function getTimeSuggestions(inputStr, taskTitle) {
+  const str = inputStr.trim().toLowerCase();
+
+  if (!str) {
+    const smart = getTitleSuggestions(taskTitle)
+      .map(m => TIME_PRESETS.find(p => p.minutes === m))
+      .filter(Boolean);
+    const smartMinutes = new Set(smart.map(s => s.minutes));
+    const rest = TIME_PRESETS.filter(p => !smartMinutes.has(p.minutes));
+    return { smart, presets: rest };
+  }
+
+  // Pure number → interpret as hours and minutes dynamically
+  const numOnly = str.match(/^(\d+)$/);
+  if (numOnly) {
+    const n = parseInt(numOnly[1]);
+    const dynamic = [];
+    if (n >= 1 && n <= 24)  dynamic.push({ label: `${n}h`,        minutes: n * 60 });
+    if (n >= 1 && n <= 12)  dynamic.push({ label: `${n}h 30m`,    minutes: n * 60 + 30 });
+    if (n >= 1 && n <= 12)  dynamic.push({ label: `${n}h 15m`,    minutes: n * 60 + 15 });
+    if (n >= 5 && n <= 300) dynamic.push({ label: `${n}m`,         minutes: n });
+    // Dedup and cap
+    const seen = new Set();
+    return { smart: [], presets: dynamic.filter(d => { if (seen.has(d.minutes)) return false; seen.add(d.minutes); return true; }).slice(0, 6) };
+  }
+
+  // Partial text → filter presets
+  const matched = TIME_PRESETS.filter(p =>
+    p.label.startsWith(str) || p.label.replace(' ', '').startsWith(str.replace(' ', ''))
+  );
+  return { smart: [], presets: matched };
+}
+
+function TimeCell({ taskId, field, value, taskTitle = '', canEdit, onDone, queueOrRun = (_id, fn) => fn(_id), emitInstant, resolveId = (id) => id }) {
   const dispatch = useAppDispatch();
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState('');
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+  const wrapRef = useRef(null);
+  const ignoreBlur = useRef(false);
 
   const startEdit = () => {
     if (!canEdit) return;
     setInput(value != null ? formatTime(value) : '');
     setEditing(true);
+    requestAnimationFrame(() => {
+      if (wrapRef.current) {
+        const r = wrapRef.current.getBoundingClientRect();
+        setDropPos({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 160) });
+      }
+    });
   };
 
-  const save = () => {
-    const mins = parseTime(input);
+  const applyMinutes = (mins) => {
+    ignoreBlur.current = true;
     dispatch(optimisticUpdateTask({ taskId, data: { [field]: mins } }));
     emitInstant?.('task_field_updated', { taskId: resolveId(taskId), field, value: mins });
     setEditing(false);
     queueOrRun(taskId, (realId) => dispatch(updateTask({ taskId: realId, data: { [field]: mins } })));
   };
 
+  const save = () => {
+    if (ignoreBlur.current) { ignoreBlur.current = false; return; }
+    applyMinutes(parseTime(input));
+  };
+
+  const { smart, presets } = getTimeSuggestions(input, taskTitle);
+  const hasSuggestions = smart.length > 0 || presets.length > 0;
+
   if (editing) {
     return (
-      <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
-        placeholder="e.g. 1h 30m" autoFocus
-        className="w-full text-xs bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400"
-        onBlur={save}
-        onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
-      />
+      <>
+        <div ref={wrapRef} className="w-full">
+          <input type="text" value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              if (wrapRef.current) {
+                const r = wrapRef.current.getBoundingClientRect();
+                setDropPos({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 160) });
+              }
+            }}
+            placeholder="e.g. 1h 30m" autoFocus
+            className="w-full text-xs bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400"
+            onBlur={save}
+            onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
+          />
+        </div>
+        {hasSuggestions && (
+          <div className="fixed z-[9999] bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1.5 overflow-hidden"
+            style={{ top: dropPos.top, left: dropPos.left, minWidth: dropPos.width }}>
+            {smart.length > 0 && (
+              <>
+                <p className="px-3 pt-0.5 pb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--asana-text-secondary)]">Suggested</p>
+                <div className="flex flex-wrap gap-1 px-2 pb-1.5">
+                  {smart.map(s => (
+                    <button key={s.minutes} onMouseDown={(e) => { e.preventDefault(); applyMinutes(s.minutes); }}
+                      className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-asana-blue/10 text-asana-blue hover:bg-asana-blue/20 transition-colors">
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+                {presets.length > 0 && <div className="h-px bg-[var(--asana-border)] mx-2 mb-1" />}
+              </>
+            )}
+            {presets.length > 0 && (
+              <>
+                {!input && <p className="px-3 pt-0.5 pb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--asana-text-secondary)]">Quick pick</p>}
+                <div className="flex flex-wrap gap-1 px-2 pb-1">
+                  {presets.map(s => (
+                    <button key={s.minutes} onMouseDown={(e) => { e.preventDefault(); applyMinutes(s.minutes); }}
+                      className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-[var(--asana-text-primary)] hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </>
     );
   }
 
@@ -435,7 +557,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
       )}
 
       {/* ── Name ── */}
-      <div className={`${isDragging ? 'w-[400px] flex-shrink-0 bg-[var(--asana-surface)]' : NAME_COL} flex items-center py-[11px] border-r border-[var(--asana-border)]/40`}
+      <div className={`${isDragging ? 'w-[520px] flex-shrink-0 bg-[var(--asana-surface)]' : NAME_COL} flex items-center py-[11px] border-r border-[var(--asana-border)]/40`}
         style={{ paddingLeft: `${depth * 1.5 + 0.25}rem`, paddingRight: '0.75rem' }}>
         {/* Drag handle (six-dot grip) — only on top-level draggable rows */}
         {dragHandleProps ? (
@@ -517,12 +639,12 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
               onKeyDown={(e) => { if (e.key === 'Enter') handleStopEditing(); if (e.key === 'Escape') setEditingTitle(false); }}
               onClick={(e) => e.stopPropagation()}
               autoFocus
-              className={`text-sm bg-transparent border-b-2 border-asana-blue outline-none py-0 px-0 flex-1 min-w-0 ${isMilestone ? 'font-bold' : ''} text-[var(--asana-text-primary)]`} />
+              className={`text-sm bg-[var(--asana-surface)] border border-asana-blue rounded px-2 py-0.5 outline-none w-[320px] max-w-full ${isMilestone ? 'font-bold' : ''} text-[var(--asana-text-primary)]`} />
             <SaveIndicator status={titleAutoSave.saveStatus} />
           </>
         ) : (
           <span
-            className={`text-sm truncate transition-colors duration-300 ${isMilestone ? 'font-bold' : ''} ${perm.taskEdit ? 'cursor-text' : ''} ${
+            className={`text-sm truncate transition-all duration-150 rounded px-2 py-0.5 ${isMilestone ? 'font-bold' : ''} ${perm.taskEdit ? 'cursor-text hover:ring-1 hover:ring-gray-400 dark:hover:ring-gray-500' : ''} ${
               task.status === 'DONE'
                 ? `text-[var(--asana-text-secondary)]`
                 : 'text-[var(--asana-text-primary)]'
@@ -537,16 +659,6 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
           </span>
         )}
 
-        {/* Delete button (hover) */}
-        {(indent ? perm.subtaskDelete : perm.taskDelete) && (
-          <button onClick={handleDelete}
-            className="ml-auto opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-[var(--asana-text-secondary)] hover:text-red-500 transition-all flex-shrink-0"
-            title="Delete task">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        )}
       </div>
 
       {/* ── Assignee ── */}
@@ -563,7 +675,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
                 <span className="text-xs text-[var(--asana-text-primary)] truncate">{task.assignees[0].user?.name}</span>
               </>
             ) : (
-              <div className="w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center transition-opacity">
                 <svg className="w-3 h-3 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
@@ -592,7 +704,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
                   {meta.rel}
                 </span>
               ) : (
-                <svg className="w-4 h-4 text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-[var(--asana-text-secondary)] transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               )}
@@ -635,7 +747,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
       {/* ── Estimated time ── */}
       {cols.estimatedTime && (
         <div className="w-[120px] flex-shrink-0 px-3 py-[11px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
-          <TimeCell taskId={task.id} field="estimatedTime" value={task.estimatedTime} canEdit={perm.timeTrack} onDone={onRefresh} queueOrRun={queueOrRun} emitInstant={emitInstant} resolveId={resolveId} />
+          <TimeCell taskId={task.id} field="estimatedTime" value={task.estimatedTime} taskTitle={task.title} canEdit={perm.timeTrack} onDone={onRefresh} queueOrRun={queueOrRun} emitInstant={emitInstant} resolveId={resolveId} />
         </div>
       )}
 
@@ -1047,7 +1159,7 @@ function CustomFieldTimeTracker({ taskId, value, canEdit, onChange }) {
   return (
     <div className="relative w-full">
       <button ref={btnRef} onClick={(e) => { e.stopPropagation(); if (btnRef.current) { const r = btnRef.current.getBoundingClientRect(); const spaceBelow = window.innerHeight - r.bottom; const openAbove = spaceBelow < 300; setPopupPos({ top: openAbove ? null : r.bottom + 4, bottom: openAbove ? (window.innerHeight - r.top + 4) : null, left: Math.min(r.left, window.innerWidth - 300) }); } setShowPopup(true); }}
-        className={`text-xs flex items-center w-full ${total > 0 || timerStart ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100'}`}>
+        className={`text-xs flex items-center w-full ${total > 0 || timerStart ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)]'}`}>
         {timerStart && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse mr-1.5" />}
         {timerStart ? <span className="font-mono text-red-500 font-semibold">{timerDisplay}</span> : total > 0 ? fmtMins(total) : (
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1429,7 +1541,10 @@ function AddSubtaskFooter({ task, depth, listId, addingSubtaskTo, setAddingSubta
                 placeholder="Add subtask..." autoFocus
                 className="flex-1 text-sm bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400"
                 onKeyDown={(e) => { if (e.key === 'Escape') { setAddingSubtaskTo(null); setNewSubtaskTitle(''); } }}
-                onBlur={() => { if (!newSubtaskTitle.trim()) { setAddingSubtaskTo(null); setNewSubtaskTitle(''); } }} />
+                onBlur={() => {
+                  if (newSubtaskTitle.trim()) handleAddSubtask({ preventDefault: () => {} }, listId, task.id);
+                  else { setAddingSubtaskTo(null); setNewSubtaskTitle(''); }
+                }} />
             </form>
           ) : (
             <button onClick={() => setAddingSubtaskTo({ listId, taskId: task.id })}
@@ -2065,7 +2180,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                 data-just-created={list.id}
                 className="flex items-stretch border-b border-[var(--asana-border)]/60 bg-gradient-to-b from-gray-50/90 to-gray-50/40 dark:from-[#1a1f2b]/95 dark:to-[#151a23]/80 hover:from-gray-100/80 dark:hover:from-[#1f2533]/95 transition-all duration-180 group/section shadow-[0_1px_0_0_rgba(15,23,42,0.04)] w-max min-w-full">
                 {/* Name cell — holds collapse arrow, title, count, progress bar (bg overrides parent gradient so frozen-left looks clean) */}
-                <div className={`${NAME_COL} flex items-center px-4 py-3 border-r border-[var(--asana-border)]/40`}
+                <div className={`${NAME_COL} flex items-center px-4 py-3`}
                   style={{ background: 'inherit' }}>
                 <button onClick={() => toggleSection(list.id)} className="mr-2.5 flex-shrink-0 p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700/70 transition-colors">
                   <svg className={`w-3.5 h-3.5 text-[var(--asana-text-secondary)] transition-transform duration-180 ${collapsedSections[list.id] ? '-rotate-90' : ''}`}
@@ -2138,14 +2253,14 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                     `dark:border-white/10` for dark mode (light divider on dark gradient).
                     These contrast against ANY surface color, unlike the gray-700 we tried before
                     which blended into the section header's dark gradient. */}
-                {cols.assignee && <div className={`${COL_W} border-r border-black/10 dark:border-white/10`} />}
-                {cols.dueDate && <div className={`${COL_W} border-r border-black/10 dark:border-white/10`} />}
-                {cols.status && <div className={`${COL_W} border-r border-black/10 dark:border-white/10`} />}
-                {cols.priority && <div className={`${COL_W} border-r border-black/10 dark:border-white/10`} />}
-                {cols.estimatedTime && <div className={`${COL_W} border-r border-black/10 dark:border-white/10`} />}
-                {cols.actualTime && <div className={`${COL_W} border-r border-black/10 dark:border-white/10`} />}
+                {cols.assignee && <div className={`${COL_W}`} />}
+                {cols.dueDate && <div className={`${COL_W}`} />}
+                {cols.status && <div className={`${COL_W}`} />}
+                {cols.priority && <div className={`${COL_W}`} />}
+                {cols.estimatedTime && <div className={`${COL_W}`} />}
+                {cols.actualTime && <div className={`${COL_W}`} />}
                 {customFields.map(cf => (
-                  <div key={cf.id} className={`${COL_W} border-r border-black/10 dark:border-white/10`} />
+                  <div key={cf.id} className={`${COL_W}`} />
                 ))}
                 {/* Trailing spacer to match the column header's "+ Add field" button area on the right */}
                 {canEdit && <div className="w-9 flex-shrink-0" />}
@@ -2218,7 +2333,10 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                             placeholder="Write a task name, press Enter" autoFocus
                             className="flex-1 text-sm bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400"
                             onKeyDown={(e) => { if (e.key === 'Escape') { setAddingTaskTo(null); setNewTaskTitle(''); } }}
-                            onBlur={() => { if (!newTaskTitle.trim()) { setAddingTaskTo(null); setNewTaskTitle(''); } }} />
+                            onBlur={() => {
+                              if (newTaskTitle.trim()) handleAddTask({ preventDefault: () => {} }, list.id);
+                              else { setAddingTaskTo(null); setNewTaskTitle(''); }
+                            }} />
                         </form>
                       ) : (
                         <button onClick={() => { setAddingTaskTo(list.id); setNewTaskTitle(''); }}
@@ -2248,11 +2366,14 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                     const hasCfSums = Object.keys(cfSums).length > 0;
                     if (!(estSum > 0 || actSum > 0 || hasCfSums)) return null;
                     return (
-                      <div className="flex items-stretch border-b border-[var(--asana-border)]/30 bg-gray-50/50 dark:bg-gray-800/20 w-max min-w-full">
-                        <div className={`${NAME_COL} px-4 py-1.5 border-r border-[var(--asana-border)]/40`} />
+                      <div className="flex items-stretch border-t-2 border-b border-t-[var(--asana-border)] border-b-[var(--asana-border)]/30 bg-gray-50/80 dark:bg-gray-800/40 w-max min-w-full">
+                        <div className={`${NAME_COL} px-4 py-1.5 border-r border-[var(--asana-border)]/40 flex items-center gap-2`}>
+                          <span className="text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">SUM</span>
+                          <span className="text-[10px] text-[var(--asana-text-secondary)] truncate">{list.name}</span>
+                        </div>
                         {cols.assignee && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
                         {cols.dueDate && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
-                        {cols.status && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-[10px] font-semibold text-[var(--asana-text-secondary)] uppercase">SUM</span></div>}
+                        {cols.status && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
                         {cols.priority && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
                         {cols.estimatedTime && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{estSum > 0 ? formatTime(estSum) : ''}</span></div>}
                         {cols.actualTime && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{actSum > 0 ? formatTime(actSum) : ''}</span></div>}

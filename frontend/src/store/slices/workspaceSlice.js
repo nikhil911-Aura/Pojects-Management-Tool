@@ -142,8 +142,10 @@ const workspaceSlice = createSlice({
       // role lives on the WorkspaceMember join row and is only present when the
       // workspace was fetched via getAll/getById. Fall back to the cached entry
       // in workspaces[] so we never lose it (e.g. after workspace creation).
-      const role = payload?.role ?? state.workspaces.find(w => w.id === payload?.id)?.role ?? null;
-      state.currentWorkspace = { ...payload, role };
+      const cached = state.workspaces.find(w => w.id === payload?.id);
+      const role = payload?.role ?? cached?.role ?? null;
+      const customRole = payload?.customRole ?? cached?.customRole ?? null;
+      state.currentWorkspace = { ...payload, role, customRole };
       try { localStorage.setItem('lastWorkspaceId', payload?.id || ''); } catch {}
     },
     clearError: (state) => {

@@ -145,9 +145,8 @@ export const reportService = {
 
     const { startDate, endDate } = parseDateFilter(filters);
 
-    // Task-level filter: completed, scoped to workspace, user is an assignee
+    // Task-level filter: scoped to workspace, user is an assignee (any status)
     const taskWhere = {
-      status: 'DONE',
       list: { board: { project: { workspaceId } } },
       assignees: { some: { userId } },
     };
@@ -235,7 +234,6 @@ export const reportService = {
     const { startDate, endDate } = parseDateFilter(filters);
 
     const taskWhere = {
-      status: 'DONE',
       list: { board: { project: { workspaceId } } },
     };
     if (filters.projectIds?.length) {

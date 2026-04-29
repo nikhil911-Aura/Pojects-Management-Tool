@@ -74,11 +74,12 @@ export const authService = {
           include: {
             _count: { select: { members: true, projects: true } }
           }
-        }
+        },
+        customRole: { select: { id: true, name: true, color: true } }
       },
       orderBy: { updatedAt: 'desc' }
     });
-    const workspaces = memberships.map(m => ({ ...m.workspace, role: m.role }));
+    const workspaces = memberships.map(m => ({ ...m.workspace, role: m.role, customRole: m.customRole || null }));
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;

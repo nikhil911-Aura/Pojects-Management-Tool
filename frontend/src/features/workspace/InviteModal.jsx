@@ -43,8 +43,8 @@ const ROLES = [
 function InviteModal({ workspaceId, onClose }) {
   const dispatch = useAppDispatch();
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('MEMBER');
-  const [roleLabel, setRoleLabel] = useState('Manager');
+  const [role, setRole] = useState('GUEST');
+  const [roleLabel, setRoleLabel] = useState('Guest');
   const [customRoleId, setCustomRoleId] = useState(null);
   const [showRolePicker, setShowRolePicker] = useState(false);
   const [customRoles, setCustomRoles] = useState([]);

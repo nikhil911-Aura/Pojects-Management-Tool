@@ -15,6 +15,116 @@ const ROLE_STYLE = {
   GUEST: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
 };
 
+const SYSTEM_ROLE_OPTIONS = [
+  { value: 'ADMIN',  label: 'Admin',   color: '#3B82F6', desc: 'Manage members & settings' },
+  { value: 'MEMBER', label: 'Manager', color: '#10B981', desc: 'View and edit assigned projects' },
+  { value: 'GUEST',  label: 'Guest',   color: '#F59E0B', desc: 'View only explicitly added projects' },
+];
+
+function WorkspaceRoleDropdown({ value, onChange, wsCustomRoles = [] }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
+  const dropRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (!dropRef.current?.contains(e.target) && !btnRef.current?.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - r.bottom;
+      setPos({
+        top: spaceBelow < 260 ? r.top - 4 - Math.min(260, spaceBelow + r.height) : r.bottom + 4,
+        left: r.right - 220,
+      });
+    }
+    setOpen(o => !o);
+  };
+
+  // Resolve display for current value
+  const isCustom = value?.startsWith('custom:');
+  const customId = isCustom ? value.replace('custom:', '') : null;
+  const customRole = customId ? wsCustomRoles.find(r => r.id === customId) : null;
+  const systemRole = !isCustom ? SYSTEM_ROLE_OPTIONS.find(r => r.value === value) : null;
+  const displayLabel = customRole?.name || systemRole?.label || value;
+  const displayColor = customRole?.color || systemRole?.color || '#6B7280';
+
+  return (
+    <>
+      <button ref={btnRef} onClick={handleOpen}
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all hover:ring-1 hover:ring-[var(--asana-border)] focus:outline-none"
+        style={{ backgroundColor: `${displayColor}18`, color: displayColor }}>
+        <span className="uppercase tracking-wide">{displayLabel}</span>
+        <svg className={`w-3 h-3 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div ref={dropRef}
+          className="fixed z-[9999] w-56 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1.5 overflow-hidden"
+          style={{ top: pos.top, left: Math.max(8, pos.left) }}>
+
+          {/* System roles */}
+          <p className="px-3 pt-1 pb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--asana-text-secondary)]">System Roles</p>
+          {SYSTEM_ROLE_OPTIONS.map(opt => {
+            const active = value === opt.value;
+            return (
+              <button key={opt.value}
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60 ${active ? 'bg-gray-50 dark:bg-gray-800/40' : ''}`}>
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: opt.color }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold" style={{ color: opt.color }}>{opt.label}</p>
+                  <p className="text-[10px] text-[var(--asana-text-secondary)] truncate">{opt.desc}</p>
+                </div>
+                {active && (
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" style={{ color: opt.color }}>
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+
+          {/* Custom roles */}
+          {wsCustomRoles.length > 0 && (
+            <>
+              <div className="h-px bg-[var(--asana-border)] mx-2 my-1" />
+              <p className="px-3 pb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--asana-text-secondary)]">Custom Roles</p>
+              {wsCustomRoles.map(cr => {
+                const crValue = `custom:${cr.id}`;
+                const active = value === crValue;
+                const color = cr.color || '#8B5CF6';
+                return (
+                  <button key={cr.id}
+                    onClick={() => { onChange(crValue); setOpen(false); }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60 ${active ? 'bg-gray-50 dark:bg-gray-800/40' : ''}`}>
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                    <p className="text-xs font-bold flex-1" style={{ color }}>{cr.name}</p>
+                    {active && (
+                      <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" style={{ color }}>
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 /**
  * Simple roles card for the workspace overview — flat list of all roles.
  * System roles (Editor/Commenter/Viewer) are read-only. Custom roles can be edited/deleted.
@@ -879,9 +989,11 @@ function Workspace() {
                       ) : (
                         <div className="flex items-center space-x-2">
                           {isAdmin && person.role !== 'OWNER' && person.id !== currentUser?.id ? (
-                            <select
+                            <WorkspaceRoleDropdown
                               value={person.customRoleId ? `custom:${person.customRoleId}` : person.role}
-                              onChange={async (e) => {
+                              wsCustomRoles={wsCustomRoles}
+                              onChange={async (newValue) => {
+                              const e = { target: { value: newValue } };
                                 const value = e.target.value;
                                 const isCustom = value.startsWith('custom:');
                                 const customRoleId = isCustom ? value.slice(7) : null;
@@ -929,21 +1041,12 @@ function Workspace() {
                                   console.error('Failed to update role:', err);
                                 }
                               }}
-                              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--asana-surface)] border border-[var(--asana-border)] text-[var(--asana-text-primary)] cursor-pointer focus:outline-none focus:ring-1 focus:ring-asana-blue"
-                            >
-                              <option value="ADMIN">ADMIN</option>
-                              <option value="MEMBER">MANAGER</option>
-                              <option value="GUEST">GUEST</option>
-                              {wsCustomRoles.length > 0 && <option disabled>──────────</option>}
-                              {wsCustomRoles.map(cr => (
-                                <option key={cr.id} value={`custom:${cr.id}`}>{cr.name.toUpperCase()}</option>
-                              ))}
-                            </select>
+                            />
                           ) : (
-                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${ROLE_STYLE[person.role] || ROLE_STYLE.MEMBER}`}>
+                            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg ${ROLE_STYLE[person.role] || ROLE_STYLE.MEMBER}`}>
                               {person.customRoleName
-                                ? person.customRoleName.toUpperCase()
-                                : person.role === 'MEMBER' ? 'MANAGER' : person.role}
+                                ? person.customRoleName
+                                : person.role === 'MEMBER' ? 'Manager' : person.role.charAt(0) + person.role.slice(1).toLowerCase()}
                             </span>
                           )}
                           {isAdmin && person.role !== 'OWNER' && person.id !== currentUser?.id && (

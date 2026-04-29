@@ -295,7 +295,7 @@ function Layout() {
             {(isWorkspaceAdmin || canCreateProject) && (
               <div className="relative" ref={quickAddRef}>
                 <button
-                  onClick={() => setShowQuickAdd(!showQuickAdd)}
+                  onClick={() => isWorkspaceAdmin ? setShowQuickAdd(!showQuickAdd) : setShowCreateWizard(true)}
                   className="bg-asana-coral hover:opacity-90 text-white rounded-full w-7 h-7 flex items-center justify-center shadow transition-all"
                   aria-label="Quick add"
                 >

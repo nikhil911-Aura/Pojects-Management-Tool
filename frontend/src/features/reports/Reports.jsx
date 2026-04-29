@@ -131,7 +131,7 @@ function Reports() {
           <div>
             <h1 className="text-xl font-bold text-[var(--asana-text-primary)]">{title}</h1>
             <p className="text-xs text-[var(--asana-text-secondary)] mt-0.5">
-              Showing time logged on completed tasks
+              Showing time logged on assigned tasks
             </p>
           </div>
 
