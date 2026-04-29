@@ -2366,21 +2366,21 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                     const hasCfSums = Object.keys(cfSums).length > 0;
                     if (!(estSum > 0 || actSum > 0 || hasCfSums)) return null;
                     return (
-                      <div className="flex items-stretch border-t-2 border-b border-t-[var(--asana-border)] border-b-[var(--asana-border)]/30 bg-gray-50/80 dark:bg-gray-800/40 w-max min-w-full">
-                        <div className={`${NAME_COL} px-4 py-1.5 border-r border-[var(--asana-border)]/40 flex items-center gap-2`}>
+                      <div className="flex items-stretch border-t-2 border-t-[var(--asana-border)] bg-gray-50/80 dark:bg-gray-800/40 w-max min-w-full">
+                        <div className={`${NAME_COL} px-4 py-1.5 flex items-center gap-2`}>
                           <span className="text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">SUM</span>
                           <span className="text-[10px] text-[var(--asana-text-secondary)] truncate">{list.name}</span>
                         </div>
-                        {cols.assignee && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
-                        {cols.dueDate && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
-                        {cols.status && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
-                        {cols.priority && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40" />}
-                        {cols.estimatedTime && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{estSum > 0 ? formatTime(estSum) : ''}</span></div>}
-                        {cols.actualTime && <div className="w-[120px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]/40"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{actSum > 0 ? formatTime(actSum) : ''}</span></div>}
+                        {cols.assignee && <div className="w-[120px] flex-shrink-0 px-3 py-1.5" />}
+                        {cols.dueDate && <div className="w-[120px] flex-shrink-0 px-3 py-1.5" />}
+                        {cols.status && <div className="w-[120px] flex-shrink-0 px-3 py-1.5" />}
+                        {cols.priority && <div className="w-[120px] flex-shrink-0 px-3 py-1.5" />}
+                        {cols.estimatedTime && <div className="w-[120px] flex-shrink-0 px-3 py-1.5"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{estSum > 0 ? formatTime(estSum) : ''}</span></div>}
+                        {cols.actualTime && <div className="w-[120px] flex-shrink-0 px-3 py-1.5"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{actSum > 0 ? formatTime(actSum) : ''}</span></div>}
                         {customFields.map(cf => {
                           const cfSum = cfSums[cf.id];
                           return (
-                            <div key={cf.id} className={`${COL_W} px-3 py-1.5 border-r border-[var(--asana-border)]/40`}>
+                            <div key={cf.id} className={`${COL_W} px-3 py-1.5`}>
                               {cfSum ? (
                                 <span className="text-xs font-semibold text-[var(--asana-text-primary)]">
                                   {cf.type === 'TIME_TRACKING' ? formatTime(cfSum) :
