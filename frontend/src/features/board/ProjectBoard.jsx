@@ -185,13 +185,16 @@ function ProjectBoard() {
   const savedViewKey = projectId ? `listview:${projectId}:collapsed` : null;
   const hasSavedView = savedViewKey ? !!localStorage.getItem(savedViewKey) : false;
   const [showProjectMenu, setShowProjectMenu] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [editingProjectName, setEditingProjectName] = useState(false);
   const [projectNameInput, setProjectNameInput] = useState('');
+  const [projectFetchError, setProjectFetchError] = useState(null); // { type: 'forbidden'|'not_found'|'unknown', message }
   const projectMenuRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
     setInitialLoaded(false);
+    setProjectFetchError(null);
 
     // Try to get boardId from sidebar projects list (already in Redux) for parallel fetch
     const cachedProject = projects.find(p => p.id === projectId);
@@ -211,12 +214,23 @@ function ProjectBoard() {
       }
     }).catch(() => {});
 
+    const handleProjectError = (err) => {
+      if (cancelled) return;
+      const msg = typeof err === 'string' ? err : (err?.message || '');
+      const lower = msg.toLowerCase();
+      let type = 'unknown';
+      if (lower.includes('access') || lower.includes('forbidden') || lower.includes('permission')) type = 'forbidden';
+      else if (lower.includes('not found')) type = 'not_found';
+      setProjectFetchError({ type, message: msg });
+      setInitialLoaded(true);
+    };
+
     if (knownBoardId) {
       // Parallel: fire all at the same time
       const listsPromise = dispatch(fetchLists(knownBoardId)).unwrap();
       Promise.all([projectPromise, listsPromise, cfPromise])
         .then(() => { if (!cancelled) setInitialLoaded(true); })
-        .catch(() => { if (!cancelled) setInitialLoaded(true); });
+        .catch((err) => handleProjectError(err));
     } else {
       // Fallback: sequential for lists, parallel for custom fields
       projectPromise.then(async (project) => {
@@ -226,9 +240,7 @@ function ProjectBoard() {
         }
         await cfPromise;
         if (!cancelled) setInitialLoaded(true);
-      }).catch(() => {
-        if (!cancelled) setInitialLoaded(true);
-      });
+      }).catch((err) => handleProjectError(err));
     }
 
     // Reset local UI state
@@ -321,6 +333,54 @@ function ProjectBoard() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showProjectMenu]);
+
+  if (projectFetchError) {
+    const isForbidden = projectFetchError.type === 'forbidden';
+    const isNotFound  = projectFetchError.type === 'not_found';
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-[var(--asana-bg)] px-6 text-center">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-5 bg-gray-100 dark:bg-gray-800">
+          {isForbidden ? (
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          ) : isNotFound ? (
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          ) : (
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          )}
+        </div>
+        <h2 className="text-[15px] font-semibold text-[var(--asana-text-primary)] mb-2">
+          {isForbidden ? "You don't have access to this project"
+            : isNotFound ? 'Project not found'
+            : 'Something went wrong'}
+        </h2>
+        <p className="text-[13px] text-[var(--asana-text-secondary)] max-w-sm mb-6">
+          {isForbidden
+            ? "This is a private project. Ask the project owner to add you as a member, or request access from your workspace admin."
+            : isNotFound
+            ? "This project may have been deleted or the link is no longer valid."
+            : "We couldn't load this project. Please try again."}
+        </p>
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)}
+            className="px-4 py-2 text-[13px] font-medium rounded-md border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            Go back
+          </button>
+          {!isForbidden && (
+            <button onClick={() => { setProjectFetchError(null); setInitialLoaded(false); dispatch(fetchProject(projectId)); }}
+              className="px-4 py-2 text-[13px] font-medium rounded-md bg-asana-blue text-white hover:bg-asana-blue/90 transition-colors">
+              Try again
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!isReady) {
     return (
@@ -449,12 +509,38 @@ function ProjectBoard() {
                           </svg>
                           Rename project
                         </button>
-                        <button onClick={() => { navigator.clipboard.writeText(window.location.href); setShowProjectMenu(false); }}
+                        <button onClick={() => {
+                            const url = `${window.location.origin}/project/${projectId}`;
+                            const done = () => {
+                              setLinkCopied(true);
+                              setTimeout(() => { setLinkCopied(false); setShowProjectMenu(false); }, 1500);
+                            };
+                            if (navigator.clipboard && window.isSecureContext) {
+                              navigator.clipboard.writeText(url).then(done).catch(done);
+                            } else {
+                              const ta = document.createElement('textarea');
+                              ta.value = url;
+                              ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0.01;pointer-events:none;';
+                              document.body.appendChild(ta);
+                              ta.focus();
+                              ta.select();
+                              ta.setSelectionRange(0, 99999);
+                              try { document.execCommand('copy'); } catch (_) {}
+                              document.body.removeChild(ta);
+                              done();
+                            }
+                          }}
                           className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                          <svg className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                          </svg>
-                          Copy project link
+                          {linkCopied ? (
+                            <svg className="w-4 h-4 mr-2.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                          )}
+                          {linkCopied ? <span className="text-green-500 font-medium">Link copied!</span> : 'Copy project link'}
                         </button>
                         <button onClick={handleToggleVisibility}
                           className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
