@@ -789,7 +789,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
               }
               setShowBillableDrop(v => !v);
             }}
-            className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap transition-all duration-180 hover:brightness-105 ${
+            className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md whitespace-nowrap transition-all duration-180 hover:brightness-105 ${
               task.billable === true
                 ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 ring-1 ring-inset ring-green-300/40 dark:ring-green-700/40'
                 : task.billable === false
@@ -809,9 +809,9 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
               style={{ top: billableDropPos.top ?? 'auto', bottom: billableDropPos.bottom ?? 'auto', left: billableDropPos.left }}
             >
               {[
-                { value: null,  label: '—',            dot: null,      cls: 'text-gray-400 dark:text-gray-500' },
-                { value: true,  label: 'Billable',     dot: 'bg-green-500', cls: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' },
-                { value: false, label: 'Non-Billable', dot: 'bg-gray-400',  cls: 'bg-gray-100 text-gray-500 dark:bg-gray-700/60 dark:text-gray-400' },
+                { value: null,  label: '—',            dot: null,           cls: 'text-gray-400 dark:text-gray-500' },
+                { value: true,  label: 'Billable',     dot: 'bg-green-500', cls: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 ring-1 ring-inset ring-green-300/40 dark:ring-green-700/40' },
+                { value: false, label: 'Non-Billable', dot: 'bg-gray-400',  cls: 'bg-gray-100 text-gray-500 dark:bg-gray-700/60 dark:text-gray-400 ring-1 ring-inset ring-gray-300/40 dark:ring-gray-600/40' },
               ].map(opt => (
                 <button
                   key={String(opt.value)}
@@ -824,12 +824,12 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
                   }}
                   className="w-full px-3 py-1.5 text-left flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 >
-                  <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md ${opt.cls}`}>
+                  <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md ${opt.cls}`}>
                     {opt.dot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${opt.dot}`} />}
                     {opt.label}
                   </span>
                   {opt.value === task.billable && (
-                    <svg className="w-3 h-3 text-asana-blue ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-3.5 h-3.5 text-asana-blue ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   )}
@@ -862,19 +862,19 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
    Color palette (matches real Asana)
    ═══════════════════════════════════════════ */
 const OPTION_COLORS = [
-  { name: 'red', bg: '#FBD4D0', text: '#CC2D12', dot: '#E8503A' },
-  { name: 'orange', bg: '#FFE0CC', text: '#C75300', dot: '#F97316' },
-  { name: 'yellow', bg: '#FFF3CC', text: '#9B7700', dot: '#EAB308' },
-  { name: 'yellow-green', bg: '#E6F7D2', text: '#527A00', dot: '#84CC16' },
-  { name: 'green', bg: '#D3F5E4', text: '#0E7B46', dot: '#22C55E' },
-  { name: 'blue-green', bg: '#CCF0F0', text: '#0A6B6B', dot: '#14B8A6' },
-  { name: 'aqua', bg: '#CCE5FF', text: '#0055B8', dot: '#0EA5E9' },
-  { name: 'blue', bg: '#D6DBFF', text: '#2B38A0', dot: '#4573D2' },
-  { name: 'indigo', bg: '#E0D6FF', text: '#5029A0', dot: '#6A67CE' },
-  { name: 'purple', bg: '#F0D6FF', text: '#8129A0', dot: '#A855F7' },
-  { name: 'magenta', bg: '#FFD6EB', text: '#A01F5C', dot: '#EC4899' },
-  { name: 'hot-pink', bg: '#FFD6D6', text: '#A01F1F', dot: '#FC636B' },
-  { name: 'cool-gray', bg: '#E5E7EB', text: '#4B5563', dot: '#6B7280' },
+  { name: 'red',        dot: '#EF4444', cls: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 ring-1 ring-inset ring-red-300/40 dark:ring-red-700/40' },
+  { name: 'orange',     dot: '#F97316', cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300 ring-1 ring-inset ring-orange-300/40 dark:ring-orange-700/40' },
+  { name: 'yellow',     dot: '#EAB308', cls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300 ring-1 ring-inset ring-yellow-300/40 dark:ring-yellow-700/40' },
+  { name: 'yellow-green', dot: '#84CC16', cls: 'bg-lime-100 text-lime-700 dark:bg-lime-900/50 dark:text-lime-300 ring-1 ring-inset ring-lime-300/40 dark:ring-lime-700/40' },
+  { name: 'green',      dot: '#22C55E', cls: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 ring-1 ring-inset ring-green-300/40 dark:ring-green-700/40' },
+  { name: 'blue-green', dot: '#14B8A6', cls: 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300 ring-1 ring-inset ring-teal-300/40 dark:ring-teal-700/40' },
+  { name: 'aqua',       dot: '#0EA5E9', cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300 ring-1 ring-inset ring-sky-300/40 dark:ring-sky-700/40' },
+  { name: 'blue',       dot: '#4573D2', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 ring-1 ring-inset ring-blue-300/40 dark:ring-blue-700/40' },
+  { name: 'indigo',     dot: '#6A67CE', cls: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 ring-1 ring-inset ring-indigo-300/40 dark:ring-indigo-700/40' },
+  { name: 'purple',     dot: '#A855F7', cls: 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 ring-1 ring-inset ring-purple-300/40 dark:ring-purple-700/40' },
+  { name: 'magenta',    dot: '#EC4899', cls: 'bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300 ring-1 ring-inset ring-pink-300/40 dark:ring-pink-700/40' },
+  { name: 'hot-pink',   dot: '#FB7185', cls: 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300 ring-1 ring-inset ring-rose-300/40 dark:ring-rose-700/40' },
+  { name: 'cool-gray',  dot: '#6B7280', cls: 'bg-gray-200 text-gray-700 dark:bg-gray-700/70 dark:text-gray-200 ring-1 ring-inset ring-gray-300/50 dark:ring-gray-600/50' },
 ];
 
 /* ═══════════════════════════════════════════
@@ -1395,20 +1395,19 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
       <div className="relative w-full">
         <button ref={cellBtnRef} onClick={openDropdown} className="w-full text-left">
           {selected ? (
-            <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md truncate hover:brightness-105 transition-all"
-              style={{ backgroundColor: selColor?.bg, color: selColor?.text }}>
-              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: selColor?.text }} />
+            <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md truncate hover:brightness-105 transition-all ${selColor.cls}`}>
+              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: selColor.dot }} />
               {selected.value}
             </span>
           ) : (
-            <span className="text-xs text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100">—</span>
+            <span className="text-[12px] text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100">—</span>
           )}
         </button>
         {showDropdown && (
-          <div ref={dropdownRef} className="fixed z-[200] w-48 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
+          <div ref={dropdownRef} className="fixed z-[200] w-52 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
             style={{ top: dropPos.top ?? 'auto', bottom: dropPos.bottom ?? 'auto', left: dropPos.left }}>
             <button onClick={() => { onChange(''); setShowDropdown(false); }}
-              className="w-full px-3 py-1.5 text-left text-xs text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
+              className="w-full px-3 py-1.5 text-left text-[12px] text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
               Clear
             </button>
             {parsedOpts.map((opt) => {
@@ -1416,9 +1415,8 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
               return (
                 <button key={opt.value} onClick={() => { onChange(opt.value); setShowDropdown(false); }}
                   className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${value === opt.value ? 'bg-asana-blue/5' : ''}`}>
-                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md"
-                    style={{ backgroundColor: c.bg, color: c.text }}>
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.text }} />
+                  <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md ${c.cls}`}>
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.dot }} />
                     {opt.value}
                   </span>
                   {value === opt.value && <svg className="w-3.5 h-3.5 ml-auto text-asana-blue flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
@@ -1431,26 +1429,38 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
     );
   }
 
-  // MULTI_SELECT — status-style badges + dropdown
+  // MULTI_SELECT — status-style badges + dropdown; cell shows max 1 badge + "+N" to avoid row height increase
   if (field.type === 'MULTI_SELECT') {
     const selectedValues = value ? value.split(',').filter(Boolean) : [];
+    const visibleValues = selectedValues.slice(0, 1);
+    const extraCount = selectedValues.length - 1;
     return (
       <div className="relative w-full">
-        <button ref={cellBtnRef} onClick={openDropdown} className="w-full text-left flex flex-wrap gap-1">
-          {selectedValues.length > 0 ? selectedValues.map(v => {
-            const opt = parsedOpts.find(o => o.value === v);
-            const c = opt ? (OPTION_COLORS.find(oc => oc.name === opt.color) || OPTION_COLORS[0]) : OPTION_COLORS[0];
-            return (
-              <span key={v} className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md"
-                style={{ backgroundColor: c.bg, color: c.text }}>
-                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.text }} />
-                {v}
-              </span>
-            );
-          }) : <span className="text-xs text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100">—</span>}
+        <button ref={cellBtnRef} onClick={openDropdown} className="w-full text-left flex items-center gap-1 overflow-hidden min-w-0">
+          {selectedValues.length > 0 ? (
+            <>
+              {visibleValues.map(v => {
+                const opt = parsedOpts.find(o => o.value === v);
+                const c = opt ? (OPTION_COLORS.find(oc => oc.name === opt.color) || OPTION_COLORS[0]) : OPTION_COLORS[0];
+                return (
+                  <span key={v} className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md min-w-0 overflow-hidden ${c.cls}`}>
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.dot }} />
+                    <span className="truncate min-w-0">{v}</span>
+                  </span>
+                );
+              })}
+              {extraCount > 0 && (
+                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700/70 text-gray-500 dark:text-gray-400 flex-shrink-0 whitespace-nowrap">
+                  +{extraCount}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-[12px] text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100">—</span>
+          )}
         </button>
         {showDropdown && (
-          <div ref={dropdownRef} className="fixed z-[200] w-48 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
+          <div ref={dropdownRef} className="fixed z-[200] w-52 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
             style={{ top: dropPos.top ?? 'auto', bottom: dropPos.bottom ?? 'auto', left: dropPos.left }}>
             {parsedOpts.map(opt => {
               const c = OPTION_COLORS.find(oc => oc.name === opt.color) || OPTION_COLORS[0];
@@ -1462,9 +1472,8 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
                     onChange(next.join(','));
                   }}
                   className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${isSelected ? 'bg-asana-blue/5' : ''}`}>
-                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md"
-                    style={{ backgroundColor: c.bg, color: c.text }}>
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.text }} />
+                  <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md ${c.cls}`}>
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.dot }} />
                     {opt.value}
                   </span>
                   {isSelected && <svg className="w-3.5 h-3.5 ml-auto text-asana-blue flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
@@ -1481,7 +1490,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
   if (field.type === 'DATE') {
     return (
       <input type="date" value={value || ''} onChange={(e) => canEdit && onChange(e.target.value)} readOnly={!canEdit}
-        className="text-xs bg-transparent border-none p-0 text-[var(--asana-text-primary)] focus:ring-0 w-full cursor-pointer" />
+        className="text-[12px] bg-transparent border-none p-0 text-[var(--asana-text-primary)] focus:ring-0 w-full cursor-pointer" />
     );
   }
 
@@ -1497,17 +1506,17 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
                 style={{ backgroundColor: `hsl(${selectedName.charCodeAt(0) * 15}, 60%, 50%)` }}>
                 {selectedName.charAt(0).toUpperCase()}
               </div>
-              <span className="text-xs text-[var(--asana-text-primary)] truncate">{selectedName}</span>
+              <span className="text-[12px] text-[var(--asana-text-primary)] truncate">{selectedName}</span>
             </>
           ) : (
-            <span className="text-xs text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100">—</span>
+            <span className="text-[12px] text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100">—</span>
           )}
         </button>
         {showDropdown && (
           <div ref={dropdownRef} className="fixed z-[200] w-48 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-48 overflow-y-auto"
             style={{ top: dropPos.top ?? 'auto', bottom: dropPos.bottom ?? 'auto', left: dropPos.left }}>
             <button onClick={() => { onChange(''); setShowDropdown(false); }}
-              className="w-full px-3 py-1.5 text-left text-xs text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">Clear</button>
+              className="w-full px-3 py-1.5 text-left text-[12px] text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">Clear</button>
             {(field._members || []).map(m => {
               const name = m.user?.name || m.name || '';
               return (
@@ -1517,7 +1526,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
                     style={{ backgroundColor: `hsl(${name.charCodeAt(0) * 15}, 60%, 50%)` }}>
                     {name.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-xs text-[var(--asana-text-primary)]">{name}</span>
+                  <span className="text-[12px] text-[var(--asana-text-primary)]">{name}</span>
                 </button>
               );
             })}
@@ -1533,14 +1542,14 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
     if (editing) {
       return (
         <input type="number" value={input} onChange={(e) => { setInput(e.target.value); debouncedOnChange(e.target.value); }} autoFocus
-          className="text-xs bg-transparent border-none p-0 text-[var(--asana-text-primary)] outline-none w-full text-right"
+          className="text-[12px] bg-transparent border-none p-0 text-[var(--asana-text-primary)] outline-none w-full text-right"
           onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setInput(value || ''); setEditing(false); } }} />
       );
     }
     const display = value ? (fmt === 'currency' ? `$${value}` : fmt === 'percentage' ? `${value}%` : value) : '';
     return (
       <span onClick={() => canEdit && setEditing(true)}
-        className={`text-xs text-right block w-full ${value ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100'} ${canEdit ? 'cursor-pointer' : ''}`}>
+        className={`text-[12px] text-right block w-full ${value ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100'} ${canEdit ? 'cursor-pointer' : ''}`}>
         {display || '—'}
       </span>
     );
@@ -1562,14 +1571,14 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
   if (editing) {
     return (
       <input type="text" value={input} onChange={(e) => { setInput(e.target.value); debouncedOnChange(e.target.value); }} autoFocus
-        className="text-xs bg-transparent border-none p-0 text-[var(--asana-text-primary)] outline-none w-full"
+        className="text-[12px] bg-transparent border-none p-0 text-[var(--asana-text-primary)] outline-none w-full"
         onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setInput(value || ''); setEditing(false); } }} />
     );
   }
 
   return (
     <span onClick={() => canEdit && setEditing(true)}
-      className={`text-xs truncate block ${value ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100'} ${canEdit ? 'cursor-pointer' : ''}`}>
+      className={`text-[12px] truncate block ${value ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100'} ${canEdit ? 'cursor-pointer' : ''}`}>
       {value || '—'}
     </span>
   );
