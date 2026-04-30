@@ -76,7 +76,6 @@ function buildWhereClause({ workspaceId, userId = null, filters = {}, assigneeUs
 
   const where = {
     task: {
-      status: 'DONE',                                          // ← keep: only completed tasks
       list: { board: { project: { workspaceId } } },
     },
   };
@@ -95,6 +94,10 @@ function buildWhereClause({ workspaceId, userId = null, filters = {}, assigneeUs
     where.task.list = {
       board: { project: { workspaceId, id: { in: filters.projectIds } } }
     };
+  }
+
+  if (filters.billable !== undefined && filters.billable !== null) {
+    where.task.billable = filters.billable;
   }
 
   if (startDate || endDate) {
@@ -117,6 +120,7 @@ const STANDARD_INCLUDE = {
       dueDate: true,
       estimatedTime: true,
       actualTime: true,
+      billable: true,
       list: {
         select: {
           name: true,
@@ -153,6 +157,10 @@ export const reportService = {
 
     if (filters.projectIds?.length) {
       taskWhere.list = { board: { project: { workspaceId, id: { in: filters.projectIds } } } };
+    }
+
+    if (filters.billable !== undefined && filters.billable !== null) {
+      taskWhere.billable = filters.billable;
     }
 
     // Date filter — uses the task's updatedAt as a proxy for completion date
@@ -442,10 +450,20 @@ export const reportService = {
             project: g.project?.name || t.projectName || '',
             projectColor: g.project?.color || t.projectColor || '#4573D2',
             section: t.section,
+            billable: t.billable ?? false,
+            latestEntryDate: null,
             minutes: 0,
           };
         }
         taskTotalsMap[t.id].minutes += t.totalMinutes || 0;
+        for (const e of (t.entries || [])) {
+          if (e.date) {
+            const d = new Date(e.date);
+            if (!taskTotalsMap[t.id].latestEntryDate || d > new Date(taskTotalsMap[t.id].latestEntryDate)) {
+              taskTotalsMap[t.id].latestEntryDate = e.date;
+            }
+          }
+        }
       }
     }
     const taskTotals = Object.values(taskTotalsMap).sort((a, b) => b.minutes - a.minutes);
@@ -941,6 +959,7 @@ function groupTasksByProject(tasks) {
       dueDate: t.dueDate,
       estimatedTime: t.estimatedTime,
       actualTime: t.actualTime,
+      billable: t.billable ?? false,
       section: t.list.name,
       totalMinutes: taskMinutes,
       entries,
@@ -983,6 +1002,7 @@ function groupByProject(entries) {
         dueDate: e.task.dueDate,
         estimatedTime: e.task.estimatedTime,
         actualTime: e.task.actualTime,
+        billable: e.task.billable ?? false,
         section: e.task.list.name,
         totalMinutes: 0,
         entries: [],
@@ -1031,6 +1051,7 @@ function groupByPersonProject(entries) {
         status: e.task.status,
         priority: e.task.priority,
         dueDate: e.task.dueDate,
+        billable: e.task.billable ?? false,
         section: e.task.list.name,
         totalMinutes: 0,
         entries: [],
@@ -1082,6 +1103,7 @@ function groupByProjectTeam(entries) {
         status: e.task.status,
         priority: e.task.priority,
         dueDate: e.task.dueDate,
+        billable: e.task.billable ?? false,
         section: e.task.list.name,
         totalMinutes: 0,
         entries: [],
@@ -1135,6 +1157,7 @@ function groupByPerson(entries) {
         status: e.task.status,
         priority: e.task.priority,
         dueDate: e.task.dueDate,
+        billable: e.task.billable ?? false,
         section: e.task.list.name,
         projectName: e.task.list.board.project.name,
         projectColor: e.task.list.board.project.color,
@@ -1218,6 +1241,16 @@ function renderReportEmailHtml({ isAdmin, filters, summary, reportData, sender, 
     const taskRows = (g.tasks || []).slice(0, 15).map(t => {
       const status = STATUS_PILL[t.status] || STATUS_PILL.TODO;
       const due = t.dueDate ? new Date(t.dueDate).toISOString().split('T')[0] : '—';
+      const latestEntry = (t.entries || []).reduce((best, e) => {
+        if (!e.date) return best;
+        return !best || new Date(e.date) > new Date(best.date) ? e : best;
+      }, null);
+      const entryDate = latestEntry?.date
+        ? new Date(latestEntry.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+        : '—';
+      const billableBg = t.billable ? '#D1FAE5' : '#F3F4F6';
+      const billableFg = t.billable ? '#065F46' : '#6B7280';
+      const billableLabel = t.billable ? 'Billable' : 'Non-Billable';
       return `
         <tr>
           <td style="padding:10px 14px;border-top:1px solid #f3f4f6;font-size:13px;color:#111827">
@@ -1228,13 +1261,17 @@ function renderReportEmailHtml({ isAdmin, filters, summary, reportData, sender, 
             <span style="background:${status.bg};color:${status.fg};padding:3px 10px;border-radius:10px;font-weight:600">${status.label}</span>
           </td>
           <td style="padding:10px 14px;border-top:1px solid #f3f4f6;font-size:12px;color:#6b7280;text-align:center;white-space:nowrap">${due}</td>
+          <td style="padding:10px 14px;border-top:1px solid #f3f4f6;font-size:11px;text-align:center;white-space:nowrap">
+            <span style="background:${billableBg};color:${billableFg};padding:3px 10px;border-radius:10px;font-weight:600">${billableLabel}</span>
+          </td>
+          <td style="padding:10px 14px;border-top:1px solid #f3f4f6;font-size:12px;color:#6b7280;text-align:center;white-space:nowrap">${entryDate}</td>
           <td style="padding:10px 14px;border-top:1px solid #f3f4f6;font-size:13px;text-align:right;font-weight:600;color:#4573D2;white-space:nowrap">${formatHrs(t.totalMinutes)}</td>
         </tr>
       `;
     }).join('');
 
     const moreTasksNote = (g.tasks || []).length > 15
-      ? `<tr><td colspan="4" style="padding:8px 14px;border-top:1px solid #f3f4f6;font-size:11px;color:#9ca3af;text-align:center;font-style:italic">+ ${g.tasks.length - 15} more tasks</td></tr>`
+      ? `<tr><td colspan="6" style="padding:8px 14px;border-top:1px solid #f3f4f6;font-size:11px;color:#9ca3af;text-align:center;font-style:italic">+ ${g.tasks.length - 15} more tasks</td></tr>`
       : '';
 
     return `
@@ -1262,6 +1299,8 @@ function renderReportEmailHtml({ isAdmin, filters, summary, reportData, sender, 
                   <th align="left" style="padding:8px 14px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Task</th>
                   <th align="center" style="padding:8px 14px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Status</th>
                   <th align="center" style="padding:8px 14px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Due</th>
+                  <th align="center" style="padding:8px 14px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Billable</th>
+                  <th align="center" style="padding:8px 14px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Time Entry Date</th>
                   <th align="right" style="padding:8px 14px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Time</th>
                 </tr>
               </thead>
@@ -1290,11 +1329,20 @@ function renderReportEmailHtml({ isAdmin, filters, summary, reportData, sender, 
                 <tr style="background:#fafbfc">
                   <th align="left" style="padding:10px 16px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Task</th>
                   <th align="left" style="padding:10px 16px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Project</th>
+                  <th align="center" style="padding:10px 16px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Billable</th>
+                  <th align="center" style="padding:10px 16px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Time Entry Date</th>
                   <th align="right" style="padding:10px 16px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Time Taken</th>
                 </tr>
               </thead>
               <tbody>
-                ${taskTotals.slice(0, 50).map((t, i) => `
+                ${taskTotals.slice(0, 50).map((t, i) => {
+                  const billableBg = t.billable ? '#D1FAE5' : '#F3F4F6';
+                  const billableFg = t.billable ? '#065F46' : '#6B7280';
+                  const billableLabel = t.billable ? 'Billable' : 'Non-Billable';
+                  const entryDate = t.latestEntryDate
+                    ? new Date(t.latestEntryDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                    : '—';
+                  return `
                   <tr style="background:${i % 2 === 0 ? '#ffffff' : '#fafbfc'}">
                     <td style="padding:11px 16px;border-top:1px solid #f3f4f6;font-size:13px;color:#111827;font-weight:500">
                       ${esc(t.title)}
@@ -1303,14 +1351,18 @@ function renderReportEmailHtml({ isAdmin, filters, summary, reportData, sender, 
                     <td style="padding:11px 16px;border-top:1px solid #f3f4f6;font-size:12px;color:#6b7280">
                       <div style="display:inline-block;width:6px;height:6px;background:${t.projectColor};border-radius:1px;margin-right:6px;vertical-align:middle"></div>${esc(t.project)}
                     </td>
+                    <td align="center" style="padding:11px 16px;border-top:1px solid #f3f4f6;font-size:11px;white-space:nowrap">
+                      <span style="background:${billableBg};color:${billableFg};padding:3px 10px;border-radius:10px;font-weight:600">${billableLabel}</span>
+                    </td>
+                    <td align="center" style="padding:11px 16px;border-top:1px solid #f3f4f6;font-size:12px;color:#6b7280;white-space:nowrap">${entryDate}</td>
                     <td align="right" style="padding:11px 16px;border-top:1px solid #f3f4f6;font-size:13px;font-weight:700;color:#10b981;white-space:nowrap">
                       ${formatHrs(t.minutes)}
                     </td>
                   </tr>
-                `).join('')}
-                ${taskTotals.length > 50 ? `<tr><td colspan="3" style="padding:10px 16px;font-size:11px;color:#9ca3af;text-align:center;font-style:italic;border-top:1px solid #f3f4f6">+ ${taskTotals.length - 50} more tasks</td></tr>` : ''}
+                `}).join('')}
+                ${taskTotals.length > 50 ? `<tr><td colspan="5" style="padding:10px 16px;font-size:11px;color:#9ca3af;text-align:center;font-style:italic;border-top:1px solid #f3f4f6">+ ${taskTotals.length - 50} more tasks</td></tr>` : ''}
                 <tr style="background:#ecfdf5">
-                  <td colspan="2" style="padding:12px 16px;border-top:2px solid #10b981;font-size:12px;color:#065f46;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Grand Total</td>
+                  <td colspan="4" style="padding:12px 16px;border-top:2px solid #10b981;font-size:12px;color:#065f46;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Grand Total</td>
                   <td align="right" style="padding:12px 16px;border-top:2px solid #10b981;font-size:14px;font-weight:800;color:#059669">
                     ${formatHrs(taskTotals.reduce((s, t) => s + t.minutes, 0))}
                   </td>
@@ -1408,7 +1460,7 @@ function renderReportEmailHtml({ isAdmin, filters, summary, reportData, sender, 
           <tr>
             <td style="padding:8px 32px 32px 32px">
               <h2 style="margin:8px 0 16px 0;font-size:14px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.05em">
-                ${isAdmin ? 'Team Breakdown' : 'Completed Tasks by Group'}
+                ${isAdmin ? 'Team Breakdown' : 'Tasks by Group'}
               </h2>
               ${groupSections || '<div style="text-align:center;padding:40px 20px;color:#9ca3af;font-size:13px;background:#f9fafb;border-radius:8px">No completed tasks in this period</div>'}
               ${groups.length > 30 ? `<p style="font-size:11px;color:#9ca3af;text-align:center;font-style:italic">+ ${groups.length - 30} more groups</p>` : ''}
@@ -1420,7 +1472,7 @@ function renderReportEmailHtml({ isAdmin, filters, summary, reportData, sender, 
             <td style="padding:20px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center">
               <div style="font-size:11px;color:#6b7280;line-height:1.6">
                 This report was sent by <strong style="color:#374151">${esc(senderName)}</strong> from Asana Clone.<br>
-                Showing time logged on <strong>completed tasks</strong> only.
+                Showing time logged on assigned tasks.
               </div>
             </td>
           </tr>

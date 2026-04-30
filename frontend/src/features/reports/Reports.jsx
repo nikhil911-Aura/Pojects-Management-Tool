@@ -11,6 +11,7 @@ import {
   setProjectFilter,
   setUserFilter,
   setGroupBy,
+  setBillableFilter,
 } from '../../store/slices/reportSlice';
 import { fetchWorkspace } from '../../store/slices/workspaceSlice';
 import { useRole } from '../../hooks/useRole';
@@ -93,7 +94,7 @@ function Reports() {
     }
     dispatch(fetchReportSummary({ workspaceId, filters }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceId, activeTab, filters.period, filters.startDate, filters.endDate, filters.projectIds, filters.userIds, filters.groupBy]);
+  }, [workspaceId, activeTab, filters.period, filters.startDate, filters.endDate, filters.projectIds, filters.userIds, filters.groupBy, filters.billable]);
 
   // ── Filter handlers ──────────────────────────────────────────────────────
   const handlePeriodChange = (period) => {
@@ -241,6 +242,23 @@ function Reports() {
                 selected={filters.userIds}
                 onChange={(ids) => dispatch(setUserFilter(ids))}
               />
+            </FilterField>
+          )}
+
+          {activeTab === 'team' && canViewTeam && (
+            <FilterField label="Billable">
+              <select
+                value={filters.billable === null || filters.billable === undefined ? '' : String(filters.billable)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  dispatch(setBillableFilter(v === '' ? null : v === 'true'));
+                }}
+                className="px-2.5 py-1.5 border border-[var(--asana-border)] rounded-md text-xs font-medium bg-[var(--asana-surface)] text-[var(--asana-text-primary)] focus:outline-none focus:ring-1 focus:ring-asana-blue/30 cursor-pointer min-w-[140px]"
+              >
+                <option value="">All</option>
+                <option value="true">Billable</option>
+                <option value="false">Non-Billable</option>
+              </select>
             </FilterField>
           )}
         </div>
@@ -501,10 +519,75 @@ function SummaryCards({ summary, loading, canViewTeam }) {
   );
 }
 
+// ── Billable dropdown cell ───────────────────────────────────────────────────
+const BILLABLE_OPTIONS = [
+  { value: null,  label: '—',            badge: 'bg-gray-100 dark:bg-gray-700/50 text-gray-400 dark:text-gray-500' },
+  { value: true,  label: 'Billable',     badge: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+  { value: false, label: 'Non-Billable', badge: 'bg-gray-100 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400' },
+];
+
+function BillableDropdown({ taskId, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    if (open) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const current = BILLABLE_OPTIONS.find(o => o.value === value) ?? BILLABLE_OPTIONS[0];
+
+  const handleSelect = async (opt) => {
+    setOpen(false);
+    if (opt.value === value) return;
+    onChange(opt.value);
+    try {
+      await api.put(`/api/v1/tasks/${taskId}`, { billable: opt.value });
+    } catch {
+      onChange(value);
+    }
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        className={`text-[10px] font-semibold px-2 py-0.5 rounded cursor-pointer hover:opacity-80 transition-opacity ${current.badge}`}
+      >
+        {current.label}
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 left-0 w-36 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-md shadow-xl py-1">
+          {BILLABLE_OPTIONS.map((opt) => (
+            <button
+              key={String(opt.value)}
+              onClick={(e) => { e.stopPropagation(); handleSelect(opt); }}
+              className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/60 flex items-center gap-2 transition-colors"
+            >
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${opt.badge}`}>{opt.label}</span>
+              {opt.value === value && (
+                <svg className="w-3 h-3 text-asana-blue ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Report sections (collapsible groups with task table) ────────────────────
 function ReportSections({ data, loading, onTaskClick, groupBy }) {
   const [expanded, setExpanded] = useState({});
   const [copied, setCopied] = useState(null);
+  const [billableOverrides, setBillableOverrides] = useState({});
+
+  const updateBillable = (taskId, value) => {
+    setBillableOverrides(prev => ({ ...prev, [taskId]: value }));
+  };
 
   if (loading && !data) {
     return (
@@ -522,7 +605,7 @@ function ReportSections({ data, loading, onTaskClick, groupBy }) {
     return (
       <EmptyState
         icon="clock"
-        title="No completed tasks in this period"
+        title="No time logged in this period"
         message="Try changing the date range or project filters."
       />
     );
@@ -607,12 +690,22 @@ function ReportSections({ data, loading, onTaskClick, groupBy }) {
                       <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Section</th>
                       <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Status</th>
                       <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Due Date</th>
+                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Billable</th>
+                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Time Entry Date</th>
                       <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Entries</th>
                       <th className="text-right font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Time</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(group.tasks || []).map((task) => (
+                    {(group.tasks || []).map((task) => {
+                      const latestEntry = (task.entries || []).reduce((latest, e) => {
+                        if (!e.date) return latest;
+                        return !latest || new Date(e.date) > new Date(latest.date) ? e : latest;
+                      }, null);
+                      const latestEntryDate = latestEntry?.date
+                        ? new Date(latestEntry.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+                        : '—';
+                      return (
                       <tr
                         key={task.id}
                         onClick={() => onTaskClick(task.id)}
@@ -638,12 +731,21 @@ function ReportSections({ data, loading, onTaskClick, groupBy }) {
                         <td className="px-4 py-2.5 text-[var(--asana-text-secondary)]">
                           {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
                         </td>
+                        <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                          <BillableDropdown
+                            taskId={task.id}
+                            value={task.id in billableOverrides ? billableOverrides[task.id] : task.billable ?? null}
+                            onChange={(val) => updateBillable(task.id, val)}
+                          />
+                        </td>
+                        <td className="px-4 py-2.5 text-[var(--asana-text-secondary)] whitespace-nowrap">{latestEntryDate}</td>
                         <td className="px-4 py-2.5 text-[var(--asana-text-secondary)]">{task.entries?.length || 0}</td>
                         <td className="px-4 py-2.5 text-right font-semibold text-[var(--asana-text-primary)]">
                           {fmtHrs(task.totalMinutes)}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

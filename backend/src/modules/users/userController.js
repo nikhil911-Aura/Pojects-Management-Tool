@@ -18,6 +18,14 @@ export const userController = {
   async updateUser(req, res, next) {
     const user = await userService.updateUser(req.user.id, req.validatedBody);
     return successResponse(res, user, 'Profile updated successfully');
+  },
+
+  // Upload avatar to Cloudinary
+  async uploadAvatar(req, res, next) {
+    if (!req.file) throw { status: 400, message: 'No file uploaded' };
+    const avatarUrl = req.file.path;
+    const user = await userService.updateUser(req.user.id, { avatar: avatarUrl });
+    return successResponse(res, user, 'Avatar updated successfully');
   }
 };
 

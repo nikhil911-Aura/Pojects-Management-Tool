@@ -11,6 +11,7 @@ function buildParams(filters) {
   if (filters.userIds?.length) params.append('userIds', filters.userIds.join(','));
   if (filters.groupBy) params.append('groupBy', filters.groupBy);
   if (filters.scope) params.append('scope', filters.scope);
+  if (filters.billable !== null && filters.billable !== undefined) params.append('billable', filters.billable);
   return params;
 }
 
@@ -108,6 +109,7 @@ const initialState = {
     projectIds: [],
     userIds: [],
     groupBy: 'person_project',
+    billable: null,
   },
   loadingTimesheet: false,
   loadingTeam: false,
@@ -129,6 +131,7 @@ const reportSlice = createSlice({
     setProjectFilter: (state, action) => { state.filters.projectIds = action.payload; },
     setUserFilter: (state, action) => { state.filters.userIds = action.payload; },
     setGroupBy: (state, action) => { state.filters.groupBy = action.payload; },
+    setBillableFilter: (state, action) => { state.filters.billable = action.payload; },
     clearReportData: (state) => {
       state.timesheetData = null;
       state.teamData = null;
@@ -160,5 +163,5 @@ const reportSlice = createSlice({
   },
 });
 
-export const { setDateFilter, setProjectFilter, setUserFilter, setGroupBy, clearReportData, clearError } = reportSlice.actions;
+export const { setDateFilter, setProjectFilter, setUserFilter, setGroupBy, setBillableFilter, clearReportData, clearError } = reportSlice.actions;
 export default reportSlice.reducer;

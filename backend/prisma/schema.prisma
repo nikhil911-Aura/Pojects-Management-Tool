@@ -18,7 +18,9 @@ enum Role {
 enum TaskStatus {
   TODO
   IN_PROGRESS
+  BLOCKED
   REVIEW
+  NEXT_SPRINT
   DONE
 }
 
@@ -305,6 +307,7 @@ model Task {
   actualTime      Int?       // computed sum of time entries in minutes
   timerStartedAt  DateTime?  // when the active timer started (null = no timer running)
   timerStartedBy  String?    // userId of who started the timer
+  billable        Boolean?
   position        Float      @default(0)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt

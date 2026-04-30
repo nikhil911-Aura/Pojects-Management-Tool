@@ -9,7 +9,7 @@ function isWorkspaceAdmin(workspaceRole) {
 
 function canAccessProject(workspaceRole, projectVisibility, projectRole) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
-  if (workspaceRole === 'MEMBER' && projectVisibility === 'PUBLIC') return true;
+  if (projectVisibility === 'PUBLIC') return true;
   return projectRole !== null;
 }
 

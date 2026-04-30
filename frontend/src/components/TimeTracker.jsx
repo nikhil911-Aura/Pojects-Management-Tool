@@ -140,6 +140,7 @@ export default function TimeTracker({ taskId, initialTotal = 0, timerStartedAt =
   };
 
   const handleOpen = () => {
+    if (!canEdit) return;
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
       const popupHeight = 300;
@@ -265,7 +266,8 @@ export default function TimeTracker({ taskId, initialTotal = 0, timerStartedAt =
     <div className="relative">
       {/* Cell display */}
       <button ref={btnRef} onClick={(e) => { e.stopPropagation(); handleOpen(); }}
-        className={`text-xs flex items-center w-full ${cellText || timerStart ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100'}`}>
+        disabled={!canEdit}
+        className={`text-xs flex items-center w-full ${!canEdit ? 'cursor-default pointer-events-none' : ''} ${cellText || timerStart ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100'}`}>
         {timerStart && (
           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse mr-1.5 flex-shrink-0" />
         )}

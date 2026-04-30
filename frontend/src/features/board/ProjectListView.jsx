@@ -14,6 +14,7 @@ const STATUS_CONFIG = {
   IN_PROGRESS: { label: 'In progress', dot: '#3B82F6', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 ring-1 ring-inset ring-blue-300/40 dark:ring-blue-700/40' },
   BLOCKED:     { label: 'Blocked',     dot: '#EF4444', cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 ring-1 ring-inset ring-red-300/40 dark:ring-red-700/40' },
   REVIEW:      { label: 'Review',      dot: '#F59E0B', cls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300 ring-1 ring-inset ring-yellow-300/40 dark:ring-yellow-700/40' },
+  NEXT_SPRINT: { label: 'Next sprint', dot: '#8B5CF6', cls: 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 ring-1 ring-inset ring-purple-300/40 dark:ring-purple-700/40' },
   DONE:        { label: 'Completed',   dot: '#22C55E', cls: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 ring-1 ring-inset ring-green-300/40 dark:ring-green-700/40' },
 };
 
@@ -201,7 +202,7 @@ function StatusPicker({ taskId, currentStatus, onClose, onDone, onCelebrate, emi
       {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
         <button key={key} onClick={() => handleChange(key)}
           className="w-full flex items-center px-3 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${cfg.cls}`}>{cfg.label}</span>
+          <span className={`inline-block px-2.5 py-1 rounded text-[12px] font-semibold ${cfg.cls}`}>{cfg.label}</span>
           {currentStatus === key && (
             <svg className="w-3.5 h-3.5 ml-auto text-asana-blue" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -369,7 +370,8 @@ function TimeCell({ taskId, field, value, taskTitle = '', canEdit, onDone, queue
   }
 
   return (
-    <span onClick={startEdit} className={`text-xs cursor-pointer ${value != null ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100'}`}>
+    <span onClick={canEdit ? startEdit : undefined}
+      className={`text-xs ${canEdit ? 'cursor-pointer' : 'cursor-default'} ${value != null ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100'}`}>
       {value != null ? formatTime(value) : '—'}
     </span>
   );
@@ -386,8 +388,12 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
   const [contextMenu, setContextMenu] = useState(null);
   const [justCompleted, setJustCompleted] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
+  const [showBillableDrop, setShowBillableDrop] = useState(false);
+  const [billableDropPos, setBillableDropPos] = useState({ top: 0, left: 0 });
   const assigneeCellRef = useRef(null);
   const statusCellRef = useRef(null);
+  const billableBtnRef = useRef(null);
+  const billableDropRef = useRef(null);
   const titleAutoSave = useAutoSave({
     initialValue: task.title,
     entityId: task.id,
@@ -408,6 +414,13 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [contextMenu]);
+
+  useEffect(() => {
+    if (!showBillableDrop) return;
+    const handler = (e) => { if (billableDropRef.current && !billableDropRef.current.contains(e.target)) setShowBillableDrop(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showBillableDrop]);
 
   const toggleComplete = (e) => {
     e.stopPropagation();
@@ -557,7 +570,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
       )}
 
       {/* ── Name ── */}
-      <div className={`${isDragging ? 'w-[520px] flex-shrink-0 bg-[var(--asana-surface)]' : NAME_COL} flex items-center py-[11px] border-r border-[var(--asana-border)]/40`}
+      <div className={`${isDragging ? 'w-[520px] flex-shrink-0 bg-[var(--asana-surface)]' : NAME_COL} flex items-center py-[3px] border-r border-[var(--asana-border)]/40`}
         style={{ paddingLeft: `${depth * 1.5 + 0.25}rem`, paddingRight: '0.75rem' }}>
         {/* Drag handle (six-dot grip) — only on top-level draggable rows */}
         {dragHandleProps ? (
@@ -594,9 +607,9 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
         {/* Task icon — Circle / Diamond / Approval with completion animation */}
         {isMilestone ? (
           <button onClick={toggleComplete} className={`flex-shrink-0 mr-3 relative ${justCompleted ? 'celebrate-burst' : ''}`}>
-            <svg width="18" height="18" viewBox="0 0 18 18" className={`flex-shrink-0 ${justCompleted ? 'check-pop' : ''}`}>
-              <rect x="9" y="1" width="10" height="10" rx="1.5"
-                transform="rotate(45 9 1)"
+            <svg width="18" height="18" viewBox="0 0 18 18" style={{ overflow: 'visible' }} className={`flex-shrink-0 ${justCompleted ? 'check-pop' : ''}`}>
+              <rect x="3" y="3" width="12" height="12" rx="1.5"
+                transform="rotate(45 9 9)"
                 className={`transition-all duration-300 ${task.status === 'DONE' ? 'fill-green-500 stroke-green-500' : 'fill-transparent stroke-gray-400 dark:stroke-gray-500 group-hover:stroke-green-400'}`}
                 strokeWidth="2" />
               {task.status === 'DONE' && (
@@ -607,11 +620,11 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
           </button>
         ) : isApproval ? (
           <button onClick={toggleComplete} className={`flex-shrink-0 mr-3 relative ${justCompleted ? 'celebrate-burst' : ''}`}>
-            <svg width="18" height="18" viewBox="0 0 20 20" className={`flex-shrink-0 ${justCompleted ? 'check-pop' : ''}`}>
-              <circle cx="10" cy="10" r="7"
+            <svg width="18" height="18" viewBox="0 0 18 18" style={{ overflow: 'visible' }} className={`flex-shrink-0 ${justCompleted ? 'check-pop' : ''}`}>
+              <circle cx="9" cy="9" r="8"
                 className={`transition-all duration-300 ${task.status === 'DONE' ? 'fill-green-500 stroke-green-500' : 'fill-transparent stroke-purple-400 dark:stroke-purple-500 group-hover:stroke-green-400'}`}
-                strokeWidth="2" />
-              <path d="M7 10l2 2 4-4" stroke={task.status === 'DONE' ? 'white' : 'currentColor'}
+                strokeWidth="1.5" />
+              <path d="M6 9l2 2 4-4" stroke={task.status === 'DONE' ? 'white' : 'currentColor'}
                 className={`${task.status === 'DONE' ? '' : 'text-purple-400'} ${justCompleted ? 'check-draw' : ''}`}
                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </svg>
@@ -639,12 +652,12 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
               onKeyDown={(e) => { if (e.key === 'Enter') handleStopEditing(); if (e.key === 'Escape') setEditingTitle(false); }}
               onClick={(e) => e.stopPropagation()}
               autoFocus
-              className={`text-sm bg-[var(--asana-surface)] border border-asana-blue rounded px-2 py-0.5 outline-none w-[320px] max-w-full ${isMilestone ? 'font-bold' : ''} text-[var(--asana-text-primary)]`} />
+              className={`text-[13px] bg-[var(--asana-surface)] border border-asana-blue rounded px-2 py-0.5 outline-none w-[320px] max-w-full ${isMilestone ? 'font-bold' : ''} text-[var(--asana-text-primary)]`} />
             <SaveIndicator status={titleAutoSave.saveStatus} />
           </>
         ) : (
           <span
-            className={`text-sm truncate transition-all duration-150 rounded px-2 py-0.5 ${isMilestone ? 'font-bold' : ''} ${perm.taskEdit ? 'cursor-text hover:ring-1 hover:ring-gray-400 dark:hover:ring-gray-500' : ''} ${
+            className={`text-[13px] truncate transition-all duration-150 rounded px-2 py-0.5 ${isMilestone ? 'font-bold' : ''} ${perm.taskEdit ? 'cursor-text hover:ring-1 hover:ring-gray-400 dark:hover:ring-gray-500' : ''} ${
               task.status === 'DONE'
                 ? `text-[var(--asana-text-secondary)]`
                 : 'text-[var(--asana-text-primary)]'
@@ -654,7 +667,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
           </span>
         )}
         {!indent && hasSubtasks && (
-          <span className="ml-2 text-[10px] text-[var(--asana-text-secondary)] flex-shrink-0">
+          <span className="ml-2 text-[12px] text-[var(--asana-text-secondary)] flex-shrink-0">
             {task.subtasks.filter(s => s.status === 'DONE').length}/{task.subtasks.length}
           </span>
         )}
@@ -663,7 +676,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
 
       {/* ── Assignee ── */}
       {cols.assignee && (
-        <div ref={assigneeCellRef} className="w-[120px] flex-shrink-0 px-3 py-[11px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
+        <div ref={assigneeCellRef} className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => perm.taskAssign && setShowAssigneePicker(true)}
             className="flex items-center space-x-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md px-1 py-0.5 -mx-1 transition-colors w-full">
             {task.assignees?.length > 0 ? (
@@ -693,14 +706,14 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
       {cols.dueDate && (() => {
         const meta = getDueMeta(task.dueDate, task.status);
         return (
-        <div className="w-[120px] flex-shrink-0 px-3 py-[11px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
+        <div className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
           {perm.taskEdit ? (
             <div className="relative cursor-pointer" onClick={() => dateRef.current?.showPicker?.()}>
               <input ref={dateRef} type="date" value={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
                 onChange={handleDateChange} className="absolute inset-0 opacity-0 cursor-pointer w-full" />
               {meta ? (
                 <span title={new Date(task.dueDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-                  className={`text-[11px] px-2 py-0.5 rounded-md transition-colors duration-180 ${meta.cls}`}>
+                  className={`text-[12px] px-2 py-0.5 rounded-md transition-colors duration-180 ${meta.cls}`}>
                   {meta.rel}
                 </span>
               ) : (
@@ -710,7 +723,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
               )}
             </div>
           ) : meta ? (
-            <span className={`text-[11px] px-2 py-0.5 rounded-md ${meta.cls}`}>{meta.rel}</span>
+            <span className={`text-[12px] px-2 py-0.5 rounded-md ${meta.cls}`}>{meta.rel}</span>
           ) : null}
         </div>
         );
@@ -718,9 +731,9 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
 
       {/* ── Status ── */}
       {cols.status && (
-        <div ref={statusCellRef} className="w-[120px] flex-shrink-0 px-3 py-[11px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
+        <div ref={statusCellRef} className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => perm.taskEdit && setShowStatusPicker(true)}
-            className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-md truncate transition-all duration-180 hover:brightness-105 ${statusCfg.cls}`}>
+            className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md truncate transition-all duration-180 hover:brightness-105 ${statusCfg.cls}`}>
             <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusCfg.dot }} />
             {statusCfg.label}
           </button>
@@ -735,8 +748,8 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
       {cols.priority && (() => {
         const pcfg = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.LOW;
         return (
-        <div className="w-[120px] flex-shrink-0 px-3 py-[11px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
-          <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md ${pcfg.cls}`}>
+        <div className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
+          <span className={`inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md ${pcfg.cls}`}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: pcfg.dot }} />
             {pcfg.label}
           </span>
@@ -746,21 +759,90 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
 
       {/* ── Estimated time ── */}
       {cols.estimatedTime && (
-        <div className="w-[120px] flex-shrink-0 px-3 py-[11px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
           <TimeCell taskId={task.id} field="estimatedTime" value={task.estimatedTime} taskTitle={task.title} canEdit={perm.timeTrack} onDone={onRefresh} queueOrRun={queueOrRun} emitInstant={emitInstant} resolveId={resolveId} />
         </div>
       )}
 
       {/* ── Actual time (Time Tracker) ── */}
       {cols.actualTime && (
-        <div className="w-[120px] flex-shrink-0 px-3 py-[11px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
           <TimeTracker taskId={resolveId(task.id)} initialTotal={task.actualTime || 0} timerStartedAt={task.timerStartedAt} canEdit={perm.timeTrack} emitInstant={emitInstant} />
+        </div>
+      )}
+
+      {/* ── Billable ── */}
+      {cols.billable && (
+        <div className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
+          <button
+            ref={billableBtnRef}
+            onClick={() => {
+              if (!perm.taskEdit) return;
+              const r = billableBtnRef.current?.getBoundingClientRect();
+              if (r) {
+                const spaceBelow = window.innerHeight - r.bottom;
+                setBillableDropPos({
+                  top: spaceBelow < 140 ? null : r.bottom + 2,
+                  bottom: spaceBelow < 140 ? window.innerHeight - r.top + 2 : null,
+                  left: Math.min(r.left, window.innerWidth - 160),
+                });
+              }
+              setShowBillableDrop(v => !v);
+            }}
+            className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap transition-all duration-180 hover:brightness-105 ${
+              task.billable === true
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 ring-1 ring-inset ring-green-300/40 dark:ring-green-700/40'
+                : task.billable === false
+                  ? 'bg-gray-100 text-gray-500 dark:bg-gray-700/60 dark:text-gray-400 ring-1 ring-inset ring-gray-300/40 dark:ring-gray-600/40'
+                  : 'bg-transparent text-gray-400 dark:text-gray-500'
+            } ${perm.taskEdit ? 'cursor-pointer' : 'cursor-default'}`}
+          >
+            {task.billable !== null && task.billable !== undefined && (
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${task.billable === true ? 'bg-green-500' : 'bg-gray-400'}`} />
+            )}
+            {task.billable === true ? 'Billable' : task.billable === false ? 'Non-Billable' : '—'}
+          </button>
+          {showBillableDrop && (
+            <div
+              ref={billableDropRef}
+              className="fixed z-[200] w-40 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in"
+              style={{ top: billableDropPos.top ?? 'auto', bottom: billableDropPos.bottom ?? 'auto', left: billableDropPos.left }}
+            >
+              {[
+                { value: null,  label: '—',            dot: null,      cls: 'text-gray-400 dark:text-gray-500' },
+                { value: true,  label: 'Billable',     dot: 'bg-green-500', cls: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' },
+                { value: false, label: 'Non-Billable', dot: 'bg-gray-400',  cls: 'bg-gray-100 text-gray-500 dark:bg-gray-700/60 dark:text-gray-400' },
+              ].map(opt => (
+                <button
+                  key={String(opt.value)}
+                  onClick={() => {
+                    setShowBillableDrop(false);
+                    if (opt.value === task.billable) return;
+                    dispatch(optimisticUpdateTask({ taskId: task.id, data: { billable: opt.value } }));
+                    emitInstant?.('task_field_updated', { taskId: resolveId(task.id), field: 'billable', value: opt.value });
+                    queueOrRun(task.id, (realId) => dispatch(updateTask({ taskId: realId, data: { billable: opt.value } })));
+                  }}
+                  className="w-full px-3 py-1.5 text-left flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                >
+                  <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md ${opt.cls}`}>
+                    {opt.dot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${opt.dot}`} />}
+                    {opt.label}
+                  </span>
+                  {opt.value === task.billable && (
+                    <svg className="w-3 h-3 text-asana-blue ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {/* ── Dynamic custom field cells ── */}
       {customFields.map(cf => (
-        <div key={cf.id} className={`${COL_W} px-3 py-[11px] border-r border-[var(--asana-border)]/40 flex items-center`} onClick={(e) => e.stopPropagation()}>
+        <div key={cf.id} className={`${COL_W} px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center`} onClick={(e) => e.stopPropagation()}>
           <CustomFieldCell
             field={{ ...cf, _members: cf.type === 'PEOPLE' ? members : undefined }}
             taskId={task.id}
@@ -1304,7 +1386,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
     );
   }
 
-  // SINGLE_SELECT — colored pill display + dropdown
+  // SINGLE_SELECT — status-style badge + dropdown
   if (field.type === 'SINGLE_SELECT') {
     const selected = parsedOpts.find(o => o.value === value);
     const selColor = selected ? (OPTION_COLORS.find(c => c.name === selected.color) || OPTION_COLORS[0]) : null;
@@ -1313,7 +1395,9 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
       <div className="relative w-full">
         <button ref={cellBtnRef} onClick={openDropdown} className="w-full text-left">
           {selected ? (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ backgroundColor: selColor?.bg, color: selColor?.text }}>
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md truncate hover:brightness-105 transition-all"
+              style={{ backgroundColor: selColor?.bg, color: selColor?.text }}>
+              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: selColor?.text }} />
               {selected.value}
             </span>
           ) : (
@@ -1321,9 +1405,8 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
           )}
         </button>
         {showDropdown && (
-          <div ref={dropdownRef} className="fixed z-[200] w-44 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
+          <div ref={dropdownRef} className="fixed z-[200] w-48 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
             style={{ top: dropPos.top ?? 'auto', bottom: dropPos.bottom ?? 'auto', left: dropPos.left }}>
-            {/* Clear option */}
             <button onClick={() => { onChange(''); setShowDropdown(false); }}
               className="w-full px-3 py-1.5 text-left text-xs text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
               Clear
@@ -1332,10 +1415,13 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
               const c = OPTION_COLORS.find(oc => oc.name === opt.color) || OPTION_COLORS[0];
               return (
                 <button key={opt.value} onClick={() => { onChange(opt.value); setShowDropdown(false); }}
-                  className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 ${value === opt.value ? 'bg-asana-blue/5' : ''}`}>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ backgroundColor: c.bg, color: c.text }}>
+                  className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${value === opt.value ? 'bg-asana-blue/5' : ''}`}>
+                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md"
+                    style={{ backgroundColor: c.bg, color: c.text }}>
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.text }} />
                     {opt.value}
                   </span>
+                  {value === opt.value && <svg className="w-3.5 h-3.5 ml-auto text-asana-blue flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                 </button>
               );
             })}
@@ -1345,20 +1431,26 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
     );
   }
 
-  // MULTI_SELECT — multiple colored pills
+  // MULTI_SELECT — status-style badges + dropdown
   if (field.type === 'MULTI_SELECT') {
     const selectedValues = value ? value.split(',').filter(Boolean) : [];
     return (
       <div className="relative w-full">
-        <button ref={cellBtnRef} onClick={openDropdown} className="w-full text-left flex flex-wrap gap-0.5">
+        <button ref={cellBtnRef} onClick={openDropdown} className="w-full text-left flex flex-wrap gap-1">
           {selectedValues.length > 0 ? selectedValues.map(v => {
             const opt = parsedOpts.find(o => o.value === v);
-            const c = opt ? (OPTION_COLORS.find(oc => oc.name === opt.color) || OPTION_COLORS[0]) : OPTION_COLORS[12];
-            return <span key={v} className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-semibold" style={{ backgroundColor: c.bg, color: c.text }}>{v}</span>;
+            const c = opt ? (OPTION_COLORS.find(oc => oc.name === opt.color) || OPTION_COLORS[0]) : OPTION_COLORS[0];
+            return (
+              <span key={v} className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md"
+                style={{ backgroundColor: c.bg, color: c.text }}>
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.text }} />
+                {v}
+              </span>
+            );
           }) : <span className="text-xs text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100">—</span>}
         </button>
         {showDropdown && (
-          <div ref={dropdownRef} className="fixed z-[200] w-44 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
+          <div ref={dropdownRef} className="fixed z-[200] w-48 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
             style={{ top: dropPos.top ?? 'auto', bottom: dropPos.bottom ?? 'auto', left: dropPos.left }}>
             {parsedOpts.map(opt => {
               const c = OPTION_COLORS.find(oc => oc.name === opt.color) || OPTION_COLORS[0];
@@ -1369,9 +1461,13 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
                     const next = isSelected ? selectedValues.filter(v => v !== opt.value) : [...selectedValues, opt.value];
                     onChange(next.join(','));
                   }}
-                  className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 ${isSelected ? 'bg-asana-blue/5' : ''}`}>
-                  <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ backgroundColor: c.bg, color: c.text }}>{opt.value}</span>
-                  {isSelected && <svg className="w-3 h-3 ml-auto text-asana-blue" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                  className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${isSelected ? 'bg-asana-blue/5' : ''}`}>
+                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md"
+                    style={{ backgroundColor: c.bg, color: c.text }}>
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.text }} />
+                    {opt.value}
+                  </span>
+                  {isSelected && <svg className="w-3.5 h-3.5 ml-auto text-asana-blue flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                 </button>
               );
             })}
@@ -1534,9 +1630,12 @@ function AddSubtaskFooter({ task, depth, listId, addingSubtaskTo, setAddingSubta
       {canEdit && (hasSubtasks || addingSubtaskTo?.taskId === task.id) && (
         <div className="border-b border-[var(--asana-border)]/30 w-max min-w-full">
           {addingSubtaskTo?.taskId === task.id ? (
-            <form onSubmit={(e) => handleAddSubtask(e, listId, task.id)} className="sticky left-0 inline-flex items-center py-[6px] w-[400px] bg-[var(--asana-surface)]"
-              style={{ paddingLeft: `${(depth + 1) * 1.5 + 2.5}rem`, paddingRight: '1.5rem' }}>
-              <div className="w-[16px] h-[16px] rounded-full border-2 border-gray-200 dark:border-gray-700 flex-shrink-0 mr-3" />
+            <form onSubmit={(e) => handleAddSubtask(e, listId, task.id)}
+              className="sticky left-0 inline-flex items-center py-[3px] w-[400px] bg-[var(--asana-surface)]"
+              style={{ paddingLeft: `${(depth + 1) * 1.5 + 0.25}rem`, paddingRight: '0.75rem' }}>
+              <span className="w-4 mr-1 flex-shrink-0" />
+              <span className="w-[18px] mr-1.5 flex-shrink-0" />
+              <div className="w-[18px] h-[18px] rounded-full border-2 border-gray-200 dark:border-gray-700 flex-shrink-0 mr-3" />
               <input type="text" value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)}
                 placeholder="Add subtask..." autoFocus
                 className="flex-1 text-sm bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400"
@@ -1548,8 +1647,15 @@ function AddSubtaskFooter({ task, depth, listId, addingSubtaskTo, setAddingSubta
             </form>
           ) : (
             <button onClick={() => setAddingSubtaskTo({ listId, taskId: task.id })}
-              className="sticky left-0 inline-flex items-center py-[6px] w-[400px] text-left text-[var(--asana-text-secondary)] hover:text-asana-blue bg-[var(--asana-surface)] text-xs transition-colors"
-              style={{ paddingLeft: `${(depth + 1) * 1.5 + 2.5}rem`, paddingRight: '1.5rem' }}>
+              className="group/addsub sticky left-0 inline-flex items-center py-[3px] w-[400px] text-left text-[var(--asana-text-secondary)] hover:text-asana-blue bg-[var(--asana-surface)] text-xs transition-colors"
+              style={{ paddingLeft: `${(depth + 1) * 1.5 + 0.25}rem`, paddingRight: '0.75rem' }}>
+              <span className="w-4 mr-1 flex-shrink-0" />
+              <span className="w-[18px] mr-1.5 flex-shrink-0" />
+              <span className="w-[18px] h-[18px] rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 group-hover/addsub:border-asana-blue flex items-center justify-center mr-3 flex-shrink-0 transition-colors">
+                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </span>
               Add subtask...
             </button>
           )}
@@ -1566,7 +1672,7 @@ function AddSubtaskFooter({ task, depth, listId, addingSubtaskTo, setAddingSubta
 function PendingRow({ title, type, depth = 0 }) {
   return (
     <div className="flex items-stretch border-b border-[var(--asana-border)]/30 animate-pulse w-max min-w-full">
-      <div className={`${NAME_COL} flex items-center py-[11px] border-r border-[var(--asana-border)]/40`}
+      <div className={`${NAME_COL} flex items-center py-[3px] border-r border-[var(--asana-border)]/40`}
         style={{ paddingLeft: `${depth * 1.5 + 1}rem`, paddingRight: '0.75rem' }}>
         <span className="w-[18px] mr-1.5 flex-shrink-0" />
         {type === 'section' ? (
@@ -1588,7 +1694,7 @@ function PendingRow({ title, type, depth = 0 }) {
 }
 
 function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {}, pendingItems = [], addPendingItem, clearPendingItems, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, addSectionTrigger = 0, addTaskTrigger = 0, customFieldEvent, setCustomFieldCallback, prefetchedCustomFields = null, prefetchedFieldValues = null, saveViewTrigger = 0 }) {
-  const cols = { assignee: true, dueDate: true, status: true, estimatedTime: true, actualTime: true, priority: false, ...columns };
+  const cols = { assignee: true, dueDate: true, status: true, estimatedTime: true, actualTime: true, priority: false, billable: true, ...columns };
   const dispatch = useAppDispatch();
   const { canEdit, can, customRole, isWorkspaceAdmin } = useRole();
   const { confirm, ConfirmDialog } = useConfirm();
@@ -2128,6 +2234,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
         {cols.priority && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Priority</span></div>}
         {cols.estimatedTime && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Estimated ti...</span></div>}
         {cols.actualTime && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Actual time</span></div>}
+        {cols.billable && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Billable</span></div>}
 
         {/* Dynamic custom field columns */}
         {customFields.map(cf => (
@@ -2325,7 +2432,10 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                   {perm.taskCreate && (
                     <div className="border-b border-[var(--asana-border)]/30 w-max min-w-full">
                       {addingTaskTo === list.id ? (
-                        <form onSubmit={(e) => handleAddTask(e, list.id)} className="sticky left-0 inline-flex items-center px-4 py-[7px] w-[400px] bg-[var(--asana-surface)]">
+                        <form onSubmit={(e) => handleAddTask(e, list.id)}
+                          className="sticky left-0 inline-flex items-center py-[7px] w-[400px] bg-[var(--asana-surface)]"
+                          style={{ paddingLeft: '0.25rem', paddingRight: '0.75rem' }}>
+                          <span className="w-4 mr-1 flex-shrink-0" />
                           <span className="w-[18px] mr-1.5 flex-shrink-0" />
                           <div className="w-[18px] h-[18px] rounded-full border-2 border-gray-200 dark:border-gray-700 flex-shrink-0 mr-3" />
                           <input type="text" value={newTaskTitle}
@@ -2340,9 +2450,11 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                         </form>
                       ) : (
                         <button onClick={() => { setAddingTaskTo(list.id); setNewTaskTitle(''); }}
-                          className="group/add sticky left-0 inline-flex items-center px-4 py-[10px] w-[400px] text-left text-[var(--asana-text-secondary)] hover:text-asana-blue hover:bg-blue-50/40 dark:hover:bg-[#1f2937]/60 bg-[var(--asana-surface)] text-xs font-medium transition-all duration-180">
+                          className="group/add sticky left-0 inline-flex items-center py-[3px] w-[400px] text-left text-[var(--asana-text-secondary)] hover:text-asana-blue hover:bg-blue-50/40 dark:hover:bg-[#1f2937]/60 bg-[var(--asana-surface)] text-xs font-medium transition-all duration-180"
+                          style={{ paddingLeft: '0.25rem', paddingRight: '0.75rem' }}>
+                          <span className="w-4 mr-1 flex-shrink-0" />
                           <span className="w-[18px] mr-1.5 flex-shrink-0" />
-                          <span className="w-[18px] h-[18px] rounded-full border border-dashed border-gray-300 dark:border-gray-600 group-hover/add:border-asana-blue flex items-center justify-center mr-3 transition-colors">
+                          <span className="w-[18px] h-[18px] rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 group-hover/add:border-asana-blue flex items-center justify-center mr-3 flex-shrink-0 transition-colors">
                             <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                             </svg>
@@ -2377,6 +2489,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                         {cols.priority && <div className="w-[120px] flex-shrink-0 px-3 py-1.5" />}
                         {cols.estimatedTime && <div className="w-[120px] flex-shrink-0 px-3 py-1.5"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{estSum > 0 ? formatTime(estSum) : ''}</span></div>}
                         {cols.actualTime && <div className="w-[120px] flex-shrink-0 px-3 py-1.5"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{actSum > 0 ? formatTime(actSum) : ''}</span></div>}
+                        {cols.billable && <div className="w-[120px] flex-shrink-0 px-3 py-1.5" />}
                         {customFields.map(cf => {
                           const cfSum = cfSums[cf.id];
                           return (

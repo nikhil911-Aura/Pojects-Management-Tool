@@ -176,6 +176,7 @@ function OptionsPanel({ columns, onChange, onClose }) {
     { key: 'estimatedTime', label: 'Estimated time' },
     { key: 'actualTime', label: 'Actual time' },
     { key: 'priority', label: 'Priority' },
+    { key: 'billable', label: 'Billable' },
   ];
 
   return (

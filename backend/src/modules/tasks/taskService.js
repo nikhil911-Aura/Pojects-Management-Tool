@@ -1,7 +1,7 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
 import { emitToProject, emitToWorkspace } from '../../core/socket.js';
-import { cloudinary } from '../../core/cloudinary.js';
+import { cloudinary, signAttachment } from '../../core/cloudinary.js';
 
 // ── Cloudinary URL → publicId fallback for old attachments without publicId ──
 // URL format: https://res.cloudinary.com/{cloud}/image/upload/v1234/asana_clone/abc123.jpg
@@ -28,9 +28,9 @@ function isWorkspaceAdmin(workspaceRole) {
 
 function canAccessProject(workspaceRole, projectVisibility, projectRole) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
-  // Public projects: any workspace MEMBER can view (but not necessarily edit)
-  if (workspaceRole === 'MEMBER' && projectVisibility === 'PUBLIC') return true;
-  // Private projects + GUESTs: must be an explicit project member
+  // Public projects: any workspace member (including guests) can view
+  if (projectVisibility === 'PUBLIC') return true;
+  // Private projects: must be an explicit project member
   return projectRole !== null;
 }
 
@@ -178,7 +178,7 @@ export const taskService = {
   async getById(taskId, userId) {
     await getContextFromTask(taskId, userId); // access check
 
-    return prisma.task.findUnique({
+    const task = await prisma.task.findUnique({
       where: { id: taskId },
       include: {
         list: { include: { board: { include: { project: true } } } },
@@ -204,6 +204,11 @@ export const taskService = {
         }
       }
     });
+
+    if (task?.attachments?.length) {
+      task.attachments = task.attachments.map(signAttachment);
+    }
+    return task;
   },
 
   // Update task
@@ -217,7 +222,7 @@ export const taskService = {
       throw ApiError.forbidden('You do not have permission to edit this task');
     }
 
-    const { title, description, status, priority, dueDate, estimatedTime, actualTime, taskType, parentId } = updateData;
+    const { title, description, status, priority, dueDate, estimatedTime, actualTime, taskType, parentId, billable } = updateData;
 
     const updated = await prisma.task.update({
       where: { id: taskId },
@@ -230,7 +235,8 @@ export const taskService = {
         ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
         ...(estimatedTime !== undefined && { estimatedTime: estimatedTime != null ? parseInt(estimatedTime) : null }),
         ...(actualTime !== undefined && { actualTime: actualTime != null ? parseInt(actualTime) : null }),
-        ...(parentId !== undefined && { parentId: parentId || null })
+        ...(parentId !== undefined && { parentId: parentId || null }),
+        ...(billable !== undefined && { billable: billable === null ? null : Boolean(billable) })
       },
       include: {
         assignees: { include: { user: { select: { id: true, name: true, avatar: true } } } },
@@ -525,8 +531,9 @@ export const taskService = {
       include: { user: { select: { id: true, name: true } } }
     });
 
-    emitToProject(projectId, 'attachment_added', { taskId, attachment });
-    return attachment;
+    const signed = signAttachment(attachment);
+    emitToProject(projectId, 'attachment_added', { taskId, attachment: signed });
+    return signed;
   },
 
   // Remove attachment — deletes from Cloudinary CDN first, then removes the DB row.
