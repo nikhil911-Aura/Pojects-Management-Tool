@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
+import { useState, useEffect, useRef, useCallback, Fragment, createContext, useContext } from 'react';
+import { Check, X, Plus, ChevronDown, Pencil, Trash2, Clock, Timer, Calendar, Users, Hash, Type, CheckSquare, ListChecks, CircleDot, Link2, Flag, DollarSign, GripVertical, AlignLeft } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { createTask, createSubtask, updateTask, assignUser, reassignUser, deleteTask, moveTask as moveTaskAction } from '../../store/slices/taskSlice';
@@ -88,6 +89,51 @@ function parseTime(input) {
 const COL_W = 'w-[120px] flex-shrink-0';
 /* ── Name column: frozen on left during horizontal scroll ── */
 const NAME_COL = 'w-[520px] flex-shrink-0 sticky left-0 z-10 bg-[var(--asana-surface)]';
+
+const DEFAULT_COL_W  = 120;
+const DEFAULT_NAME_W = 520;
+
+// Column widths context — avoids prop-drilling through TaskTreeNode → TaskRow
+const ColWidthsCtx    = createContext(null);
+const SetColWidthsCtx = createContext(null);
+
+const COL_MIN_W = { name: DEFAULT_NAME_W };   // name can't go below its default
+const COL_MAX_W = { name: 900 };              // name max 900px
+const GLOBAL_MIN_W = DEFAULT_COL_W;           // all other cols: can't go below default (120px)
+const GLOBAL_MAX_W = 400;                     // all other cols: max 400px
+
+function ResizeHandle({ colKey }) {
+  const setColWidths = useContext(SetColWidthsCtx);
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startW = e.currentTarget.parentElement.getBoundingClientRect().width;
+    const minW   = COL_MIN_W[colKey] ?? GLOBAL_MIN_W;
+    const maxW   = COL_MAX_W[colKey] ?? GLOBAL_MAX_W;
+    const onMove = (mv) => setColWidths(prev => ({
+      ...prev,
+      [colKey]: Math.min(maxW, Math.max(minW, Math.round(startW + mv.clientX - startX))),
+    }));
+    const onUp   = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor     = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor     = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [colKey, setColWidths]);
+
+  return (
+    <div
+      onMouseDown={handleMouseDown}
+      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 opacity-0 hover:opacity-100 hover:bg-asana-blue/50 transition-opacity"
+    />
+  );
+}
 
 /* ═══════════════════════════════════════════
    Dropdown used outside click hook
@@ -381,6 +427,8 @@ function TimeCell({ taskId, field, value, taskTitle = '', canEdit, onDone, queue
    Task Row
    ═══════════════════════════════════════════ */
 function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRefresh, hasSubtasks, isExpanded, onToggle, cols = {}, customFields = [], fieldValues = {}, onSetFieldValue, depth = 0, onCelebrate, liveEdits = {}, emitLiveEdit, emitInstant, releaseEditLock, resolveId = (id) => id, queueOrRun = (_id, fn) => fn(_id), onAddSubtaskHere, dragHandleProps = null, isDragging = false }) {
+  const colWidths = useContext(ColWidthsCtx);
+  const cw = (key) => ({ width: colWidths?.[key] ?? DEFAULT_COL_W, flexShrink: 0 });
   const dispatch = useAppDispatch();
   const [showAssigneePicker, setShowAssigneePicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
@@ -513,25 +561,19 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
             style={{ top: contextMenu.y, left: contextMenu.x }}>
             <button onClick={(e) => { e.stopPropagation(); toggleComplete(e); setContextMenu(null); }}
               className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
-              <svg className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+              <Check className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" strokeWidth={2} />
               {task.status === 'DONE' ? 'Mark incomplete' : 'Mark complete'}
             </button>
             <button onClick={(e) => { e.stopPropagation(); setContextMenu(null); setEditingTitle(true); }}
               className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
-              <svg className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
+              <Pencil className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" strokeWidth={1.75} />
               Rename
             </button>
             {/* Add task/subtask — always adds a child under this item */}
             {perm.subtaskCreate && onAddSubtaskHere && (
               <button onClick={(e) => { e.stopPropagation(); setContextMenu(null); onAddSubtaskHere(); }}
                 className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                <svg className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
+                <Plus className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" strokeWidth={2} />
                 {task.taskType === 'MILESTONE' ? 'Add task' : 'Add subtask'}
               </button>
             )}
@@ -553,16 +595,12 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
             <div className="border-t border-[var(--asana-border)] my-1" />
             <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(`${window.location.origin}/project/${task.list?.board?.project?.id || ''}?task=${task.id}`); setContextMenu(null); }}
               className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
-              <svg className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
+              <Link2 className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" strokeWidth={1.75} />
               Copy task link
             </button>
             <button onClick={(e) => { e.stopPropagation(); handleDelete(e); setContextMenu(null); }}
               className="w-full flex items-center px-3 py-2 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
-              <svg className="w-4 h-4 mr-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+              <Trash2 className="w-4 h-4 mr-2.5" strokeWidth={1.75} />
               Delete task
             </button>
           </div>
@@ -570,8 +608,8 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
       )}
 
       {/* ── Name ── */}
-      <div className={`${isDragging ? 'w-[520px] flex-shrink-0 bg-[var(--asana-surface)]' : NAME_COL} flex items-center py-[3px] border-r border-[var(--asana-border)]/40`}
-        style={{ paddingLeft: `${depth * 1.5 + 0.25}rem`, paddingRight: '0.75rem' }}>
+      <div className="flex-shrink-0 sticky left-0 z-10 bg-[var(--asana-surface)] flex items-center py-[3px] border-r border-[var(--asana-border)]/40"
+        style={{ width: colWidths?.['name'] ?? DEFAULT_NAME_W, paddingLeft: `${depth * 1.5 + 0.25}rem`, paddingRight: '0.75rem' }}>
         {/* Drag handle (six-dot grip) — only on top-level draggable rows */}
         {dragHandleProps ? (
           <div
@@ -581,14 +619,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
             className="w-4 h-5 mr-1 flex items-center justify-center rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-gray-200/80 dark:hover:bg-gray-700/70 cursor-grab active:cursor-grabbing transition-opacity flex-shrink-0"
             style={{ touchAction: 'none' }}
           >
-            <svg width="8" height="12" viewBox="0 0 8 12" fill="none" className="text-[var(--asana-text-secondary)]">
-              <circle cx="1.5" cy="2" r="1" fill="currentColor" />
-              <circle cx="1.5" cy="6" r="1" fill="currentColor" />
-              <circle cx="1.5" cy="10" r="1" fill="currentColor" />
-              <circle cx="6.5" cy="2" r="1" fill="currentColor" />
-              <circle cx="6.5" cy="6" r="1" fill="currentColor" />
-              <circle cx="6.5" cy="10" r="1" fill="currentColor" />
-            </svg>
+            <GripVertical className="w-3.5 h-3.5 text-[var(--asana-text-secondary)]" strokeWidth={1.75} />
           </div>
         ) : (
           <span className="w-4 mr-1 flex-shrink-0" />
@@ -597,10 +628,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
         {hasSubtasks ? (
           <button onClick={(e) => { e.stopPropagation(); onToggle(); }}
             className="mr-1.5 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0">
-            <svg className={`w-3 h-3 text-[var(--asana-text-secondary)] transition-transform ${isExpanded ? '' : '-rotate-90'}`}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            <ChevronDown className={`w-3 h-3 text-[var(--asana-text-secondary)] transition-transform ${isExpanded ? '' : '-rotate-90'}`} strokeWidth={2.5} />
           </button>
         ) : <span className="w-[18px] mr-1.5 flex-shrink-0" />}
 
@@ -676,7 +704,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
 
       {/* ── Assignee ── */}
       {cols.assignee && (
-        <div ref={assigneeCellRef} className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
+        <div ref={assigneeCellRef} className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center relative" style={cw('assignee')} onClick={(e) => e.stopPropagation()}>
           <button onClick={() => perm.taskAssign && setShowAssigneePicker(true)}
             className="flex items-center space-x-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md px-1 py-0.5 -mx-1 transition-colors w-full">
             {task.assignees?.length > 0 ? (
@@ -706,7 +734,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
       {cols.dueDate && (() => {
         const meta = getDueMeta(task.dueDate, task.status);
         return (
-        <div className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center relative" style={cw('dueDate')} onClick={(e) => e.stopPropagation()}>
           {perm.taskEdit ? (
             <div className="relative cursor-pointer" onClick={() => dateRef.current?.showPicker?.()}>
               <input ref={dateRef} type="date" value={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
@@ -717,9 +745,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
                   {meta.rel}
                 </span>
               ) : (
-                <svg className="w-4 h-4 text-[var(--asana-text-secondary)] transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+                <Calendar className="w-4 h-4 text-[var(--asana-text-secondary)] transition-opacity" strokeWidth={1.75} />
               )}
             </div>
           ) : meta ? (
@@ -731,7 +757,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
 
       {/* ── Status ── */}
       {cols.status && (
-        <div ref={statusCellRef} className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center relative" onClick={(e) => e.stopPropagation()}>
+        <div ref={statusCellRef} className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center relative" style={cw('status')} onClick={(e) => e.stopPropagation()}>
           <button onClick={() => perm.taskEdit && setShowStatusPicker(true)}
             className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md truncate transition-all duration-180 hover:brightness-105 ${statusCfg.cls}`}>
             <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusCfg.dot }} />
@@ -748,7 +774,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
       {cols.priority && (() => {
         const pcfg = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.LOW;
         return (
-        <div className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" style={cw('priority')} onClick={(e) => e.stopPropagation()}>
           <span className={`inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md ${pcfg.cls}`}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: pcfg.dot }} />
             {pcfg.label}
@@ -759,21 +785,21 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
 
       {/* ── Estimated time ── */}
       {cols.estimatedTime && (
-        <div className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" style={cw('estimatedTime')} onClick={(e) => e.stopPropagation()}>
           <TimeCell taskId={task.id} field="estimatedTime" value={task.estimatedTime} taskTitle={task.title} canEdit={perm.timeTrack} onDone={onRefresh} queueOrRun={queueOrRun} emitInstant={emitInstant} resolveId={resolveId} />
         </div>
       )}
 
       {/* ── Actual time (Time Tracker) ── */}
       {cols.actualTime && (
-        <div className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" style={cw('actualTime')} onClick={(e) => e.stopPropagation()}>
           <TimeTracker taskId={resolveId(task.id)} initialTotal={task.actualTime || 0} timerStartedAt={task.timerStartedAt} canEdit={perm.timeTrack} emitInstant={emitInstant} />
         </div>
       )}
 
       {/* ── Billable ── */}
       {cols.billable && (
-        <div className="w-[120px] flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" style={cw('billable')} onClick={(e) => e.stopPropagation()}>
           <button
             ref={billableBtnRef}
             onClick={() => {
@@ -842,7 +868,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
 
       {/* ── Dynamic custom field cells ── */}
       {customFields.map(cf => (
-        <div key={cf.id} className={`${COL_W} px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center`} onClick={(e) => e.stopPropagation()}>
+        <div key={cf.id} className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" style={cw(cf.id)} onClick={(e) => e.stopPropagation()}>
           <CustomFieldCell
             field={{ ...cf, _members: cf.type === 'PEOPLE' ? members : undefined }}
             taskId={task.id}
@@ -881,14 +907,14 @@ const OPTION_COLORS = [
    Field Type Picker — 2-step: type → configure → create
    ═══════════════════════════════════════════ */
 const FIELD_TYPES = [
-  { type: 'SINGLE_SELECT', label: 'Single-select', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-  { type: 'MULTI_SELECT', label: 'Multi-select', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
-  { type: 'DATE', label: 'Date', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
-  { type: 'PEOPLE', label: 'People', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
-  { type: 'TEXT', label: 'Text', icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z' },
-  { type: 'NUMBER', label: 'Number', icon: 'M7 20l4-16m2 16l4-16M6 9h14M4 15h14' },
-  { type: 'CHECKBOX', label: 'Checkbox', icon: 'M5 13l4 4L19 7' },
-  { type: 'TIME_TRACKING', label: 'Time tracking', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+  { type: 'SINGLE_SELECT',  label: 'Single-select',  Icon: CircleDot,   bg: 'bg-violet-100 dark:bg-violet-900/40',  fg: 'text-violet-600 dark:text-violet-400'  },
+  { type: 'MULTI_SELECT',   label: 'Multi-select',   Icon: ListChecks,  bg: 'bg-blue-100 dark:bg-blue-900/40',      fg: 'text-blue-600 dark:text-blue-400'      },
+  { type: 'DATE',           label: 'Date',           Icon: Calendar,    bg: 'bg-orange-100 dark:bg-orange-900/40',  fg: 'text-orange-600 dark:text-orange-400'  },
+  { type: 'PEOPLE',         label: 'People',         Icon: Users,       bg: 'bg-pink-100 dark:bg-pink-900/40',      fg: 'text-pink-600 dark:text-pink-400'      },
+  { type: 'TEXT',           label: 'Text',           Icon: AlignLeft,   bg: 'bg-gray-100 dark:bg-gray-700/60',      fg: 'text-gray-600 dark:text-gray-300'      },
+  { type: 'NUMBER',         label: 'Number',         Icon: Hash,        bg: 'bg-teal-100 dark:bg-teal-900/40',      fg: 'text-teal-600 dark:text-teal-400'      },
+  { type: 'CHECKBOX',       label: 'Checkbox',       Icon: CheckSquare, bg: 'bg-green-100 dark:bg-green-900/40',    fg: 'text-green-600 dark:text-green-400'    },
+  { type: 'TIME_TRACKING',  label: 'Time tracking',  Icon: Timer,       bg: 'bg-amber-100 dark:bg-amber-900/40',    fg: 'text-amber-600 dark:text-amber-400'    },
 ];
 
 function FieldTypePicker({ onSelect, onClose }) {
@@ -954,9 +980,9 @@ function FieldTypePicker({ onSelect, onClose }) {
             {FIELD_TYPES.map(ft => (
               <button key={ft.type} onClick={() => handleTypeSelect(ft)}
                 className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                <svg className="w-4 h-4 text-[var(--asana-text-secondary)] mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={ft.icon} />
-                </svg>
+                <span className={`w-7 h-7 rounded-lg flex items-center justify-center mr-3 flex-shrink-0 ${ft.bg}`}>
+                  <ft.Icon className={`w-3.5 h-3.5 ${ft.fg}`} strokeWidth={2} />
+                </span>
                 <span className="text-sm text-[var(--asana-text-primary)]">{ft.label}</span>
               </button>
             ))}
@@ -975,9 +1001,7 @@ function FieldTypePicker({ onSelect, onClose }) {
           <h2 className="text-base font-bold text-[var(--asana-text-primary)]">Add field</h2>
           <div className="flex items-center space-x-2">
             <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-[var(--asana-text-secondary)] transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-5 h-5" strokeWidth={2} />
             </button>
           </div>
         </div>
@@ -1000,13 +1024,13 @@ function FieldTypePicker({ onSelect, onClose }) {
               <div className="relative" ref={typeDropdownRef}>
                 <button onClick={() => setShowTypeDropdown(!showTypeDropdown)}
                   className="w-full flex items-center px-3 py-2 bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-lg text-sm text-[var(--asana-text-primary)] hover:border-gray-400 dark:hover:border-gray-500 transition-colors">
-                  <svg className="w-4 h-4 text-[var(--asana-text-secondary)] mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={selectedType?.icon} />
-                  </svg>
+                  {selectedType && (
+                    <span className={`w-6 h-6 rounded-md flex items-center justify-center mr-2 flex-shrink-0 ${selectedType.bg}`}>
+                      <selectedType.Icon className={`w-3 h-3 ${selectedType.fg}`} strokeWidth={2} />
+                    </span>
+                  )}
                   <span className="truncate flex-1 text-left">{selectedType?.label}</span>
-                  <svg className="w-3.5 h-3.5 text-[var(--asana-text-secondary)] ml-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <ChevronDown className="w-3.5 h-3.5 text-[var(--asana-text-secondary)] ml-1 flex-shrink-0" strokeWidth={2} />
                 </button>
                 {showTypeDropdown && (
                   <div className="fixed z-[300] w-[180px] bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 max-h-52 overflow-y-auto"
@@ -1014,9 +1038,9 @@ function FieldTypePicker({ onSelect, onClose }) {
                     {FIELD_TYPES.map(ft => (
                       <button key={ft.type} onClick={() => { setSelectedType(ft); setShowTypeDropdown(false); }}
                         className={`w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50 ${selectedType?.type === ft.type ? 'bg-asana-blue/5 text-asana-blue font-medium' : 'text-[var(--asana-text-primary)]'}`}>
-                        <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={ft.icon} />
-                        </svg>
+                        <span className={`w-6 h-6 rounded-md flex items-center justify-center mr-2 flex-shrink-0 ${ft.bg}`}>
+                          <ft.Icon className={`w-3 h-3 ${ft.fg}`} strokeWidth={2} />
+                        </span>
                         {ft.label}
                       </button>
                     ))}
@@ -1057,7 +1081,7 @@ function FieldTypePicker({ onSelect, onClose }) {
                       }} className="w-4 h-4 rounded-full flex-shrink-0 hover:ring-2 hover:ring-gray-300 transition-all" style={{ backgroundColor: c.dot }} title="Change color" />
                       <span className="text-sm text-[var(--asana-text-primary)] flex-1">{opt.value}</span>
                       <button onClick={() => removeOption(i)} className="opacity-0 group-hover/opt:opacity-100 text-[var(--asana-text-secondary)] hover:text-red-500 transition-all">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        <X className="w-3.5 h-3.5" strokeWidth={2} />
                       </button>
                     </div>
                   );
@@ -1244,7 +1268,7 @@ function CustomFieldTimeTracker({ taskId, value, canEdit, onChange }) {
         className={`text-xs flex items-center w-full ${total > 0 || timerStart ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)]'}`}>
         {timerStart && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse mr-1.5" />}
         {timerStart ? <span className="font-mono text-red-500 font-semibold">{timerDisplay}</span> : total > 0 ? fmtMins(total) : (
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <Clock className="w-3.5 h-3.5" strokeWidth={1.75} />
         )}
       </button>
       {showPopup && (
@@ -1257,7 +1281,7 @@ function CustomFieldTimeTracker({ taskId, value, canEdit, onChange }) {
                 <span className="text-sm font-semibold text-[var(--asana-text-primary)] flex-1">{fmtMins(e.mins)}</span>
                 {canEdit && (
                   <button onClick={() => handleDeleteEntry(i)} className="opacity-0 group-hover/entry:opacity-100 p-0.5 text-[var(--asana-text-secondary)] hover:text-red-500">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    <Trash2 className="w-3 h-3" strokeWidth={1.75} />
                   </button>
                 )}
                 <span className="text-[10px] text-[var(--asana-text-secondary)] ml-2">{new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
@@ -1279,7 +1303,7 @@ function CustomFieldTimeTracker({ taskId, value, canEdit, onChange }) {
               <div className="flex items-center space-x-2">
                 {!timerStart ? (
                   <button onClick={handleStartTimer} className="flex items-center text-xs px-3 py-1.5 rounded-md border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 font-medium">
-                    <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <Timer className="w-3.5 h-3.5 mr-1.5" strokeWidth={1.75} />
                     Start timer
                   </button>
                 ) : (
@@ -1315,7 +1339,7 @@ function CustomFieldTimeTracker({ taskId, value, canEdit, onChange }) {
                   </div>
                 ) : (
                   <button onClick={() => setAddingTime(true)} className="flex items-center text-xs px-3 py-1.5 rounded-md border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 font-medium">
-                    <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    <Plus className="w-3.5 h-3.5 mr-1.5" strokeWidth={2} />
                     Add time
                   </button>
                 )}
@@ -1803,6 +1827,46 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
   const [customFieldsRaw, setCustomFieldsRaw] = useState(prefetchedCustomFields || []);
   const [fieldValues, setFieldValues] = useState(prefetchedFieldValues || {}); // { `${fieldId}-${taskId}`: value }
   const [showFieldPicker, setShowFieldPicker] = useState(false);
+  const COL_DEFAULTS = {
+    name: DEFAULT_NAME_W, assignee: DEFAULT_COL_W, dueDate: DEFAULT_COL_W,
+    status: DEFAULT_COL_W, priority: DEFAULT_COL_W, estimatedTime: DEFAULT_COL_W,
+    actualTime: DEFAULT_COL_W, billable: DEFAULT_COL_W,
+  };
+  const colWidthsKey = projectId ? `listview:${projectId}:colWidths` : null;
+  const [colWidths, setColWidths] = useState(() => {
+    try {
+      const saved = colWidthsKey && localStorage.getItem(colWidthsKey);
+      return saved ? { ...COL_DEFAULTS, ...JSON.parse(saved) } : { ...COL_DEFAULTS };
+    } catch { return { ...COL_DEFAULTS }; }
+  });
+
+  // Load from DB on mount (overrides localStorage with server truth)
+  useEffect(() => {
+    if (!projectId) return;
+    api.get(`/api/v1/view-prefs/${projectId}`)
+      .then(res => {
+        const dbWidths = res.data?.colWidths;
+        if (dbWidths && Object.keys(dbWidths).length > 0) {
+          setColWidths(prev => ({ ...COL_DEFAULTS, ...dbWidths }));
+          if (colWidthsKey) localStorage.setItem(colWidthsKey, JSON.stringify({ ...COL_DEFAULTS, ...dbWidths }));
+        }
+      })
+      .catch(() => {/* silently fall back to localStorage */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  // Persist to localStorage and DB (debounced 800ms) whenever widths change
+  const saveColWidthsTimer = useRef(null);
+  useEffect(() => {
+    if (colWidthsKey) localStorage.setItem(colWidthsKey, JSON.stringify(colWidths));
+    if (!projectId) return;
+    if (saveColWidthsTimer.current) clearTimeout(saveColWidthsTimer.current);
+    saveColWidthsTimer.current = setTimeout(() => {
+      api.put(`/api/v1/view-prefs/${projectId}`, { colWidths }).catch(() => {});
+    }, 800);
+    return () => { if (saveColWidthsTimer.current) clearTimeout(saveColWidthsTimer.current); };
+  }, [colWidths, colWidthsKey, projectId]);
+  const cw = useCallback((key) => colWidths[key] ?? DEFAULT_COL_W, [colWidths]);
 
   // Filter custom fields based on the user's role column permissions.
   // If columnAccessMap exists and a field's id is explicitly false, hide it.
@@ -2206,6 +2270,8 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
   };
 
   return (
+    <ColWidthsCtx.Provider value={colWidths}>
+    <SetColWidthsCtx.Provider value={setColWidths}>
     <>
     <DragDropContext
       onDragEnd={handleDragEnd}
@@ -2234,40 +2300,43 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
            otherwise newly-added columns scroll into a transparent area. ── */}
       <div className="sticky top-0 z-30 rounded-t-lg">
         <div className="flex items-stretch border-b border-[var(--asana-border)]/60 w-max min-w-full bg-[var(--asana-surface)]">
-        <div className={`${NAME_COL} px-4 py-2 border-r border-[var(--asana-border)]/40 z-20`}>
+        {/* Name column header */}
+        <div className="flex-shrink-0 sticky left-0 z-20 bg-[var(--asana-surface)] px-4 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center" style={{ width: cw('name') }}>
           <span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Name</span>
+          <ResizeHandle colKey="name" />
         </div>
-        {cols.assignee && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Assignee</span></div>}
-        {cols.dueDate && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Due date</span></div>}
-        {cols.status && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Status</span></div>}
-        {cols.priority && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Priority</span></div>}
-        {cols.estimatedTime && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Estimated ti...</span></div>}
-        {cols.actualTime && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Actual time</span></div>}
-        {cols.billable && <div className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40`}><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate block">Billable</span></div>}
+        {cols.assignee && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('assignee') }}><Users className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Assignee</span><ResizeHandle colKey="assignee" /></div>}
+        {cols.dueDate && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('dueDate') }}><Calendar className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Due date</span><ResizeHandle colKey="dueDate" /></div>}
+        {cols.status && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('status') }}><CircleDot className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Status</span><ResizeHandle colKey="status" /></div>}
+        {cols.priority && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('priority') }}><Flag className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Priority</span><ResizeHandle colKey="priority" /></div>}
+        {cols.estimatedTime && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('estimatedTime') }}><Clock className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Est. time</span><ResizeHandle colKey="estimatedTime" /></div>}
+        {cols.actualTime && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('actualTime') }}><Timer className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Actual time</span><ResizeHandle colKey="actualTime" /></div>}
+        {cols.billable && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('billable') }}><DollarSign className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Billable</span><ResizeHandle colKey="billable" /></div>}
 
         {/* Dynamic custom field columns */}
-        {customFields.map(cf => (
-          <div key={cf.id} className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center justify-between group/col overflow-hidden`}>
-            <span className="text-[11px] font-semibold text-[var(--asana-text-secondary)] truncate">{cf.name}</span>
-              {perm.fieldDelete && (
-                <button onClick={() => deleteCustomField(cf.id)}
-                  className="opacity-0 group-hover/col:opacity-100 w-4 h-4 flex-shrink-0 flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-[var(--asana-text-secondary)] hover:text-red-500 transition-all ml-1">
-                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
+        {customFields.map(cf => {
+          const ft = FIELD_TYPES.find(f => f.type === cf.type);
+          return (
+          <div key={cf.id} className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center gap-1.5 group/col relative" style={{ width: cw(cf.id) }}>
+            {ft && <ft.Icon className={`w-3 h-3 flex-shrink-0 ${ft.fg}`} strokeWidth={1.75} />}
+            <span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate flex-1 min-w-0">{cf.name}</span>
+            {perm.fieldDelete && (
+              <button onClick={() => deleteCustomField(cf.id)}
+                className="opacity-0 group-hover/col:opacity-100 w-4 h-4 flex-shrink-0 flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-[var(--asana-text-secondary)] hover:text-red-500 transition-all">
+                <X className="w-2.5 h-2.5" strokeWidth={2.5} />
+              </button>
+            )}
+            <ResizeHandle colKey={cf.id} />
           </div>
-        ))}
+          );
+        })}
 
         {/* + Add field — pinned to right edge */}
         {perm.fieldCreate && (
           <button onClick={() => setShowFieldPicker(!showFieldPicker)}
             className="sticky right-0 w-9 flex-shrink-0 flex items-center justify-center bg-[var(--asana-surface)] text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
             title="Add field">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
+            <Plus className="w-3.5 h-3.5" strokeWidth={2} />
           </button>
         )}
         </div>
@@ -2299,10 +2368,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                 <div className={`${NAME_COL} flex items-center px-4 py-3`}
                   style={{ background: 'inherit' }}>
                 <button onClick={() => toggleSection(list.id)} className="mr-2.5 flex-shrink-0 p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700/70 transition-colors">
-                  <svg className={`w-3.5 h-3.5 text-[var(--asana-text-secondary)] transition-transform duration-180 ${collapsedSections[list.id] ? '-rotate-90' : ''}`}
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <ChevronDown className={`w-3.5 h-3.5 text-[var(--asana-text-secondary)] transition-transform duration-180 ${collapsedSections[list.id] ? '-rotate-90' : ''}`} strokeWidth={2.5} />
                 </button>
 
                 {editingSectionId === list.id ? (
@@ -2348,17 +2414,13 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                     {perm.sectionEdit && (
                     <button onClick={(e) => { e.stopPropagation(); setEditingSectionId(list.id); setEditingSectionName(list.name); }}
                       className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)]" title="Rename">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
+                      <Pencil className="w-3.5 h-3.5" strokeWidth={1.75} />
                     </button>
                     )}
                     {perm.sectionDelete && (
                     <button onClick={async (e) => { e.stopPropagation(); const ok = await confirm({ title: 'Delete section?', message: `"${list.name}" and all its tasks will be permanently deleted.`, confirmText: 'Delete', variant: 'danger' }); if (!ok) return; emitInstant?.('section_deleted', { listId: resolveId(list.id) }); dispatch({ type: 'board/deleteList/fulfilled', payload: list.id }); queueOrRun(list.id, (realId) => dispatch(deleteList(realId))); }}
                       className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-[var(--asana-text-secondary)] hover:text-red-500" title="Delete">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
                     </button>
                     )}
                   </div>
@@ -2488,21 +2550,21 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                     if (!(estSum > 0 || actSum > 0 || hasCfSums)) return null;
                     return (
                       <div className="flex items-stretch border-t-2 border-t-[var(--asana-border)] bg-gray-50/80 dark:bg-gray-800/40 w-max min-w-full">
-                        <div className={`${NAME_COL} px-4 py-1.5 flex items-center gap-2`}>
+                        <div className="flex-shrink-0 sticky left-0 z-10 bg-gray-50/80 dark:bg-gray-800/40 px-4 py-1.5 flex items-center gap-2" style={{ width: colWidths['name'] ?? DEFAULT_NAME_W }}>
                           <span className="text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">SUM</span>
                           <span className="text-[10px] text-[var(--asana-text-secondary)] truncate">{list.name}</span>
                         </div>
-                        {cols.assignee && <div className="w-[120px] flex-shrink-0 px-3 py-1.5" />}
-                        {cols.dueDate && <div className="w-[120px] flex-shrink-0 px-3 py-1.5" />}
-                        {cols.status && <div className="w-[120px] flex-shrink-0 px-3 py-1.5" />}
-                        {cols.priority && <div className="w-[120px] flex-shrink-0 px-3 py-1.5" />}
-                        {cols.estimatedTime && <div className="w-[120px] flex-shrink-0 px-3 py-1.5"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{estSum > 0 ? formatTime(estSum) : ''}</span></div>}
-                        {cols.actualTime && <div className="w-[120px] flex-shrink-0 px-3 py-1.5"><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{actSum > 0 ? formatTime(actSum) : ''}</span></div>}
-                        {cols.billable && <div className="w-[120px] flex-shrink-0 px-3 py-1.5" />}
+                        {cols.assignee && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['assignee'] ?? DEFAULT_COL_W }} />}
+                        {cols.dueDate && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['dueDate'] ?? DEFAULT_COL_W }} />}
+                        {cols.status && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['status'] ?? DEFAULT_COL_W }} />}
+                        {cols.priority && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['priority'] ?? DEFAULT_COL_W }} />}
+                        {cols.estimatedTime && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['estimatedTime'] ?? DEFAULT_COL_W }}><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{estSum > 0 ? formatTime(estSum) : ''}</span></div>}
+                        {cols.actualTime && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['actualTime'] ?? DEFAULT_COL_W }}><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{actSum > 0 ? formatTime(actSum) : ''}</span></div>}
+                        {cols.billable && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['billable'] ?? DEFAULT_COL_W }} />}
                         {customFields.map(cf => {
                           const cfSum = cfSums[cf.id];
                           return (
-                            <div key={cf.id} className={`${COL_W} px-3 py-1.5`}>
+                            <div key={cf.id} className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths[cf.id] ?? DEFAULT_COL_W }}>
                               {cfSum ? (
                                 <span className="text-xs font-semibold text-[var(--asana-text-primary)]">
                                   {cf.type === 'TIME_TRACKING' ? formatTime(cfSum) :
@@ -2571,25 +2633,25 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
 
         return (
           <div className="flex items-stretch border-t border-[var(--asana-border)]/50 bg-gray-100/50 dark:bg-gray-800/40 font-semibold w-max min-w-full">
-            <div className={`${NAME_COL} px-4 py-2 border-r border-[var(--asana-border)]/40 flex items-center`}>
+            <div className="flex-shrink-0 sticky left-0 z-10 bg-gray-100/50 dark:bg-gray-800/40 px-4 py-2 border-r border-[var(--asana-border)]/40 flex items-center" style={{ width: colWidths['name'] ?? DEFAULT_NAME_W }}>
               <span className="text-xs font-bold text-[var(--asana-text-primary)] uppercase tracking-wider">Total</span>
             </div>
-            {cols.assignee && <div className="w-[120px] flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" />}
-            {cols.dueDate && <div className="w-[120px] flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" />}
-            {cols.status && <div className="w-[120px] flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" />}
-            {cols.priority && <div className="w-[120px] flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" />}
+            {cols.assignee && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" style={{ width: colWidths['assignee'] ?? DEFAULT_COL_W }} />}
+            {cols.dueDate && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" style={{ width: colWidths['dueDate'] ?? DEFAULT_COL_W }} />}
+            {cols.status && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" style={{ width: colWidths['status'] ?? DEFAULT_COL_W }} />}
+            {cols.priority && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" style={{ width: colWidths['priority'] ?? DEFAULT_COL_W }} />}
             {cols.estimatedTime && (
-              <div className="w-[120px] flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
+              <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center" style={{ width: colWidths['estimatedTime'] ?? DEFAULT_COL_W }}>
                 <span className="text-xs font-bold text-[var(--asana-text-primary)]">{totalEst > 0 ? formatTime(totalEst) : ''}</span>
               </div>
             )}
             {cols.actualTime && (
-              <div className="w-[120px] flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center">
+              <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center" style={{ width: colWidths['actualTime'] ?? DEFAULT_COL_W }}>
                 <span className="text-xs font-bold text-[var(--asana-text-primary)]">{totalAct > 0 ? formatTime(totalAct) : ''}</span>
               </div>
             )}
             {customFields.map(cf => (
-              <div key={cf.id} className={`${COL_W} px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center`}>
+              <div key={cf.id} className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center" style={{ width: colWidths[cf.id] ?? DEFAULT_COL_W }}>
                 {cfTotals[cf.id] ? (
                   <span className="text-xs font-bold text-[var(--asana-text-primary)]">
                     {cf.type === 'TIME_TRACKING' ? formatTime(cfTotals[cf.id]) :
@@ -2630,6 +2692,8 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
     </DragDropContext>
     {ConfirmDialog}
   </>
+  </SetColWidthsCtx.Provider>
+  </ColWidthsCtx.Provider>
   );
 }
 

@@ -18,6 +18,7 @@ import inviteRoutes from './modules/invites/inviteRoutes.js';
 import customFieldRoutes from './modules/customFields/customFieldRoutes.js';
 import timeTrackingRoutes from './modules/timeTracking/timeTrackingRoutes.js';
 import reportRoutes from './modules/reports/reportRoutes.js';
+import viewPrefsRoutes from './modules/viewPrefs/viewPrefsRoutes.js';
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/v1/invites', inviteRoutes);
 app.use('/api/v1/custom-fields', customFieldRoutes);
 app.use('/api/v1/time-tracking', timeTrackingRoutes);
 app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/view-prefs', viewPrefsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

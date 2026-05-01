@@ -80,6 +80,7 @@ model User {
   invitesSent       WorkspaceInvite[]
   projectsCreated   Project[]        @relation("ProjectsCreated")
   addedRecipients   ReportRecipient[]
+  viewPreferences   UserViewPreference[]
 
   // Refresh tokens
   refreshToken  String?
@@ -169,6 +170,7 @@ model Project {
   board        Board?
   members      ProjectMember[]
   customFields CustomField[]
+  viewPreferences UserViewPreference[]
 
   @@index([workspaceId])
 }
@@ -437,6 +439,21 @@ model TimeEntry {
 }
 
 // Saved email recipients for sending reports — workspace-scoped
+model UserViewPreference {
+  id        String   @id @default(uuid())
+  colWidths Json     @default("{}")
+  updatedAt DateTime @updatedAt
+
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
+}
+
 model ReportRecipient {
   id          String   @id @default(uuid())
   email       String
