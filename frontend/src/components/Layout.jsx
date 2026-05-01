@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logout } from '../store/slices/authSlice';
@@ -23,8 +23,41 @@ function Layout() {
   const projectsForWorkspaceId = useAppSelector((state) => state.project.projectsForWorkspaceId);
   const { isWorkspaceAdmin, canCreateProject } = useRole();
 
-  // Workspace-level socket for live sidebar updates
-  useWorkspaceSocket();
+  const [toasts, setToasts] = useState([]);
+
+  const dismissToast = useCallback((id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  const handleMyTasksChanged = useCallback((data) => {
+    if (data?.assignedUserId !== user?.id) return;
+    if (data?.action !== 'assigned' && data?.action !== 'reassigned') return;
+
+    const id = Date.now();
+    const toast = { id, taskTitle: data.taskTitle || 'A task', taskId: data.taskId };
+    setToasts(prev => [...prev, toast]);
+    setTimeout(() => dismissToast(id), 6000);
+
+    // Browser notification when tab is not visible
+    if (document.hidden && Notification.permission === 'granted') {
+      const n = new Notification('New task assigned to you', {
+        body: data.taskTitle || 'You have a new task in your inbox',
+        icon: '/favicon.ico',
+        tag: `task-${data.taskId}`,
+      });
+      n.onclick = () => { window.focus(); navigate('/inbox'); n.close(); };
+    }
+  }, [user?.id, navigate, dismissToast]);
+
+  // Request browser notification permission once after login
+  useEffect(() => {
+    if (user && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, [user]);
+
+  // Workspace-level socket for live sidebar updates + inbox notifications
+  useWorkspaceSocket({ onMyTasksChanged: handleMyTasksChanged });
 
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -407,6 +440,40 @@ function Layout() {
         isOpen={showCreateWizard}
         onClose={() => setShowCreateWizard(false)}
       />
+
+      {/* Inbox toast notifications */}
+      <div className="fixed bottom-5 right-5 z-[200] flex flex-col gap-2 pointer-events-none">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className="pointer-events-auto flex items-start gap-3 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-xl px-4 py-3 w-80 animate-slide-in-right"
+          >
+            <div className="w-8 h-8 rounded-full bg-asana-blue/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg className="w-4 h-4 text-asana-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-asana-blue">Task assigned to you</p>
+              <p className="text-sm font-medium text-[var(--asana-text-primary)] truncate mt-0.5">{toast.taskTitle}</p>
+              <button
+                onClick={() => { dismissToast(toast.id); navigate('/inbox'); }}
+                className="mt-1.5 text-xs text-asana-blue hover:underline font-medium"
+              >
+                View Inbox →
+              </button>
+            </div>
+            <button
+              onClick={() => dismissToast(toast.id)}
+              className="text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] transition-colors flex-shrink-0 mt-0.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, Fragment, createContext, useContext } from 'react';
-import { Check, X, Plus, ChevronDown, Pencil, Trash2, Clock, Timer, Calendar, Users, Hash, Type, CheckSquare, ListChecks, CircleDot, Link2, Flag, DollarSign, GripVertical, AlignLeft } from 'lucide-react';
+import { Check, X, Plus, ChevronDown, Pencil, Trash2, Clock, Timer, Calendar, Users, Hash, Type, CheckSquare, ListChecks, CircleDot, Link2, Flag, DollarSign, GripVertical, AlignLeft, Circle, Diamond, Star } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { createTask, createSubtask, updateTask, assignUser, reassignUser, deleteTask, moveTask as moveTaskAction } from '../../store/slices/taskSlice';
@@ -249,11 +249,7 @@ function StatusPicker({ taskId, currentStatus, onClose, onDone, onCelebrate, emi
         <button key={key} onClick={() => handleChange(key)}
           className="w-full flex items-center px-3 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
           <span className={`inline-block px-2.5 py-1 rounded text-[12px] font-semibold ${cfg.cls}`}>{cfg.label}</span>
-          {currentStatus === key && (
-            <svg className="w-3.5 h-3.5 ml-auto text-asana-blue" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-          )}
+          {currentStatus === key && <Check className="w-3.5 h-3.5 ml-auto text-asana-blue" strokeWidth={2.5} />}
         </button>
       ))}
     </div>
@@ -581,15 +577,15 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
             {/* Convert to submenu */}
             <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Convert to</div>
             {[
-              { type: 'DEFAULT_TASK', label: 'Task', icon: <circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" strokeWidth="2" /> },
-              { type: 'MILESTONE', label: 'Milestone', icon: <rect x="4" y="4" width="12" height="12" rx="1" fill="none" stroke="currentColor" strokeWidth="2" transform="rotate(45 10 10)" /> },
-              { type: 'APPROVAL', label: 'Approval', icon: <path d="M10 3l2.5 5h5.5l-4.5 3.5 1.5 5.5L10 14l-5 3 1.5-5.5L2 8h5.5z" fill="none" stroke="currentColor" strokeWidth="1.5" /> },
+              { type: 'DEFAULT_TASK', label: 'Task',      Icon: Circle  },
+              { type: 'MILESTONE',    label: 'Milestone', Icon: Diamond },
+              { type: 'APPROVAL',     label: 'Approval',  Icon: Star    },
             ].map(item => (
               <button key={item.type} onClick={(e) => { e.stopPropagation(); handleConvertTo(item.type); }}
                 className={`w-full flex items-center px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 ${task.taskType === item.type ? 'text-asana-blue font-semibold' : 'text-[var(--asana-text-primary)]'}`}>
-                <svg className="w-4 h-4 mr-2.5" viewBox="0 0 20 20" fill="none">{item.icon}</svg>
+                <item.Icon className="w-4 h-4 mr-2.5 flex-shrink-0" strokeWidth={1.75} />
                 {item.label}
-                {task.taskType === item.type && <svg className="w-3.5 h-3.5 ml-auto text-asana-blue" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                {task.taskType === item.type && <Check className="w-3.5 h-3.5 ml-auto text-asana-blue flex-shrink-0" strokeWidth={2.5} />}
               </button>
             ))}
             <div className="border-t border-[var(--asana-border)] my-1" />
@@ -634,28 +630,21 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
 
         {/* Task icon — Circle / Diamond / Approval with completion animation */}
         {isMilestone ? (
-          <button onClick={toggleComplete} className={`flex-shrink-0 mr-3 relative ${justCompleted ? 'celebrate-burst' : ''}`}>
-            <svg width="18" height="18" viewBox="0 0 18 18" style={{ overflow: 'visible' }} className={`flex-shrink-0 ${justCompleted ? 'check-pop' : ''}`}>
-              <rect x="3" y="3" width="12" height="12" rx="1.5"
-                transform="rotate(45 9 9)"
-                className={`transition-all duration-300 ${task.status === 'DONE' ? 'fill-green-500 stroke-green-500' : 'fill-transparent stroke-gray-400 dark:stroke-gray-500 group-hover:stroke-green-400'}`}
-                strokeWidth="2" />
+          <button onClick={toggleComplete}
+            className={`w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center mr-3 relative transition-all duration-300 ${justCompleted ? 'celebrate-burst' : ''}`}>
+            <div className={`w-[14px] h-[14px] rotate-45 rounded-[2px] border-2 flex items-center justify-center transition-all duration-300 ${justCompleted ? 'check-pop' : ''} ${task.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-400 dark:border-gray-500 group-hover:border-green-400'}`}>
               {task.status === 'DONE' && (
-                <path d="M6.5 9.5L8 11L11.5 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"
-                  className={justCompleted ? 'check-draw' : ''} />
+                <Check className={`w-[8px] h-[8px] text-white -rotate-45 ${justCompleted ? 'check-draw' : ''}`} strokeWidth={4} />
               )}
-            </svg>
+            </div>
           </button>
         ) : isApproval ? (
-          <button onClick={toggleComplete} className={`flex-shrink-0 mr-3 relative ${justCompleted ? 'celebrate-burst' : ''}`}>
-            <svg width="18" height="18" viewBox="0 0 18 18" style={{ overflow: 'visible' }} className={`flex-shrink-0 ${justCompleted ? 'check-pop' : ''}`}>
-              <circle cx="9" cy="9" r="8"
-                className={`transition-all duration-300 ${task.status === 'DONE' ? 'fill-green-500 stroke-green-500' : 'fill-transparent stroke-purple-400 dark:stroke-purple-500 group-hover:stroke-green-400'}`}
-                strokeWidth="1.5" />
-              <path d="M6 9l2 2 4-4" stroke={task.status === 'DONE' ? 'white' : 'currentColor'}
-                className={`${task.status === 'DONE' ? '' : 'text-purple-400'} ${justCompleted ? 'check-draw' : ''}`}
-                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            </svg>
+          <button onClick={toggleComplete}
+            className={`w-[18px] h-[18px] rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-3 transition-all duration-300 relative ${
+              task.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-purple-400 dark:border-purple-500 group-hover:border-green-400'
+            } ${justCompleted ? 'check-pop celebrate-burst' : ''}`}>
+            {justCompleted && <span className="ripple-ring" />}
+            <Check className={`w-2.5 h-2.5 ${task.status === 'DONE' ? 'text-white' : 'text-purple-400 dark:text-purple-500'} ${justCompleted ? 'check-draw' : ''}`} strokeWidth={2.5} />
           </button>
         ) : (
           <button onClick={toggleComplete}
@@ -664,9 +653,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
             } ${justCompleted ? 'check-pop celebrate-burst' : ''}`}>
             {justCompleted && <span className="ripple-ring" />}
             {task.status === 'DONE' && (
-              <svg className={`w-2.5 h-2.5 text-white ${justCompleted ? 'check-draw' : ''}`} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 10l4 4L15 6" className={justCompleted ? 'check-draw' : ''} />
-              </svg>
+              <Check className={`w-2.5 h-2.5 text-white ${justCompleted ? 'check-draw' : ''}`} strokeWidth={3} />
             )}
           </button>
         )}
@@ -716,10 +703,8 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
                 <span className="text-xs text-[var(--asana-text-primary)] truncate">{task.assignees[0].user?.name}</span>
               </>
             ) : (
-              <div className="w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center transition-opacity">
-                <svg className="w-3 h-3 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+              <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700/80 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
+                <Users className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 group-hover:text-asana-blue transition-colors" strokeWidth={1.5} />
               </div>
             )}
           </button>
@@ -745,7 +730,10 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
                   {meta.rel}
                 </span>
               ) : (
-                <Calendar className="w-4 h-4 text-[var(--asana-text-secondary)] transition-opacity" strokeWidth={1.75} />
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors">
+                  <Calendar className="w-3.5 h-3.5 text-orange-400 dark:text-orange-500" strokeWidth={1.75} />
+                  <span className="text-[11px] text-orange-400 dark:text-orange-500 font-medium">Set date</span>
+                </div>
               )}
             </div>
           ) : meta ? (
@@ -855,9 +843,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
                     {opt.label}
                   </span>
                   {opt.value === task.billable && (
-                    <svg className="w-3.5 h-3.5 text-asana-blue ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
+                    <Check className="w-3.5 h-3.5 text-asana-blue ml-auto flex-shrink-0" strokeWidth={2.5} />
                   )}
                 </button>
               ))}
@@ -1405,7 +1391,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
     return (
       <button onClick={() => canEdit && onChange(value === 'true' ? 'false' : 'true')}
         className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${value === 'true' ? 'bg-asana-blue border-asana-blue' : 'border-gray-300 dark:border-gray-600'} ${canEdit ? 'cursor-pointer' : ''}`}>
-        {value === 'true' && <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+        {value === 'true' && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
       </button>
     );
   }
@@ -1443,7 +1429,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
                     <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.dot }} />
                     {opt.value}
                   </span>
-                  {value === opt.value && <svg className="w-3.5 h-3.5 ml-auto text-asana-blue flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                  {value === opt.value && <Check className="w-3.5 h-3.5 ml-auto text-asana-blue flex-shrink-0" strokeWidth={2.5} />}
                 </button>
               );
             })}
@@ -1500,7 +1486,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
                     <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.dot }} />
                     {opt.value}
                   </span>
-                  {isSelected && <svg className="w-3.5 h-3.5 ml-auto text-asana-blue flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                  {isSelected && <Check className="w-3.5 h-3.5 ml-auto text-asana-blue flex-shrink-0" strokeWidth={2.5} />}
                 </button>
               );
             })}
@@ -1685,9 +1671,7 @@ function AddSubtaskFooter({ task, depth, listId, addingSubtaskTo, setAddingSubta
               <span className="w-4 mr-1 flex-shrink-0" />
               <span className="w-[18px] mr-1.5 flex-shrink-0" />
               <span className="w-[18px] h-[18px] rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 group-hover/addsub:border-asana-blue flex items-center justify-center mr-3 flex-shrink-0 transition-colors">
-                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
+                <Plus className="w-2.5 h-2.5" strokeWidth={2.5} />
               </span>
               Add subtask...
             </button>
@@ -2334,7 +2318,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
         {/* + Add field — pinned to right edge */}
         {perm.fieldCreate && (
           <button onClick={() => setShowFieldPicker(!showFieldPicker)}
-            className="sticky right-0 w-9 flex-shrink-0 flex items-center justify-center bg-[var(--asana-surface)] text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
+            className="sticky right-0 w-9 flex-shrink-0 flex items-center justify-center bg-[var(--asana-surface)] border-b border-l border-[var(--asana-border)]/60 text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
             title="Add field">
             <Plus className="w-3.5 h-3.5" strokeWidth={2} />
           </button>
@@ -2526,9 +2510,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                           <span className="w-4 mr-1 flex-shrink-0" />
                           <span className="w-[18px] mr-1.5 flex-shrink-0" />
                           <span className="w-[18px] h-[18px] rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 group-hover/add:border-asana-blue flex items-center justify-center mr-3 flex-shrink-0 transition-colors">
-                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                            </svg>
+                            <Plus className="w-2.5 h-2.5" strokeWidth={2.5} />
                           </span>
                           Add task
                           <span className="ml-2 text-[10px] text-gray-400 dark:text-gray-500 opacity-0 group-hover/add:opacity-100 transition-opacity">press T</span>
@@ -2682,9 +2664,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
       <div className="px-1 py-2 mt-1">
         <button onClick={() => { setAddingSection(true); setNewSectionName(''); }}
           className="flex items-center text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] text-sm transition-colors px-3 py-1">
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          <Plus className="w-4 h-4 mr-2" strokeWidth={2} />
           Add section
         </button>
       </div>

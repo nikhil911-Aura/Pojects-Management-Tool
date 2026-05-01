@@ -8,12 +8,14 @@ import { socketWorkspaceMemberRoleChanged, socketWorkspaceRoleUpdated } from '..
  * Workspace-level socket — listens for project CRUD events
  * so the sidebar updates live when someone creates/deletes/renames a project.
  */
-export const useWorkspaceSocket = () => {
+export const useWorkspaceSocket = ({ onMyTasksChanged } = {}) => {
   const dispatch = useAppDispatch();
   const { currentWorkspace } = useAppSelector((state) => state.workspace);
   const { user: currentUser } = useAppSelector((state) => state.auth);
   const workspaceId = currentWorkspace?.id;
   const socketRef = useRef(null);
+  const onMyTasksChangedRef = useRef(onMyTasksChanged);
+  onMyTasksChangedRef.current = onMyTasksChanged;
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -90,6 +92,11 @@ export const useWorkspaceSocket = () => {
       if (data?.roleId) dispatch(socketRoleDeleted(data));
     });
 
+    // Inbox notifications — task assigned/reassigned to current user
+    socket.on('my_tasks_changed', (data) => {
+      onMyTasksChangedRef.current?.(data);
+    });
+
     return () => {
       socket.emit('leave_workspace', workspaceId);
       socket.off('connect');
@@ -102,6 +109,7 @@ export const useWorkspaceSocket = () => {
       socket.off('project_role_updated');
       socket.off('project_role_deleted');
       socket.off('workspace_member_role_changed');
+      socket.off('my_tasks_changed');
       socket.disconnect();
     };
   }, [workspaceId, currentUser?.id, dispatch]);

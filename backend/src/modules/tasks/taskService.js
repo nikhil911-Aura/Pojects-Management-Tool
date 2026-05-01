@@ -469,7 +469,7 @@ export const taskService = {
 
     emitToProject(projectId, 'user_assigned', { taskId, assignee }, excludeSocketId);
     // Notify workspace so My Tasks pages refresh
-    emitToWorkspace(workspaceId, 'my_tasks_changed', { affectedUserIds: [assigneeId], action: 'assigned', taskId });
+    emitToWorkspace(workspaceId, 'my_tasks_changed', { affectedUserIds: [assigneeId], action: 'assigned', taskId, assignedUserId: assigneeId, taskTitle: task.title });
     return assignee;
   },
 
@@ -499,7 +499,7 @@ export const taskService = {
     emitToProject(projectId, 'task_reassigned', { taskId, assignee, removedUserIds: oldUserIds }, excludeSocketId);
     // Notify all affected users (old + new) so My Tasks pages refresh
     const allAffected = Array.from(new Set([...oldUserIds, newAssigneeId]));
-    emitToWorkspace(workspaceId, 'my_tasks_changed', { affectedUserIds: allAffected, action: 'reassigned', taskId });
+    emitToWorkspace(workspaceId, 'my_tasks_changed', { affectedUserIds: allAffected, action: 'reassigned', taskId, assignedUserId: newAssigneeId, taskTitle: task.title });
     return assignee;
   },
 
