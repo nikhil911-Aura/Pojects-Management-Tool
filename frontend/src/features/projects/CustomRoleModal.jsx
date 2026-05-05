@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useAppSelector } from '../../store/hooks';
 import { io } from 'socket.io-client';
 import api from '../../services/api';
@@ -153,20 +153,20 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
 
   return (
     <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/50" onClick={onCancel}>
-      <div className="bg-[var(--asana-surface)] rounded-xl shadow-2xl w-full max-w-lg border border-[var(--asana-border)] animate-fade-in" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-[var(--karya-surface)] rounded-xl shadow-2xl w-full max-w-lg border border-[var(--karya-border)] animate-fade-in" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--asana-border)]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--karya-border)]">
           <div>
-            <h2 className="text-base font-bold text-[var(--asana-text-primary)]">
+            <h2 className="text-base font-bold text-[var(--karya-text-primary)]">
               {showNameField ? 'Create Custom Role' : 'Edit Permissions'}
             </h2>
             {memberName && (
-              <p className="text-xs text-[var(--asana-text-secondary)] mt-0.5">
+              <p className="text-xs text-[var(--karya-text-secondary)] mt-0.5">
                 for <span className="font-semibold">{memberName}</span>
               </p>
             )}
           </div>
-          <button onClick={onCancel} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-[var(--asana-text-secondary)] transition-colors">
+          <button onClick={onCancel} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-[var(--karya-text-secondary)] transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -177,22 +177,22 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
         <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
           {loading ? (
             <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-asana-blue" />
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-karya-blue" />
             </div>
           ) : (
             <>
               {/* Role name */}
               {showNameField && (
                 <div className="mb-4">
-                  <label className="block text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-1.5">Role name</label>
+                  <label className="block text-xs font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider mb-1.5">Role name</label>
                   <input
                     type="text" value={roleName}
                     onChange={(e) => { setRoleName(e.target.value); if (error) setError(''); }}
                     placeholder="e.g. QA Tester, Client Reviewer" autoFocus
-                    className={`w-full px-3 py-2 text-sm bg-[var(--asana-bg)] border rounded-lg text-[var(--asana-text-primary)] outline-none focus:ring-1 ${
+                    className={`w-full px-3 py-2 text-sm bg-[var(--karya-bg)] border rounded-lg text-[var(--karya-text-primary)] outline-none focus:ring-1 ${
                       error
                         ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-                        : 'border-[var(--asana-border)] focus:border-asana-blue focus:ring-asana-blue'
+                        : 'border-[var(--karya-border)] focus:border-karya-blue focus:ring-karya-blue'
                     }`}
                   />
                   {error && (
@@ -208,27 +208,27 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
 
               {/* Quick actions */}
               <div className="flex items-center justify-between mb-4">
-                <span className="text-xs text-[var(--asana-text-secondary)]">
+                <span className="text-xs text-[var(--karya-text-secondary)]">
                   {totalEnabled} of {totalKeys} permissions enabled
                 </span>
                 <div className="flex items-center space-x-2">
-                  <button onClick={selectAll} className="text-[11px] font-semibold text-asana-blue hover:underline">Select all</button>
-                  <span className="text-[var(--asana-text-secondary)]">·</span>
-                  <button onClick={deselectAll} className="text-[11px] font-semibold text-[var(--asana-text-secondary)] hover:underline">Deselect all</button>
+                  <button onClick={selectAll} className="text-[11px] font-semibold text-karya-blue hover:underline">Select all</button>
+                  <span className="text-[var(--karya-text-secondary)]">·</span>
+                  <button onClick={deselectAll} className="text-[11px] font-semibold text-[var(--karya-text-secondary)] hover:underline">Deselect all</button>
                 </div>
               </div>
 
               {/* Permission groups */}
               {Object.entries(groups).map(([groupName, keys]) => (
                 <div key={groupName} className="mb-5">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] mb-2">{groupName}</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--karya-text-secondary)] mb-2">{groupName}</h3>
                   <div className="space-y-1">
                     {keys.map((k) => (
                       <label key={k.key} className="flex items-center px-3 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/40 cursor-pointer transition-colors group/perm">
                         <div className="relative flex-shrink-0 mr-3">
                           <input type="checkbox" checked={!!perms[k.key]} onChange={() => toggle(k.key)} className="sr-only" />
                           <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
-                            perms[k.key] ? 'bg-asana-blue border-asana-blue' : 'border-gray-300 dark:border-gray-600 group-hover/perm:border-asana-blue/50'
+                            perms[k.key] ? 'bg-karya-blue border-karya-blue' : 'border-gray-300 dark:border-gray-600 group-hover/perm:border-karya-blue/50'
                           }`}>
                             {perms[k.key] && (
                               <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -237,7 +237,7 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
                             )}
                           </div>
                         </div>
-                        <span className="text-sm text-[var(--asana-text-primary)]">{k.label}</span>
+                        <span className="text-sm text-[var(--karya-text-primary)]">{k.label}</span>
                       </label>
                     ))}
                   </div>
@@ -247,9 +247,9 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
               {/* Custom Columns section */}
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--asana-text-secondary)]">Custom Columns</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--karya-text-secondary)]">Custom Columns</h3>
                   {customColumns.length > 0 && (
-                    <span className="text-[10px] text-[var(--asana-text-muted)]">
+                    <span className="text-[10px] text-[var(--karya-text-muted)]">
                       {enabledColCount}/{customColumns.length} visible
                       {activeProjectId && (
                         <span className="ml-1.5 inline-flex items-center">
@@ -266,7 +266,7 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
                   <div className="mb-3 relative" ref={pickerRef}>
                     <button
                       onClick={() => { setShowProjectPicker(!showProjectPicker); setProjectSearch(''); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-sm bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-lg text-[var(--asana-text-primary)] hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+                      className="w-full flex items-center justify-between px-3 py-2 text-sm bg-[var(--karya-bg)] border border-[var(--karya-border)] rounded-lg text-[var(--karya-text-primary)] hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
                     >
                       {selectedProjectId ? (
                         <div className="flex items-center space-x-2 min-w-0">
@@ -275,9 +275,9 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
                           <span className="truncate">{(projects || []).find(p => p.id === selectedProjectId)?.name || 'Project'}</span>
                         </div>
                       ) : (
-                        <span className="text-[var(--asana-text-muted)]">Select a project...</span>
+                        <span className="text-[var(--karya-text-muted)]">Select a project...</span>
                       )}
-                      <svg className={`w-3.5 h-3.5 text-[var(--asana-text-secondary)] flex-shrink-0 ml-2 transition-transform ${showProjectPicker ? 'rotate-180' : ''}`}
+                      <svg className={`w-3.5 h-3.5 text-[var(--karya-text-secondary)] flex-shrink-0 ml-2 transition-transform ${showProjectPicker ? 'rotate-180' : ''}`}
                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
@@ -286,13 +286,13 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
                     {showProjectPicker && (
                       <>
                         <div className="fixed inset-0 z-[10]" onClick={() => setShowProjectPicker(false)} />
-                        <div className="absolute bottom-full left-0 right-0 mb-1 z-[20] bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl overflow-hidden animate-fade-in">
+                        <div className="absolute bottom-full left-0 right-0 mb-1 z-[20] bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl shadow-2xl overflow-hidden animate-fade-in">
                           {/* Search */}
-                          <div className="p-2 border-b border-[var(--asana-border)]">
+                          <div className="p-2 border-b border-[var(--karya-border)]">
                             <input
                               type="text" value={projectSearch} onChange={(e) => setProjectSearch(e.target.value)}
                               placeholder="Search projects..." autoFocus
-                              className="w-full px-2.5 py-1.5 text-xs bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-md text-[var(--asana-text-primary)] outline-none focus:border-asana-blue placeholder-[var(--asana-text-muted)]"
+                              className="w-full px-2.5 py-1.5 text-xs bg-[var(--karya-bg)] border border-[var(--karya-border)] rounded-md text-[var(--karya-text-primary)] outline-none focus:border-karya-blue placeholder-[var(--karya-text-muted)]"
                             />
                           </div>
                           {/* Project list */}
@@ -304,23 +304,23 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
                                   key={p.id}
                                   onClick={() => { setSelectedProjectId(p.id); setShowProjectPicker(false); }}
                                   className={`w-full flex items-center px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
-                                    p.id === selectedProjectId ? 'bg-asana-blue/5' : ''
+                                    p.id === selectedProjectId ? 'bg-karya-blue/5' : ''
                                   }`}
                                 >
                                   <div className="w-5 h-5 rounded flex items-center justify-center text-white text-[9px] font-bold mr-2.5 flex-shrink-0"
                                     style={{ backgroundColor: p.color || '#4573D2' }}>
                                     {p.name?.charAt(0).toUpperCase()}
                                   </div>
-                                  <span className="text-sm text-[var(--asana-text-primary)] truncate">{p.name}</span>
+                                  <span className="text-sm text-[var(--karya-text-primary)] truncate">{p.name}</span>
                                   {p.id === selectedProjectId && (
-                                    <svg className="w-4 h-4 text-asana-blue ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <svg className="w-4 h-4 text-karya-blue ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                     </svg>
                                   )}
                                 </button>
                               ))}
                             {(projects || []).filter(p => !projectSearch || p.name.toLowerCase().includes(projectSearch.toLowerCase())).length === 0 && (
-                              <p className="text-xs text-[var(--asana-text-muted)] text-center py-3">No projects found</p>
+                              <p className="text-xs text-[var(--karya-text-muted)] text-center py-3">No projects found</p>
                             )}
                           </div>
                         </div>
@@ -330,13 +330,13 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
                 )}
 
                 {!activeProjectId && !showProjectPicker && (
-                  <p className="text-xs text-[var(--asana-text-muted)] italic px-3 py-2">
+                  <p className="text-xs text-[var(--karya-text-muted)] italic px-3 py-2">
                     Select a project above to configure column access.
                   </p>
                 )}
 
                 {activeProjectId && customColumns.length === 0 && (
-                  <p className="text-xs text-[var(--asana-text-muted)] italic px-3 py-2">
+                  <p className="text-xs text-[var(--karya-text-muted)] italic px-3 py-2">
                     This project has no custom columns yet.
                   </p>
                 )}
@@ -348,7 +348,7 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
                         <div className="relative flex-shrink-0 mr-3">
                           <input type="checkbox" checked={!!columnPerms[col.id]} onChange={() => toggleColumn(col.id)} className="sr-only" />
                           <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
-                            columnPerms[col.id] ? 'bg-asana-blue border-asana-blue' : 'border-gray-300 dark:border-gray-600 group-hover/perm:border-asana-blue/50'
+                            columnPerms[col.id] ? 'bg-karya-blue border-karya-blue' : 'border-gray-300 dark:border-gray-600 group-hover/perm:border-karya-blue/50'
                           }`}>
                             {columnPerms[col.id] && (
                               <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -358,8 +358,8 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm text-[var(--asana-text-primary)]">{col.name}</span>
-                          <span className="text-[10px] text-[var(--asana-text-muted)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                          <span className="text-sm text-[var(--karya-text-primary)]">{col.name}</span>
+                          <span className="text-[10px] text-[var(--karya-text-muted)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
                             {col.type?.replace(/_/g, ' ').toLowerCase()}
                           </span>
                         </div>
@@ -373,14 +373,14 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end px-6 py-4 border-t border-[var(--asana-border)] space-x-2">
+        <div className="flex items-center justify-end px-6 py-4 border-t border-[var(--karya-border)] space-x-2">
           <button onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+            className="px-4 py-2 text-sm font-medium text-[var(--karya-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
             Cancel
           </button>
           <button onClick={handleSave}
             disabled={saving || loading || (showNameField && !roleName.trim())}
-            className="px-4 py-2 text-sm font-medium bg-asana-blue text-white rounded-md hover:brightness-110 disabled:opacity-50 transition-all">
+            className="px-4 py-2 text-sm font-medium bg-karya-blue text-white rounded-md hover:brightness-110 disabled:opacity-50 transition-all">
             {saving ? 'Saving...' : showNameField ? 'Create Role' : 'Save Permissions'}
           </button>
         </div>

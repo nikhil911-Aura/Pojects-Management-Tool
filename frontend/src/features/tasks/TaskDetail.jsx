@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+﻿import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchTask, updateTask, createSubtask, deleteTask, assignUser, addAttachment, removeAttachment } from '../../store/slices/taskSlice';
@@ -67,11 +67,11 @@ function MilestoneProjects({ taskId }) {
   if (loading) return null;
 
   return (
-    <div className="pt-4 border-t border-[var(--asana-border)]">
+    <div className="pt-4 border-t border-[var(--karya-border)]">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
-          <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Projects</h3>
-          <span className="text-[10px] font-bold text-asana-blue bg-asana-blue/10 px-1.5 py-0.5 rounded-full">
+          <h3 className="text-xs font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider">Projects</h3>
+          <span className="text-[10px] font-bold text-karya-blue bg-karya-blue/10 px-1.5 py-0.5 rounded-full">
             {linkedProjects.length}
           </span>
         </div>
@@ -79,7 +79,7 @@ function MilestoneProjects({ taskId }) {
         <div className="relative" ref={pickerRef}>
           <button
             onClick={() => setShowPicker(!showPicker)}
-            className="text-xs font-medium text-asana-blue hover:underline flex items-center"
+            className="text-xs font-medium text-karya-blue hover:underline flex items-center"
           >
             <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -88,17 +88,17 @@ function MilestoneProjects({ taskId }) {
           </button>
 
           {showPicker && (
-            <div className="absolute right-0 top-full mt-1 z-[100] w-64 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl overflow-hidden animate-fade-in">
-              <div className="p-2 border-b border-[var(--asana-border)]">
+            <div className="absolute right-0 top-full mt-1 z-[100] w-64 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl shadow-2xl overflow-hidden animate-fade-in">
+              <div className="p-2 border-b border-[var(--karya-border)]">
                 <input
                   type="text" value={search} onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search projects..." autoFocus
-                  className="w-full px-2.5 py-1.5 text-xs bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-md text-[var(--asana-text-primary)] outline-none focus:border-asana-blue placeholder-[var(--asana-text-muted)]"
+                  className="w-full px-2.5 py-1.5 text-xs bg-[var(--karya-bg)] border border-[var(--karya-border)] rounded-md text-[var(--karya-text-primary)] outline-none focus:border-karya-blue placeholder-[var(--karya-text-muted)]"
                 />
               </div>
               <div className="max-h-48 overflow-y-auto py-1">
                 {availableProjects.length === 0 ? (
-                  <p className="text-xs text-[var(--asana-text-muted)] text-center py-3">
+                  <p className="text-xs text-[var(--karya-text-muted)] text-center py-3">
                     {search ? 'No matching projects' : 'Already in all projects'}
                   </p>
                 ) : (
@@ -113,7 +113,7 @@ function MilestoneProjects({ taskId }) {
                         style={{ backgroundColor: p.color || '#4573D2' }}>
                         {p.name?.charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-sm text-[var(--asana-text-primary)] truncate">{p.name}</span>
+                      <span className="text-sm text-[var(--karya-text-primary)] truncate">{p.name}</span>
                     </button>
                   ))
                 )}
@@ -129,9 +129,9 @@ function MilestoneProjects({ taskId }) {
         {linkedProjects.map(lp => (
           <div key={lp.projectId} className="flex items-center space-x-2.5 px-2 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors group/mp">
             <div className="w-4 h-4 rounded flex-shrink-0" style={{ backgroundColor: lp.projectColor || '#4573D2' }} />
-            <span className="text-sm text-[var(--asana-text-primary)] truncate flex-1">{lp.projectName}</span>
+            <span className="text-sm text-[var(--karya-text-primary)] truncate flex-1">{lp.projectName}</span>
             {lp.isHome ? (
-              <span className="text-[9px] text-[var(--asana-text-muted)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex-shrink-0">Home</span>
+              <span className="text-[9px] text-[var(--karya-text-muted)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex-shrink-0">Home</span>
             ) : can('milestone.remove') && (
               <button
                 onClick={async () => {
@@ -140,7 +140,7 @@ function MilestoneProjects({ taskId }) {
                     setLinkedProjects(prev => prev.filter(p => p.projectId !== lp.projectId));
                   } catch (err) { console.error('Failed to remove:', err); }
                 }}
-                className="opacity-0 group-hover/mp:opacity-100 p-0.5 rounded text-[var(--asana-text-secondary)] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0"
+                className="opacity-0 group-hover/mp:opacity-100 p-0.5 rounded text-[var(--karya-text-secondary)] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0"
                 title="Remove from this project"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -224,14 +224,14 @@ function DetailAssigneePicker({ taskId, members, onClose, onDone, onOptimisticAs
   };
 
   return (
-    <div ref={ref} className="absolute z-50 top-full left-0 mt-1 w-60 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl animate-fade-in">
+    <div ref={ref} className="absolute z-50 top-full left-0 mt-1 w-60 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg shadow-xl animate-fade-in">
       <div className="p-2">
         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search people..."
-          autoFocus className="w-full px-2.5 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 rounded-md border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400" />
+          autoFocus className="w-full px-2.5 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 rounded-md border-none outline-none text-[var(--karya-text-primary)] placeholder-gray-400" />
       </div>
       <div className="max-h-44 overflow-y-auto">
         {/* Unassign option */}
-        <button onClick={() => handleAssign(null)} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-xs text-[var(--asana-text-secondary)]">
+        <button onClick={() => handleAssign(null)} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-xs text-[var(--karya-text-secondary)]">
           <div className="w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center mr-2.5">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </div>
@@ -246,7 +246,7 @@ function DetailAssigneePicker({ taskId, members, onClose, onDone, onOptimisticAs
                 style={{ backgroundColor: `hsl($((u.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                 {u.name?.charAt(0).toUpperCase()}
               </div>
-              <span className="text-xs text-[var(--asana-text-primary)] truncate">{u.name}</span>
+              <span className="text-xs text-[var(--karya-text-primary)] truncate">{u.name}</span>
             </button>
           );
         })}
@@ -349,7 +349,7 @@ function TimeField({ label, taskId, field, value, canEdit, onUpdate, onOptimisti
 
   return (
     <div className="flex items-center relative">
-      <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">{label}</span>
+      <span className="w-28 text-[var(--karya-text-secondary)] text-xs font-medium flex-shrink-0">{label}</span>
       {editing ? (
         <div className="flex-1 relative">
           <input
@@ -358,7 +358,7 @@ function TimeField({ label, taskId, field, value, canEdit, onUpdate, onOptimisti
             onChange={(e) => { setInput(e.target.value); setShowSuggestions(true); }}
             placeholder="e.g. 1h 30m"
             autoFocus
-            className="w-full bg-transparent border-b border-asana-blue/40 py-1 px-1.5 text-sm text-[var(--asana-text-primary)] outline-none"
+            className="w-full bg-transparent border-b border-karya-blue/40 py-1 px-1.5 text-sm text-[var(--karya-text-primary)] outline-none"
             onBlur={() => setTimeout(save, 150)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') save();
@@ -366,15 +366,15 @@ function TimeField({ label, taskId, field, value, canEdit, onUpdate, onOptimisti
             }}
           />
           {showSuggestions && filtered.length > 0 && (
-            <div className="absolute left-0 top-full mt-1 w-40 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl z-50 py-1 max-h-56 overflow-y-auto">
+            <div className="absolute left-0 top-full mt-1 w-40 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg shadow-xl z-50 py-1 max-h-56 overflow-y-auto">
               {filtered.map(s => (
                 <button
                   key={s.label}
                   onMouseDown={(e) => { e.preventDefault(); commit(s.mins); }}
-                  className="w-full text-left px-3 py-1.5 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 flex items-center justify-between"
+                  className="w-full text-left px-3 py-1.5 text-xs text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 flex items-center justify-between"
                 >
                   <span className="font-medium">{s.label}</span>
-                  <span className="text-[10px] text-[var(--asana-text-secondary)]">{s.mins} min</span>
+                  <span className="text-[10px] text-[var(--karya-text-secondary)]">{s.mins} min</span>
                 </button>
               ))}
             </div>
@@ -382,7 +382,7 @@ function TimeField({ label, taskId, field, value, canEdit, onUpdate, onOptimisti
         </div>
       ) : (
         <span onClick={startEdit}
-          className={`text-sm p-1.5 rounded transition-colors flex-1 ${canEdit ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : ''} ${value != null ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)]'}`}>
+          className={`text-sm p-1.5 rounded transition-colors flex-1 ${canEdit ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : ''} ${value != null ? 'text-[var(--karya-text-primary)]' : 'text-[var(--karya-text-secondary)]'}`}>
           {value != null ? formatTime(value) : 'No time set'}
         </span>
       )}
@@ -576,7 +576,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
   if (!task) {
     return (
       <div className="flex items-center justify-center h-full p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-asana-blue" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-karya-blue" />
       </div>
     );
   }
@@ -584,12 +584,12 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
   const projectName = task.list?.board?.project?.name || currentProject?.name || '';
 
   return (
-    <div className={`flex flex-col h-full bg-[var(--asana-surface)] ${!isEmbedded ? 'max-w-3xl mx-auto my-8 shadow-2xl rounded-asana-lg border border-[var(--asana-border)]' : ''}`}>
+    <div className={`flex flex-col h-full bg-[var(--karya-surface)] ${!isEmbedded ? 'max-w-3xl mx-auto my-8 shadow-2xl rounded-karya-lg border border-[var(--karya-border)]' : ''}`}>
       {/* ── Header ── */}
-      <div className="px-6 py-3 border-b border-[var(--asana-border)] flex items-center justify-between sticky top-0 bg-[var(--asana-surface)] z-10">
+      <div className="px-6 py-3 border-b border-[var(--karya-border)] flex items-center justify-between sticky top-0 bg-[var(--karya-surface)] z-10">
         <div className="flex items-center space-x-3">
           {/* Breadcrumb */}
-          <span className="text-[11px] text-[var(--asana-text-secondary)] truncate max-w-[200px]">
+          <span className="text-[11px] text-[var(--karya-text-secondary)] truncate max-w-[200px]">
             {projectName} {task.list?.name ? `› ${task.list.name}` : ''}
           </span>
         </div>
@@ -603,7 +603,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             }}
             disabled={!canComplete}
             className={`flex items-center px-3 py-1.5 rounded-md border text-xs font-semibold transition-all duration-300 ${
-              task.status === 'DONE' ? 'bg-green-500 text-white border-green-500' : 'text-[var(--asana-text-secondary)] border-[var(--asana-border)] hover:border-green-400 hover:text-green-500'
+              task.status === 'DONE' ? 'bg-green-500 text-white border-green-500' : 'text-[var(--karya-text-secondary)] border-[var(--karya-border)] hover:border-green-400 hover:text-green-500'
             } ${justCompleted ? 'check-pop' : ''} ${!canComplete ? 'cursor-default opacity-70' : ''}`}
           >
             <svg className={`w-3.5 h-3.5 mr-1 ${justCompleted ? 'check-draw' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -612,14 +612,14 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             {task.status === 'DONE' ? 'Completed' : 'Mark complete'}
           </button>
           {canDeleteTask && (
-            <button onClick={handleDeleteTask} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-[var(--asana-text-secondary)] hover:text-red-500 transition-colors" title="Delete">
+            <button onClick={handleDeleteTask} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-[var(--karya-text-secondary)] hover:text-red-500 transition-colors" title="Delete">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
           )}
           {isEmbedded && (
-            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-[var(--asana-text-secondary)] transition-colors">
+            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-[var(--karya-text-secondary)] transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -637,12 +637,12 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                 onChange={(e) => titleAutoSave.setValue(e.target.value)}
                 onBlur={() => { titleAutoSave.flush(); setIsEditingTitle(false); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') { titleAutoSave.flush(); setIsEditingTitle(false); } if (e.key === 'Escape') setIsEditingTitle(false); }}
-                className="text-xl font-bold w-full bg-transparent border-none p-0 focus:ring-0 text-[var(--asana-text-primary)] outline-none" autoFocus />
+                className="text-xl font-bold w-full bg-transparent border-none p-0 focus:ring-0 text-[var(--karya-text-primary)] outline-none" autoFocus />
               <SaveIndicator status={titleAutoSave.saveStatus} />
             </div>
           ) : (
             <h1 onClick={() => canEdit && setIsEditingTitle(true)}
-              className={`text-xl font-bold text-[var(--asana-text-primary)] rounded px-1 -ml-1 min-h-[1.5em] ${canEdit ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : ''}`}>
+              className={`text-xl font-bold text-[var(--karya-text-primary)] rounded px-1 -ml-1 min-h-[1.5em] ${canEdit ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : ''}`}>
               {task.title}
             </h1>
           )}
@@ -651,7 +651,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
           <div className="space-y-3">
             {/* Assignee */}
             <div className="flex items-center relative">
-              <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Assignee</span>
+              <span className="w-28 text-[var(--karya-text-secondary)] text-xs font-medium flex-shrink-0">Assignee</span>
               <button onClick={() => canAssign && setShowAssigneePicker(true)}
                 className={`flex items-center space-x-2 p-1.5 rounded transition-colors flex-1 min-w-0 ${canAssign ? 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer' : ''}`}>
                 {task.assignees?.length > 0 ? (
@@ -660,10 +660,10 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                       style={{ backgroundColor: `hsl(${(task.assignees[0].user?.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
                       {task.assignees[0].user?.name?.charAt(0).toUpperCase()}
                     </div>
-                    <span className="text-sm text-[var(--asana-text-primary)] truncate">{task.assignees[0].user?.name}</span>
+                    <span className="text-sm text-[var(--karya-text-primary)] truncate">{task.assignees[0].user?.name}</span>
                   </>
                 ) : (
-                  <div className="flex items-center space-x-2 text-[var(--asana-text-secondary)]">
+                  <div className="flex items-center space-x-2 text-[var(--karya-text-secondary)]">
                     <div className="w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                     </div>
@@ -681,43 +681,43 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
 
             {/* Due Date */}
             <div className="flex items-center">
-              <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Due date</span>
+              <span className="w-28 text-[var(--karya-text-secondary)] text-xs font-medium flex-shrink-0">Due date</span>
               <div className="flex items-center p-1.5 rounded transition-colors flex-1">
-                <svg className="w-4 h-4 text-[var(--asana-text-secondary)] mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-[var(--karya-text-secondary)] mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 <input type="date" value={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
                   onChange={(e) => canEdit && handleUpdate('dueDate', e.target.value || null)} readOnly={!canEdit}
-                  className={`bg-transparent border-none p-0 text-sm text-[var(--asana-text-primary)] focus:ring-0 flex-1 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`} />
+                  className={`bg-transparent border-none p-0 text-sm text-[var(--karya-text-primary)] focus:ring-0 flex-1 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`} />
               </div>
             </div>
 
             {/* Priority */}
             <div className="flex items-center">
-              <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Priority</span>
+              <span className="w-28 text-[var(--karya-text-secondary)] text-xs font-medium flex-shrink-0">Priority</span>
               <select value={task.priority || 'LOW'} onChange={(e) => handleUpdate('priority', e.target.value)} disabled={!canEdit}
-                className={`border border-[var(--asana-border)] p-1.5 px-2.5 rounded-md text-xs font-semibold focus:ring-1 focus:ring-asana-blue/30 focus:border-asana-blue/30 outline-none bg-[var(--asana-bg)] text-[var(--asana-text-primary)] ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
-                <option value="HIGH" className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">🔴 High</option>
-                <option value="MEDIUM" className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">🟡 Medium</option>
-                <option value="LOW" className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">🔵 Low</option>
+                className={`border border-[var(--karya-border)] p-1.5 px-2.5 rounded-md text-xs font-semibold focus:ring-1 focus:ring-karya-blue/30 focus:border-karya-blue/30 outline-none bg-[var(--karya-bg)] text-[var(--karya-text-primary)] ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
+                <option value="HIGH" className="bg-[var(--karya-surface)] text-[var(--karya-text-primary)]">🔴 High</option>
+                <option value="MEDIUM" className="bg-[var(--karya-surface)] text-[var(--karya-text-primary)]">🟡 Medium</option>
+                <option value="LOW" className="bg-[var(--karya-surface)] text-[var(--karya-text-primary)]">🔵 Low</option>
               </select>
             </div>
 
             {/* Status */}
             <div className="flex items-center">
-              <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Status</span>
+              <span className="w-28 text-[var(--karya-text-secondary)] text-xs font-medium flex-shrink-0">Status</span>
               <select value={task.status || 'TODO'} onChange={(e) => handleUpdate('status', e.target.value)} disabled={!canEdit}
-                className={`border border-[var(--asana-border)] p-1.5 px-2.5 rounded-md text-xs font-semibold focus:ring-1 focus:ring-asana-blue/30 focus:border-asana-blue/30 outline-none bg-[var(--asana-bg)] text-[var(--asana-text-primary)] ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
+                className={`border border-[var(--karya-border)] p-1.5 px-2.5 rounded-md text-xs font-semibold focus:ring-1 focus:ring-karya-blue/30 focus:border-karya-blue/30 outline-none bg-[var(--karya-bg)] text-[var(--karya-text-primary)] ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
                 {STATUS_OPTIONS.map(s => (
-                  <option key={s} value={s} className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">{STATUS_LABELS[s]}</option>
+                  <option key={s} value={s} className="bg-[var(--karya-surface)] text-[var(--karya-text-primary)]">{STATUS_LABELS[s]}</option>
                 ))}
               </select>
             </div>
 
             {/* Section */}
             <div className="flex items-center">
-              <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Section</span>
-              <span className="text-sm text-[var(--asana-text-primary)] p-1.5">{task.list?.name || '—'}</span>
+              <span className="w-28 text-[var(--karya-text-secondary)] text-xs font-medium flex-shrink-0">Section</span>
+              <span className="text-sm text-[var(--karya-text-primary)] p-1.5">{task.list?.name || '—'}</span>
             </div>
 
             {/* Estimated time */}
@@ -729,8 +729,8 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             {/* Created */}
             {task.createdAt && (
               <div className="flex items-center">
-                <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Created</span>
-                <span className="text-xs text-[var(--asana-text-secondary)] p-1.5">
+                <span className="w-28 text-[var(--karya-text-secondary)] text-xs font-medium flex-shrink-0">Created</span>
+                <span className="text-xs text-[var(--karya-text-secondary)] p-1.5">
                   {new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
               </div>
@@ -738,22 +738,22 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
           </div>
 
           {/* ── Description ── */}
-          <div className="pt-4 border-t border-[var(--asana-border)]">
-            <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-2">Description</h3>
+          <div className="pt-4 border-t border-[var(--karya-border)]">
+            <h3 className="text-xs font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider mb-2">Description</h3>
             <div className="relative">
               <textarea placeholder={canEdit ? 'What is this task about?' : ''} value={descAutoSave.value}
                 onChange={(e) => canEdit && descAutoSave.setValue(e.target.value)}
                 onBlur={() => descAutoSave.flush()}
                 readOnly={!canEdit}
-                className={`w-full bg-[var(--asana-bg)] border border-[var(--asana-border)] p-3 text-sm text-[var(--asana-text-primary)] placeholder-gray-400 rounded-lg min-h-[80px] resize-none transition-all outline-none ${canEdit ? 'focus:ring-1 focus:ring-asana-blue/30 focus:border-asana-blue/30' : 'cursor-default'}`} />
+                className={`w-full bg-[var(--karya-bg)] border border-[var(--karya-border)] p-3 text-sm text-[var(--karya-text-primary)] placeholder-gray-400 rounded-lg min-h-[80px] resize-none transition-all outline-none ${canEdit ? 'focus:ring-1 focus:ring-karya-blue/30 focus:border-karya-blue/30' : 'cursor-default'}`} />
               <div className="absolute top-2 right-2"><SaveIndicator status={descAutoSave.saveStatus} /></div>
             </div>
           </div>
 
           {/* ── Subtasks ── */}
-          <div className="pt-4 border-t border-[var(--asana-border)]">
+          <div className="pt-4 border-t border-[var(--karya-border)]">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">
+              <h3 className="text-xs font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider">
                 Subtasks {(localSubtasks || task.subtasks)?.length > 0 && <span className="ml-1 font-normal">{(localSubtasks || task.subtasks).filter(s => s.status === 'DONE').length}/{(localSubtasks || task.subtasks).length}</span>}
               </h3>
             </div>
@@ -772,7 +772,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                     }`}>
                     {sub.status === 'DONE' && <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                   </button>
-                  <span className={`text-sm flex-1 ${sub.status === 'DONE' ? 'line-through text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>{sub.title}</span>
+                  <span className={`text-sm flex-1 ${sub.status === 'DONE' ? 'line-through text-[var(--karya-text-secondary)]' : 'text-[var(--karya-text-primary)]'}`}>{sub.title}</span>
                   {sub.assignees?.length > 0 && (
                     <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0"
                       style={{ backgroundColor: `hsl(${(sub.assignees[0].user?.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
@@ -786,7 +786,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                       emitInstant?.('task_deleted', { taskId: sub.id });
                       dispatch(deleteTask(sub.id));
                     }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all">
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--karya-text-secondary)] hover:text-red-500 rounded transition-all">
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   )}
@@ -794,11 +794,11 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
               ))}
               {canCreateSubtask && (
                 <form onSubmit={handleAddSubtask} className="flex items-center space-x-3 py-1.5 px-2">
-                  <svg className="w-4 h-4 text-[var(--asana-text-secondary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-[var(--karya-text-secondary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   <input type="text" placeholder="Add subtask..." value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)}
-                    className="flex-1 bg-transparent border-none py-0 text-sm focus:ring-0 text-[var(--asana-text-primary)] placeholder-gray-400 outline-none" />
+                    className="flex-1 bg-transparent border-none py-0 text-sm focus:ring-0 text-[var(--karya-text-primary)] placeholder-gray-400 outline-none" />
                 </form>
               )}
             </div>
@@ -810,11 +810,11 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
           )}
 
           {/* ── Attachments ── */}
-          <div className="pt-4 border-t border-[var(--asana-border)]">
+          <div className="pt-4 border-t border-[var(--karya-border)]">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Attachments</h3>
+              <h3 className="text-xs font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider">Attachments</h3>
               {canAddAttachment && (
-                <label className={`cursor-pointer text-xs font-medium text-asana-blue hover:underline ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                <label className={`cursor-pointer text-xs font-medium text-karya-blue hover:underline ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
                   <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
                   {isUploading ? 'Uploading...' : '+ Add file'}
                 </label>
@@ -823,13 +823,13 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             {task.attachments?.length > 0 && (
               <div className="space-y-2">
                 {task.attachments.map((att) => (
-                  <div key={att.id} className="flex items-center p-2.5 border border-[var(--asana-border)] rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 group transition-all">
-                    <div className="w-8 h-8 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center mr-3 text-[var(--asana-text-secondary)] flex-shrink-0">
+                  <div key={att.id} className="flex items-center p-2.5 border border-[var(--karya-border)] rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 group transition-all">
+                    <div className="w-8 h-8 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center mr-3 text-[var(--karya-text-secondary)] flex-shrink-0">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[var(--asana-text-primary)] truncate block hover:text-asana-blue">{att.filename}</a>
-                      <span className="text-[10px] text-[var(--asana-text-secondary)]">{(att.size / 1024).toFixed(1)} KB</span>
+                      <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[var(--karya-text-primary)] truncate block hover:text-karya-blue">{att.filename}</a>
+                      <span className="text-[10px] text-[var(--karya-text-secondary)]">{(att.size / 1024).toFixed(1)} KB</span>
                     </div>
                     {canDeleteAttachment && (
                       deletingAttachmentId === att.id ? (
@@ -843,7 +843,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                           try { await dispatch(removeAttachment({ taskId, attachmentId: att.id })).unwrap(); }
                           catch {} finally { setDeletingAttachmentId(null); }
                         }}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all">
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--karya-text-secondary)] hover:text-red-500 rounded transition-all">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                       )
@@ -855,15 +855,15 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
           </div>
 
           {/* ── Comments & Activity ── */}
-          <div className="pt-4 border-t border-[var(--asana-border)]">
+          <div className="pt-4 border-t border-[var(--karya-border)]">
             {/* Tabs */}
             <div className="flex items-center space-x-4 mb-4">
               <button onClick={() => setActiveTab('comments')}
-                className={`text-xs font-bold pb-1.5 border-b-2 transition-colors ${activeTab === 'comments' ? 'border-asana-blue text-[var(--asana-text-primary)]' : 'border-transparent text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)]'}`}>
+                className={`text-xs font-bold pb-1.5 border-b-2 transition-colors ${activeTab === 'comments' ? 'border-karya-blue text-[var(--karya-text-primary)]' : 'border-transparent text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)]'}`}>
                 Comments
               </button>
               <button onClick={() => setActiveTab('activity')}
-                className={`text-xs font-bold pb-1.5 border-b-2 transition-colors ${activeTab === 'activity' ? 'border-asana-blue text-[var(--asana-text-primary)]' : 'border-transparent text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)]'}`}>
+                className={`text-xs font-bold pb-1.5 border-b-2 transition-colors ${activeTab === 'activity' ? 'border-karya-blue text-[var(--karya-text-primary)]' : 'border-transparent text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)]'}`}>
                 All activity
               </button>
             </div>
@@ -875,12 +875,12 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                   style={{ backgroundColor: `hsl($((user?.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                   {user?.name?.charAt(0).toUpperCase()}
                 </div>
-                <div className="flex-1 border border-[var(--asana-border)] rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-asana-blue/30 focus-within:border-asana-blue/30 transition-all bg-[var(--asana-bg)]">
+                <div className="flex-1 border border-[var(--karya-border)] rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-karya-blue/30 focus-within:border-karya-blue/30 transition-all bg-[var(--karya-bg)]">
                   <textarea placeholder="Add a comment..." value={newComment} onChange={(e) => setNewComment(e.target.value)}
-                    className="w-full bg-transparent p-3 text-sm focus:ring-0 resize-none min-h-[60px] border-none text-[var(--asana-text-primary)] placeholder-gray-400 outline-none" />
+                    className="w-full bg-transparent p-3 text-sm focus:ring-0 resize-none min-h-[60px] border-none text-[var(--karya-text-primary)] placeholder-gray-400 outline-none" />
                   {newComment.trim() && (
                     <div className="flex justify-end px-3 pb-2">
-                      <button onClick={handleAddComment} className="asana-button-primary text-xs py-1 px-3">Comment</button>
+                      <button onClick={handleAddComment} className="karya-button-primary text-xs py-1 px-3">Comment</button>
                     </div>
                   )}
                 </div>
@@ -898,21 +898,21 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
-                        <span className="text-sm font-semibold text-[var(--asana-text-primary)]">{comment.user?.name}</span>
-                        <span className="text-[10px] text-[var(--asana-text-secondary)]">{new Date(comment.createdAt).toLocaleString()}</span>
+                        <span className="text-sm font-semibold text-[var(--karya-text-primary)]">{comment.user?.name}</span>
+                        <span className="text-[10px] text-[var(--karya-text-secondary)]">{new Date(comment.createdAt).toLocaleString()}</span>
                         {(canEdit || comment.userId === user?.id) && (
                           <button onClick={() => handleDeleteComment(comment.id)}
-                            className="opacity-0 group-hover:opacity-100 text-[var(--asana-text-secondary)] hover:text-red-500 transition-all">
+                            className="opacity-0 group-hover:opacity-100 text-[var(--karya-text-secondary)] hover:text-red-500 transition-all">
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                         )}
                       </div>
-                      <p className="text-sm text-[var(--asana-text-primary)] mt-0.5 whitespace-pre-wrap">{comment.content}</p>
+                      <p className="text-sm text-[var(--karya-text-primary)] mt-0.5 whitespace-pre-wrap">{comment.content}</p>
                     </div>
                   </div>
                 ))}
                 {(localComments || task.comments || []).length === 0 && (
-                  <p className="text-xs text-[var(--asana-text-secondary)] text-center py-4">No comments yet</p>
+                  <p className="text-xs text-[var(--karya-text-secondary)] text-center py-4">No comments yet</p>
                 )}
               </div>
             )}
@@ -923,24 +923,24 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                 {(task.activityLogs || []).map((log) => (
                   <div key={log.id} className="flex items-start space-x-3">
                     <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--asana-text-secondary)]" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--karya-text-secondary)]" />
                     </div>
                     <div>
-                      <p className="text-xs text-[var(--asana-text-primary)]">
+                      <p className="text-xs text-[var(--karya-text-primary)]">
                         <span className="font-semibold">{log.user?.name}</span>
-                        <span className="text-[var(--asana-text-secondary)] ml-1">
+                        <span className="text-[var(--karya-text-secondary)] ml-1">
                           {log.action === 'TASK_CREATED' ? 'created this task' :
                            log.action === 'TASK_UPDATED' ? 'updated this task' :
                            log.action === 'SUBTASK_CREATED' ? 'added a subtask' :
                            log.action.toLowerCase().replace(/_/g, ' ')}
                         </span>
                       </p>
-                      <p className="text-[10px] text-[var(--asana-text-secondary)]">{new Date(log.createdAt).toLocaleString()}</p>
+                      <p className="text-[10px] text-[var(--karya-text-secondary)]">{new Date(log.createdAt).toLocaleString()}</p>
                     </div>
                   </div>
                 ))}
                 {(task.activityLogs || []).length === 0 && (
-                  <p className="text-xs text-[var(--asana-text-secondary)] text-center py-4">No activity yet</p>
+                  <p className="text-xs text-[var(--karya-text-secondary)] text-center py-4">No activity yet</p>
                 )}
               </div>
             )}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from './store/hooks';
 import { getCurrentUser } from './store/slices/authSlice';
@@ -48,12 +48,12 @@ function App() {
 
   if (!authBootstrapped || (loading && !isAuthenticated)) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[var(--asana-bg)]">
+      <div className="flex items-center justify-center min-h-screen bg-[var(--karya-bg)]">
         <div className="flex flex-col items-center space-y-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-asana-coral to-[#e04030] flex items-center justify-center text-white font-bold text-xl shadow-lg animate-pulse">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-karya-coral to-[#e04030] flex items-center justify-center text-white font-bold text-xl shadow-lg animate-pulse">
             A
           </div>
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-asana-blue" />
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-karya-blue" />
         </div>
       </div>
     );

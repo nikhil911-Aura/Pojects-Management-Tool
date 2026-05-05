@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { useAppDispatch } from '../../store/hooks';
 import { inviteUser, fetchInvites } from '../../store/slices/workspaceSlice';
 import api from '../../services/api';
@@ -144,23 +144,23 @@ function InviteModal({ workspaceId, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 animate-fade-in" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-[var(--asana-surface)] rounded-2xl shadow-2xl border border-[var(--asana-border)] w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-[var(--karya-surface)] rounded-2xl shadow-2xl border border-[var(--karya-border)] w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
 
         {/* Header */}
         <div className="px-6 pt-6 pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-asana-blue/10 flex items-center justify-center">
-                <svg className="w-5 h-5 text-asana-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 rounded-xl bg-karya-blue/10 flex items-center justify-center">
+                <svg className="w-5 h-5 text-karya-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                 </svg>
               </div>
               <div>
-                <h2 className="text-lg font-bold text-[var(--asana-text-primary)]">Invite teammate</h2>
-                <p className="text-xs text-[var(--asana-text-secondary)]">Send an invitation to join your workspace</p>
+                <h2 className="text-lg font-bold text-[var(--karya-text-primary)]">Invite teammate</h2>
+                <p className="text-xs text-[var(--karya-text-secondary)]">Send an invitation to join your workspace</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-[var(--asana-text-secondary)] transition-colors">
+            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-[var(--karya-text-secondary)] transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -175,8 +175,8 @@ function InviteModal({ workspaceId, onClose }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-lg font-bold text-[var(--asana-text-primary)]">Invitation sent!</p>
-            <p className="text-sm text-[var(--asana-text-secondary)] mt-1">They'll receive an email with a link to join.</p>
+            <p className="text-lg font-bold text-[var(--karya-text-primary)]">Invitation sent!</p>
+            <p className="text-sm text-[var(--karya-text-secondary)] mt-1">They'll receive an email with a link to join.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
@@ -193,9 +193,9 @@ function InviteModal({ workspaceId, onClose }) {
 
               {/* Email */}
               <div>
-                <label className="block text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-1.5">Email address</label>
+                <label className="block text-xs font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider mb-1.5">Email address</label>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-3 flex items-center text-[var(--asana-text-secondary)] pointer-events-none">
+                  <span className="absolute inset-y-0 left-3 flex items-center text-[var(--karya-text-secondary)] pointer-events-none">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
@@ -207,20 +207,20 @@ function InviteModal({ workspaceId, onClose }) {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="colleague@example.com"
                     autoFocus
-                    className="w-full pl-10 pr-3 py-2.5 text-sm bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-lg text-[var(--asana-text-primary)] placeholder-[var(--asana-text-muted)] outline-none focus:border-asana-blue focus:ring-1 focus:ring-asana-blue transition-colors"
+                    className="w-full pl-10 pr-3 py-2.5 text-sm bg-[var(--karya-bg)] border border-[var(--karya-border)] rounded-lg text-[var(--karya-text-primary)] placeholder-[var(--karya-text-muted)] outline-none focus:border-karya-blue focus:ring-1 focus:ring-karya-blue transition-colors"
                   />
                 </div>
               </div>
 
               {/* Role picker */}
               <div>
-                <label className="block text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-1.5">Role</label>
+                <label className="block text-xs font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider mb-1.5">Role</label>
                 <div className="relative">
                   <button
                     ref={roleBtnRef}
                     type="button"
                     onClick={() => setShowRolePicker(!showRolePicker)}
-                    className="w-full flex items-center px-3 py-2.5 bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-lg text-sm text-[var(--asana-text-primary)] hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+                    className="w-full flex items-center px-3 py-2.5 bg-[var(--karya-bg)] border border-[var(--karya-border)] rounded-lg text-sm text-[var(--karya-text-primary)] hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
                   >
                     <span className="flex items-center justify-center w-7 h-7 rounded-lg mr-2.5 flex-shrink-0"
                       style={{ backgroundColor: `${selectedRole.color}15`, color: selectedRole.color }}>
@@ -228,9 +228,9 @@ function InviteModal({ workspaceId, onClose }) {
                     </span>
                     <div className="text-left min-w-0 flex-1">
                       <span className="font-semibold">{selectedRole.label}</span>
-                      <span className="text-[var(--asana-text-secondary)] ml-1.5 text-xs hidden sm:inline">— {selectedRole.desc}</span>
+                      <span className="text-[var(--karya-text-secondary)] ml-1.5 text-xs hidden sm:inline">— {selectedRole.desc}</span>
                     </div>
-                    <svg className={`w-4 h-4 text-[var(--asana-text-secondary)] flex-shrink-0 ml-2 transition-transform ${showRolePicker ? 'rotate-180' : ''}`}
+                    <svg className={`w-4 h-4 text-[var(--karya-text-secondary)] flex-shrink-0 ml-2 transition-transform ${showRolePicker ? 'rotate-180' : ''}`}
                       fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -245,7 +245,7 @@ function InviteModal({ workspaceId, onClose }) {
                     <>
                       <div className="fixed inset-0 z-[210]" onClick={() => setShowRolePicker(false)} />
                       <div ref={rolePickerRef}
-                        className="fixed z-[211] bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1 animate-fade-in"
+                        className="fixed z-[211] bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl shadow-2xl py-1 animate-fade-in"
                         style={{ top, left, width }}>
                         {allRoles.map((r) => (
                           <button
@@ -258,7 +258,7 @@ function InviteModal({ workspaceId, onClose }) {
                               setShowRolePicker(false);
                             }}
                             className={`w-full flex items-center px-3 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
-                              roleLabel === r.label ? 'bg-asana-blue/5' : ''
+                              roleLabel === r.label ? 'bg-karya-blue/5' : ''
                             }`}
                           >
                             <span className="flex items-center justify-center w-8 h-8 rounded-lg mr-3 flex-shrink-0"
@@ -266,11 +266,11 @@ function InviteModal({ workspaceId, onClose }) {
                               {r.icon}
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-[var(--asana-text-primary)]">{r.label}</p>
-                              <p className="text-xs text-[var(--asana-text-secondary)] mt-0.5">{r.desc}</p>
+                              <p className="text-sm font-semibold text-[var(--karya-text-primary)]">{r.label}</p>
+                              <p className="text-xs text-[var(--karya-text-secondary)] mt-0.5">{r.desc}</p>
                             </div>
                             {roleLabel === r.label && (
-                              <svg className="w-4 h-4 text-asana-blue flex-shrink-0 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                              <svg className="w-4 h-4 text-karya-blue flex-shrink-0 ml-2" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
                             )}
@@ -285,23 +285,23 @@ function InviteModal({ workspaceId, onClose }) {
 
               {/* Projects (optional) */}
               <div className="mt-5">
-                <label className="block text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-1.5">
-                  Add to Projects <span className="font-normal normal-case text-[10px] text-[var(--asana-text-muted)]">(optional)</span>
+                <label className="block text-[10px] font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider mb-1.5">
+                  Add to Projects <span className="font-normal normal-case text-[10px] text-[var(--karya-text-muted)]">(optional)</span>
                 </label>
                 <button
                   type="button"
                   ref={projectBtnRef}
                   onClick={() => setShowProjectPicker(!showProjectPicker)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-lg hover:border-asana-blue/40 transition-colors text-left"
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm bg-[var(--karya-bg)] border border-[var(--karya-border)] rounded-lg hover:border-karya-blue/40 transition-colors text-left"
                 >
-                  <span className="text-[var(--asana-text-primary)] truncate">
+                  <span className="text-[var(--karya-text-primary)] truncate">
                     {selectedProjectIds.length === 0
                       ? 'No projects selected'
                       : selectedProjectIds.length === 1
                         ? wsProjects.find(p => p.id === selectedProjectIds[0])?.name || '1 project selected'
                         : `${selectedProjectIds.length} projects selected`}
                   </span>
-                  <svg className={`w-4 h-4 text-[var(--asana-text-secondary)] flex-shrink-0 transition-transform ${showProjectPicker ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-4 h-4 text-[var(--karya-text-secondary)] flex-shrink-0 transition-transform ${showProjectPicker ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -318,29 +318,29 @@ function InviteModal({ workspaceId, onClose }) {
                     <>
                       <div className="fixed inset-0 z-[210]" onClick={() => setShowProjectPicker(false)} />
                       <div ref={projectPickerRef}
-                        className="fixed z-[211] bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl animate-fade-in overflow-hidden"
+                        className="fixed z-[211] bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl shadow-2xl animate-fade-in overflow-hidden"
                         style={{ top, left, width }}>
-                        <div className="p-2 border-b border-[var(--asana-border)]">
+                        <div className="p-2 border-b border-[var(--karya-border)]">
                           <input
                             type="text"
                             value={projectSearch}
                             onChange={(e) => setProjectSearch(e.target.value)}
                             placeholder="Search projects..."
-                            className="w-full px-2.5 py-1.5 text-xs bg-[var(--asana-bg)] rounded-md border border-[var(--asana-border)] outline-none text-[var(--asana-text-primary)] focus:border-asana-blue/40 focus:ring-1 focus:ring-asana-blue/20"
+                            className="w-full px-2.5 py-1.5 text-xs bg-[var(--karya-bg)] rounded-md border border-[var(--karya-border)] outline-none text-[var(--karya-text-primary)] focus:border-karya-blue/40 focus:ring-1 focus:ring-karya-blue/20"
                           />
                         </div>
                         {filtered.length > 0 && (
                           <button
                             type="button"
                             onClick={selectAllProjects}
-                            className="w-full text-left px-3 py-2 text-[11px] font-semibold text-asana-blue hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b border-[var(--asana-border)]"
+                            className="w-full text-left px-3 py-2 text-[11px] font-semibold text-karya-blue hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b border-[var(--karya-border)]"
                           >
                             {allSelected ? 'Deselect all' : 'Select all'}
                           </button>
                         )}
                         <div className="max-h-48 overflow-y-auto">
                           {filtered.length === 0 ? (
-                            <p className="text-xs text-[var(--asana-text-secondary)] text-center py-4">No projects found</p>
+                            <p className="text-xs text-[var(--karya-text-secondary)] text-center py-4">No projects found</p>
                           ) : (
                             filtered.map(p => {
                               const checked = selectedProjectIds.includes(p.id);
@@ -352,9 +352,9 @@ function InviteModal({ workspaceId, onClose }) {
                                   className="w-full flex items-center space-x-2.5 text-left px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                                 >
                                   <input type="checkbox" readOnly checked={checked}
-                                    className="w-3.5 h-3.5 rounded text-asana-blue cursor-pointer" />
+                                    className="w-3.5 h-3.5 rounded text-karya-blue cursor-pointer" />
                                   <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color || '#4573D2' }} />
-                                  <span className="text-[var(--asana-text-primary)] truncate">{p.name}</span>
+                                  <span className="text-[var(--karya-text-primary)] truncate">{p.name}</span>
                                 </button>
                               );
                             })
@@ -364,7 +364,7 @@ function InviteModal({ workspaceId, onClose }) {
                     </>
                   );
                 })()}
-                <p className="text-[10px] text-[var(--asana-text-muted)] mt-1">
+                <p className="text-[10px] text-[var(--karya-text-muted)] mt-1">
                   If left empty, the user joins only the workspace.
                   {customRoleId && ' With a custom role selected, leaving this empty adds them to all projects.'}
                 </p>
@@ -372,13 +372,13 @@ function InviteModal({ workspaceId, onClose }) {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center px-6 py-4 mt-4 border-t border-[var(--asana-border)] space-x-3">
+            <div className="flex items-center px-6 py-4 mt-4 border-t border-[var(--karya-border)] space-x-3">
               <button type="button" onClick={onClose} disabled={loading}
-                className="flex-1 py-2.5 text-sm font-medium border border-[var(--asana-border)] rounded-lg text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors disabled:opacity-50">
+                className="flex-1 py-2.5 text-sm font-medium border border-[var(--karya-border)] rounded-lg text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors disabled:opacity-50">
                 Cancel
               </button>
               <button type="submit" disabled={loading || !email.trim()}
-                className="flex-1 py-2.5 text-sm font-semibold bg-asana-blue text-white rounded-lg hover:brightness-110 disabled:opacity-50 transition-all flex items-center justify-center">
+                className="flex-1 py-2.5 text-sm font-semibold bg-karya-blue text-white rounded-lg hover:brightness-110 disabled:opacity-50 transition-all flex items-center justify-center">
                 {loading ? (
                   <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { useRole } from '../hooks/useRole';
@@ -118,7 +118,7 @@ function Sidebar({ isOpen }) {
         >
           {peopleIcon}
           <span className="truncate">{ws.name}</span>
-          <svg className="w-3 h-3 text-[var(--asana-sidebar-text-muted)] ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3 h-3 text-[var(--karya-sidebar-text-muted)] ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </NavLink>
@@ -131,11 +131,11 @@ function Sidebar({ isOpen }) {
         target="_blank"
         rel="noopener noreferrer"
         title={`Open ${ws.name} in a new tab`}
-        className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors text-[var(--asana-sidebar-text)] hover:bg-white/5 hover:text-white"
+        className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors text-[var(--karya-sidebar-text)] hover:bg-white/5 hover:text-white"
       >
         {peopleIcon}
         <span className="truncate">{ws.name}</span>
-        <svg className="w-3 h-3 text-[var(--asana-sidebar-text-muted)] ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-3 h-3 text-[var(--karya-sidebar-text-muted)] ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
         </svg>
       </a>
@@ -181,18 +181,18 @@ function Sidebar({ isOpen }) {
     <>
       <aside
         className={`${isOpen ? 'w-64' : 'w-0 overflow-hidden'} flex-shrink-0 flex flex-col h-full transition-all duration-300 ease-in-out z-40`}
-        style={{ backgroundColor: 'var(--asana-sidebar-bg)', borderRight: '1px solid rgba(255,255,255,0.05)' }}
+        style={{ backgroundColor: 'var(--karya-sidebar-bg)', borderRight: '1px solid rgba(255,255,255,0.05)' }}
       >
         {/* ── Logo / Workspace ── (h-14 to match the main header height exactly) */}
         <div className="h-14 px-4 flex items-center space-x-3 border-b border-white/5 flex-shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-asana-coral to-[#e04030] flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-lg">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-karya-coral to-[#e04030] flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-lg">
             A
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-white truncate leading-tight">
-              {currentWorkspace?.name || 'Asana Clone'}
+              {currentWorkspace?.name || 'Karya'}
             </p>
-            <p className="text-[10px] text-[var(--asana-sidebar-text-muted)] truncate">
+            <p className="text-[10px] text-[var(--karya-sidebar-text-muted)] truncate">
               {user?.email}
             </p>
           </div>
@@ -209,7 +209,7 @@ function Sidebar({ isOpen }) {
                 `flex items-center space-x-3 px-3 py-2 rounded-md text-sm transition-colors ${
                   isActive
                     ? 'bg-white/10 text-white font-medium'
-                    : 'text-[var(--asana-sidebar-text)] hover:bg-white/5 hover:text-white'
+                    : 'text-[var(--karya-sidebar-text)] hover:bg-white/5 hover:text-white'
                 }`
               }
             >
@@ -229,11 +229,11 @@ function Sidebar({ isOpen }) {
               className="w-full flex items-center justify-between px-3 py-1 group"
               onClick={() => setShowProjects(!showProjects)}
             >
-              <span className="text-xs font-medium tracking-wide uppercase text-[var(--asana-sidebar-text-muted)]">
+              <span className="text-xs font-medium tracking-wide uppercase text-[var(--karya-sidebar-text-muted)]">
                 Projects
               </span>
               <svg
-                className={`w-3 h-3 text-[var(--asana-sidebar-text-muted)] transition-transform duration-150 ${showProjects ? '' : '-rotate-90'}`}
+                className={`w-3 h-3 text-[var(--karya-sidebar-text-muted)] transition-transform duration-150 ${showProjects ? '' : '-rotate-90'}`}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -255,7 +255,7 @@ function Sidebar({ isOpen }) {
                     ))}
                   </div>
                 ) : projects.length === 0 ? (
-                  <p className="px-3 py-2 text-[11px] text-[var(--asana-sidebar-text-muted)] italic">
+                  <p className="px-3 py-2 text-[11px] text-[var(--karya-sidebar-text-muted)] italic">
                     {currentWorkspace ? 'No projects yet. Create one to get started.' : 'Create a workspace first to add projects.'}
                   </p>
                 ) : (
@@ -268,7 +268,7 @@ function Sidebar({ isOpen }) {
                           `flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
                             isActive
                               ? 'bg-white/10 text-white font-medium'
-                              : 'text-[var(--asana-sidebar-text)] hover:bg-white/5 hover:text-white'
+                              : 'text-[var(--karya-sidebar-text)] hover:bg-white/5 hover:text-white'
                           }`
                         }
                       >
@@ -282,7 +282,7 @@ function Sidebar({ isOpen }) {
                     {hiddenProjectCount > 0 && (
                       <button
                         onClick={() => setShowAllProjects((v) => !v)}
-                        className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-xs w-full text-left text-[var(--asana-sidebar-text-muted)] hover:bg-white/5 hover:text-white transition-colors"
+                        className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-xs w-full text-left text-[var(--karya-sidebar-text-muted)] hover:bg-white/5 hover:text-white transition-colors"
                       >
                         <svg className={`w-3 h-3 transition-transform ${showAllProjects ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -297,7 +297,7 @@ function Sidebar({ isOpen }) {
                 {canCreateProject && (
                   <button
                     onClick={() => setShowCreateWizard(true)}
-                    className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors w-full text-left text-[var(--asana-sidebar-text-muted)] hover:bg-white/5 hover:text-white"
+                    className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors w-full text-left text-[var(--karya-sidebar-text-muted)] hover:bg-white/5 hover:text-white"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -313,11 +313,11 @@ function Sidebar({ isOpen }) {
               className="w-full flex items-center justify-between px-3 py-1 group"
               onClick={() => setShowOwned(!showOwned)}
             >
-              <span className="text-xs font-medium tracking-wide uppercase text-[var(--asana-sidebar-text-muted)]">
+              <span className="text-xs font-medium tracking-wide uppercase text-[var(--karya-sidebar-text-muted)]">
                 My Workspaces
               </span>
               <svg
-                className={`w-3 h-3 text-[var(--asana-sidebar-text-muted)] transition-transform duration-150 ${showOwned ? '' : '-rotate-90'}`}
+                className={`w-3 h-3 text-[var(--karya-sidebar-text-muted)] transition-transform duration-150 ${showOwned ? '' : '-rotate-90'}`}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -327,7 +327,7 @@ function Sidebar({ isOpen }) {
             {showOwned && (
               <div className="mt-1 space-y-0.5 animate-fade-in">
                 {ownedWorkspaces.length === 0 && !showCreateWorkspace && (
-                  <p className="px-3 py-1 text-[11px] text-[var(--asana-sidebar-text-muted)] italic">
+                  <p className="px-3 py-1 text-[11px] text-[var(--karya-sidebar-text-muted)] italic">
                     You haven't created any workspaces yet.
                   </p>
                 )}
@@ -337,7 +337,7 @@ function Sidebar({ isOpen }) {
                 {hiddenOwnedCount > 0 && (
                   <button
                     onClick={() => setShowAllOwned((v) => !v)}
-                    className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-xs w-full text-left text-[var(--asana-sidebar-text-muted)] hover:bg-white/5 hover:text-white transition-colors"
+                    className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-xs w-full text-left text-[var(--karya-sidebar-text-muted)] hover:bg-white/5 hover:text-white transition-colors"
                   >
                     <svg className={`w-3 h-3 transition-transform ${showAllOwned ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -357,13 +357,13 @@ function Sidebar({ isOpen }) {
                         placeholder="Workspace name"
                         autoFocus
                         onKeyDown={(e) => { if (e.key === 'Escape') { setShowCreateWorkspace(false); setNewWorkspaceName(''); } }}
-                        className="flex-1 min-w-0 text-xs bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-white placeholder-[var(--asana-sidebar-text-muted)] outline-none focus:border-asana-blue disabled:opacity-50"
+                        className="flex-1 min-w-0 text-xs bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-white placeholder-[var(--karya-sidebar-text-muted)] outline-none focus:border-karya-blue disabled:opacity-50"
                         disabled={creatingWorkspace}
                       />
                       <button
                         type="submit"
                         disabled={!newWorkspaceName.trim() || creatingWorkspace}
-                        className="flex-shrink-0 flex items-center justify-center px-2.5 rounded-md bg-asana-blue text-white text-xs font-medium hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all min-w-[58px]"
+                        className="flex-shrink-0 flex items-center justify-center px-2.5 rounded-md bg-karya-blue text-white text-xs font-medium hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all min-w-[58px]"
                       >
                         {creatingWorkspace ? (
                           <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
@@ -377,7 +377,7 @@ function Sidebar({ isOpen }) {
                 ) : (
                   <button
                     onClick={() => setShowCreateWorkspace(true)}
-                    className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors w-full text-left text-[var(--asana-sidebar-text-muted)] hover:bg-white/5 hover:text-white"
+                    className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors w-full text-left text-[var(--karya-sidebar-text-muted)] hover:bg-white/5 hover:text-white"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -396,11 +396,11 @@ function Sidebar({ isOpen }) {
                 className="w-full flex items-center justify-between px-3 py-1 group"
                 onClick={() => setShowJoined(!showJoined)}
               >
-                <span className="text-xs font-medium tracking-wide uppercase text-[var(--asana-sidebar-text-muted)]">
+                <span className="text-xs font-medium tracking-wide uppercase text-[var(--karya-sidebar-text-muted)]">
                   Joined Workspaces
                 </span>
                 <svg
-                  className={`w-3 h-3 text-[var(--asana-sidebar-text-muted)] transition-transform duration-150 ${showJoined ? '' : '-rotate-90'}`}
+                  className={`w-3 h-3 text-[var(--karya-sidebar-text-muted)] transition-transform duration-150 ${showJoined ? '' : '-rotate-90'}`}
                   fill="none" stroke="currentColor" viewBox="0 0 24 24"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -414,7 +414,7 @@ function Sidebar({ isOpen }) {
                   {hiddenJoinedCount > 0 && (
                     <button
                       onClick={() => setShowAllJoined((v) => !v)}
-                      className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-xs w-full text-left text-[var(--asana-sidebar-text-muted)] hover:bg-white/5 hover:text-white transition-colors"
+                      className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-xs w-full text-left text-[var(--karya-sidebar-text-muted)] hover:bg-white/5 hover:text-white transition-colors"
                     >
                       <svg className={`w-3 h-3 transition-transform ${showAllJoined ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -434,7 +434,7 @@ function Sidebar({ isOpen }) {
           {/* Invite teammates */}
           <button
             onClick={() => setShowInviteModal(true)}
-            className="w-full flex items-center space-x-3 px-4 py-2.5 text-[var(--asana-sidebar-text-muted)] hover:bg-white/5 hover:text-white transition-colors"
+            className="w-full flex items-center space-x-3 px-4 py-2.5 text-[var(--karya-sidebar-text-muted)] hover:bg-white/5 hover:text-white transition-colors"
           >
             <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />

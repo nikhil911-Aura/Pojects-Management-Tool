@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, Fragment, createContext, useContext } from 'react';
+﻿import { useState, useEffect, useRef, useCallback, Fragment, createContext, useContext } from 'react';
 import { Check, X, Plus, ChevronDown, Pencil, Trash2, Clock, Timer, Calendar, Users, Hash, Type, CheckSquare, ListChecks, CircleDot, Link2, Flag, DollarSign, GripVertical, AlignLeft, Circle, Diamond, Star } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -50,8 +50,8 @@ function getDueMeta(dueDate, status) {
   const toneCls = {
     overdue: 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 ring-1 ring-inset ring-red-300/40 dark:ring-red-700/40 font-semibold',
     today:   'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 ring-1 ring-inset ring-amber-300/40 dark:ring-amber-700/40 font-semibold',
-    soon:    'text-[var(--asana-text-primary)]',
-    neutral: 'text-[var(--asana-text-secondary)]',
+    soon:    'text-[var(--karya-text-primary)]',
+    neutral: 'text-[var(--karya-text-secondary)]',
   }[tone];
   return { rel, tone, cls: toneCls, diffDays };
 }
@@ -88,7 +88,7 @@ function parseTime(input) {
 /* ── Uniform column width for all non-name columns ── */
 const COL_W = 'w-[120px] flex-shrink-0';
 /* ── Name column: frozen on left during horizontal scroll ── */
-const NAME_COL = 'w-[520px] flex-shrink-0 sticky left-0 z-10 bg-[var(--asana-surface)]';
+const NAME_COL = 'w-[520px] flex-shrink-0 sticky left-0 z-10 bg-[var(--karya-surface)]';
 
 const DEFAULT_COL_W  = 120;
 const DEFAULT_NAME_W = 520;
@@ -130,7 +130,7 @@ function ResizeHandle({ colKey }) {
   return (
     <div
       onMouseDown={handleMouseDown}
-      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 opacity-0 hover:opacity-100 hover:bg-asana-blue/50 transition-opacity"
+      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 opacity-0 hover:opacity-100 hover:bg-karya-blue/50 transition-opacity"
     />
   );
 }
@@ -187,15 +187,15 @@ function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, em
   };
 
   return (
-    <div ref={ref} className="fixed z-[200] w-56 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl animate-fade-in"
+    <div ref={ref} className="fixed z-[200] w-56 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg shadow-2xl animate-fade-in"
       style={{ top: pos.top, left: pos.left }}>
       <div className="p-2">
         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search people..." autoFocus
-          className="w-full px-2.5 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 rounded-md border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400" />
+          className="w-full px-2.5 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 rounded-md border-none outline-none text-[var(--karya-text-primary)] placeholder-gray-400" />
       </div>
       <div className="max-h-48 overflow-y-auto">
         {filtered.length === 0 ? (
-          <p className="text-xs text-[var(--asana-text-secondary)] text-center py-3">No members found</p>
+          <p className="text-xs text-[var(--karya-text-secondary)] text-center py-3">No members found</p>
         ) : filtered.map((m) => {
           const user = m.user || m;
           return (
@@ -205,7 +205,7 @@ function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, em
                 style={{ backgroundColor: `hsl($((user.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                 {user.name?.charAt(0).toUpperCase()}
               </div>
-              <span className="text-xs text-[var(--asana-text-primary)] truncate">{user.name}</span>
+              <span className="text-xs text-[var(--karya-text-primary)] truncate">{user.name}</span>
             </button>
           );
         })}
@@ -243,13 +243,13 @@ function StatusPicker({ taskId, currentStatus, onClose, onDone, onCelebrate, emi
   };
 
   return (
-    <div ref={ref} className="fixed z-[200] w-40 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in"
+    <div ref={ref} className="fixed z-[200] w-40 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg shadow-2xl py-1 animate-fade-in"
       style={{ top: pos.top, left: pos.left }}>
       {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
         <button key={key} onClick={() => handleChange(key)}
           className="w-full flex items-center px-3 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
           <span className={`inline-block px-2.5 py-1 rounded text-[12px] font-semibold ${cfg.cls}`}>{cfg.label}</span>
-          {currentStatus === key && <Check className="w-3.5 h-3.5 ml-auto text-asana-blue" strokeWidth={2.5} />}
+          {currentStatus === key && <Check className="w-3.5 h-3.5 ml-auto text-karya-blue" strokeWidth={2.5} />}
         </button>
       ))}
     </div>
@@ -370,35 +370,35 @@ function TimeCell({ taskId, field, value, taskTitle = '', canEdit, onDone, queue
               }
             }}
             placeholder="e.g. 1h 30m" autoFocus
-            className="w-full text-xs bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400"
+            className="w-full text-xs bg-transparent border-none outline-none text-[var(--karya-text-primary)] placeholder-gray-400"
             onBlur={save}
             onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
           />
         </div>
         {hasSuggestions && (
-          <div className="fixed z-[9999] bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1.5 overflow-hidden"
+          <div className="fixed z-[9999] bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl shadow-2xl py-1.5 overflow-hidden"
             style={{ top: dropPos.top, left: dropPos.left, minWidth: dropPos.width }}>
             {smart.length > 0 && (
               <>
-                <p className="px-3 pt-0.5 pb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--asana-text-secondary)]">Suggested</p>
+                <p className="px-3 pt-0.5 pb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--karya-text-secondary)]">Suggested</p>
                 <div className="flex flex-wrap gap-1 px-2 pb-1.5">
                   {smart.map(s => (
                     <button key={s.minutes} onMouseDown={(e) => { e.preventDefault(); applyMinutes(s.minutes); }}
-                      className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-asana-blue/10 text-asana-blue hover:bg-asana-blue/20 transition-colors">
+                      className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-karya-blue/10 text-karya-blue hover:bg-karya-blue/20 transition-colors">
                       {s.label}
                     </button>
                   ))}
                 </div>
-                {presets.length > 0 && <div className="h-px bg-[var(--asana-border)] mx-2 mb-1" />}
+                {presets.length > 0 && <div className="h-px bg-[var(--karya-border)] mx-2 mb-1" />}
               </>
             )}
             {presets.length > 0 && (
               <>
-                {!input && <p className="px-3 pt-0.5 pb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--asana-text-secondary)]">Quick pick</p>}
+                {!input && <p className="px-3 pt-0.5 pb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--karya-text-secondary)]">Quick pick</p>}
                 <div className="flex flex-wrap gap-1 px-2 pb-1">
                   {presets.map(s => (
                     <button key={s.minutes} onMouseDown={(e) => { e.preventDefault(); applyMinutes(s.minutes); }}
-                      className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-[var(--asana-text-primary)] hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                      className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-[var(--karya-text-primary)] hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                       {s.label}
                     </button>
                   ))}
@@ -413,7 +413,7 @@ function TimeCell({ taskId, field, value, taskTitle = '', canEdit, onDone, queue
 
   return (
     <span onClick={canEdit ? startEdit : undefined}
-      className={`text-xs ${canEdit ? 'cursor-pointer' : 'cursor-default'} ${value != null ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100'}`}>
+      className={`text-xs ${canEdit ? 'cursor-pointer' : 'cursor-default'} ${value != null ? 'text-[var(--karya-text-primary)]' : 'text-[var(--karya-text-secondary)] opacity-0 group-hover:opacity-100'}`}>
       {value != null ? formatTime(value) : '—'}
     </span>
   );
@@ -545,7 +545,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
   const statusCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.TODO;
 
   return (
-    <div className={`flex items-stretch border-b border-[var(--asana-border)]/30 hover:bg-blue-50/40 dark:hover:bg-[#1f2937]/70 hover:shadow-[inset_3px_0_0_0_#4573D2] cursor-pointer group transition-all duration-180 ease-asana w-max min-w-full ${justCompleted ? 'row-complete-flash' : ''}`}
+    <div className={`flex items-stretch border-b border-[var(--karya-border)]/30 hover:bg-blue-50/40 dark:hover:bg-[#1f2937]/70 hover:shadow-[inset_3px_0_0_0_#4573D2] cursor-pointer group transition-all duration-180 ease-karya w-max min-w-full ${justCompleted ? 'row-complete-flash' : ''}`}
       onClick={() => { if (!editingTitle) onTaskClick(task.id); }}
       onContextMenu={handleContextMenu}>
 
@@ -553,45 +553,45 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
       {contextMenu && (
         <>
           <div className="fixed inset-0 z-[80]" onClick={() => setContextMenu(null)} onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }} />
-          <div ref={contextRef} className="fixed z-[81] w-52 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in"
+          <div ref={contextRef} className="fixed z-[81] w-52 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg shadow-2xl py-1 animate-fade-in"
             style={{ top: contextMenu.y, left: contextMenu.x }}>
             <button onClick={(e) => { e.stopPropagation(); toggleComplete(e); setContextMenu(null); }}
-              className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
-              <Check className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" strokeWidth={2} />
+              className="w-full flex items-center px-3 py-2 text-xs text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
+              <Check className="w-4 h-4 mr-2.5 text-[var(--karya-text-secondary)]" strokeWidth={2} />
               {task.status === 'DONE' ? 'Mark incomplete' : 'Mark complete'}
             </button>
             <button onClick={(e) => { e.stopPropagation(); setContextMenu(null); setEditingTitle(true); }}
-              className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
-              <Pencil className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" strokeWidth={1.75} />
+              className="w-full flex items-center px-3 py-2 text-xs text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
+              <Pencil className="w-4 h-4 mr-2.5 text-[var(--karya-text-secondary)]" strokeWidth={1.75} />
               Rename
             </button>
             {/* Add task/subtask — always adds a child under this item */}
             {perm.subtaskCreate && onAddSubtaskHere && (
               <button onClick={(e) => { e.stopPropagation(); setContextMenu(null); onAddSubtaskHere(); }}
-                className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                <Plus className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" strokeWidth={2} />
+                className="w-full flex items-center px-3 py-2 text-xs text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <Plus className="w-4 h-4 mr-2.5 text-[var(--karya-text-secondary)]" strokeWidth={2} />
                 {task.taskType === 'MILESTONE' ? 'Add task' : 'Add subtask'}
               </button>
             )}
-            <div className="border-t border-[var(--asana-border)] my-1" />
+            <div className="border-t border-[var(--karya-border)] my-1" />
             {/* Convert to submenu */}
-            <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Convert to</div>
+            <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider">Convert to</div>
             {[
               { type: 'DEFAULT_TASK', label: 'Task',      Icon: Circle  },
               { type: 'MILESTONE',    label: 'Milestone', Icon: Diamond },
               { type: 'APPROVAL',     label: 'Approval',  Icon: Star    },
             ].map(item => (
               <button key={item.type} onClick={(e) => { e.stopPropagation(); handleConvertTo(item.type); }}
-                className={`w-full flex items-center px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 ${task.taskType === item.type ? 'text-asana-blue font-semibold' : 'text-[var(--asana-text-primary)]'}`}>
+                className={`w-full flex items-center px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 ${task.taskType === item.type ? 'text-karya-blue font-semibold' : 'text-[var(--karya-text-primary)]'}`}>
                 <item.Icon className="w-4 h-4 mr-2.5 flex-shrink-0" strokeWidth={1.75} />
                 {item.label}
-                {task.taskType === item.type && <Check className="w-3.5 h-3.5 ml-auto text-asana-blue flex-shrink-0" strokeWidth={2.5} />}
+                {task.taskType === item.type && <Check className="w-3.5 h-3.5 ml-auto text-karya-blue flex-shrink-0" strokeWidth={2.5} />}
               </button>
             ))}
-            <div className="border-t border-[var(--asana-border)] my-1" />
+            <div className="border-t border-[var(--karya-border)] my-1" />
             <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(`${window.location.origin}/project/${task.list?.board?.project?.id || ''}?task=${task.id}`); setContextMenu(null); }}
-              className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
-              <Link2 className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" strokeWidth={1.75} />
+              className="w-full flex items-center px-3 py-2 text-xs text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
+              <Link2 className="w-4 h-4 mr-2.5 text-[var(--karya-text-secondary)]" strokeWidth={1.75} />
               Copy task link
             </button>
             <button onClick={(e) => { e.stopPropagation(); handleDelete(e); setContextMenu(null); }}
@@ -604,7 +604,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
       )}
 
       {/* ── Name ── */}
-      <div className="flex-shrink-0 sticky left-0 z-10 bg-[var(--asana-surface)] flex items-center py-[3px] border-r border-[var(--asana-border)]/40"
+      <div className="flex-shrink-0 sticky left-0 z-10 bg-[var(--karya-surface)] flex items-center py-[3px] border-r border-[var(--karya-border)]/40"
         style={{ width: colWidths?.['name'] ?? DEFAULT_NAME_W, paddingLeft: `${depth * 1.5 + 0.25}rem`, paddingRight: '0.75rem' }}>
         {/* Drag handle (six-dot grip) — only on top-level draggable rows */}
         {dragHandleProps ? (
@@ -615,7 +615,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
             className="w-4 h-5 mr-1 flex items-center justify-center rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-gray-200/80 dark:hover:bg-gray-700/70 cursor-grab active:cursor-grabbing transition-opacity flex-shrink-0"
             style={{ touchAction: 'none' }}
           >
-            <GripVertical className="w-3.5 h-3.5 text-[var(--asana-text-secondary)]" strokeWidth={1.75} />
+            <GripVertical className="w-3.5 h-3.5 text-[var(--karya-text-secondary)]" strokeWidth={1.75} />
           </div>
         ) : (
           <span className="w-4 mr-1 flex-shrink-0" />
@@ -624,7 +624,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
         {hasSubtasks ? (
           <button onClick={(e) => { e.stopPropagation(); onToggle(); }}
             className="mr-1.5 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0">
-            <ChevronDown className={`w-3 h-3 text-[var(--asana-text-secondary)] transition-transform ${isExpanded ? '' : '-rotate-90'}`} strokeWidth={2.5} />
+            <ChevronDown className={`w-3 h-3 text-[var(--karya-text-secondary)] transition-transform ${isExpanded ? '' : '-rotate-90'}`} strokeWidth={2.5} />
           </button>
         ) : <span className="w-[18px] mr-1.5 flex-shrink-0" />}
 
@@ -667,22 +667,22 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
               onKeyDown={(e) => { if (e.key === 'Enter') handleStopEditing(); if (e.key === 'Escape') setEditingTitle(false); }}
               onClick={(e) => e.stopPropagation()}
               autoFocus
-              className={`text-[13px] bg-[var(--asana-surface)] border border-asana-blue rounded px-2 py-0.5 outline-none w-[320px] max-w-full ${isMilestone ? 'font-bold' : ''} text-[var(--asana-text-primary)]`} />
+              className={`text-[13px] bg-[var(--karya-surface)] border border-karya-blue rounded px-2 py-0.5 outline-none w-[320px] max-w-full ${isMilestone ? 'font-bold' : ''} text-[var(--karya-text-primary)]`} />
             <SaveIndicator status={titleAutoSave.saveStatus} />
           </>
         ) : (
           <span
             className={`text-[13px] truncate transition-all duration-150 rounded px-2 py-0.5 ${isMilestone ? 'font-bold' : ''} ${perm.taskEdit ? 'cursor-text hover:ring-1 hover:ring-gray-400 dark:hover:ring-gray-500' : ''} ${
               task.status === 'DONE'
-                ? `text-[var(--asana-text-secondary)]`
-                : 'text-[var(--asana-text-primary)]'
+                ? `text-[var(--karya-text-secondary)]`
+                : 'text-[var(--karya-text-primary)]'
             }`}
             onClick={(e) => { if (!perm.taskEdit) return; e.stopPropagation(); setEditingTitle(true); }}>
             {liveEdits[`task-${task.id}-title`] || task.title}
           </span>
         )}
         {!indent && hasSubtasks && (
-          <span className="ml-2 text-[12px] text-[var(--asana-text-secondary)] flex-shrink-0">
+          <span className="ml-2 text-[12px] text-[var(--karya-text-secondary)] flex-shrink-0">
             {task.subtasks.filter(s => s.status === 'DONE').length}/{task.subtasks.length}
           </span>
         )}
@@ -691,7 +691,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
 
       {/* ── Assignee ── */}
       {cols.assignee && (
-        <div ref={assigneeCellRef} className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center relative" style={cw('assignee')} onClick={(e) => e.stopPropagation()}>
+        <div ref={assigneeCellRef} className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--karya-border)]/40 flex items-center relative" style={cw('assignee')} onClick={(e) => e.stopPropagation()}>
           <button onClick={() => perm.taskAssign && setShowAssigneePicker(true)}
             className="flex items-center space-x-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md px-1 py-0.5 -mx-1 transition-colors w-full">
             {task.assignees?.length > 0 ? (
@@ -700,11 +700,11 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
                   style={{ backgroundColor: `hsl(${(task.assignees[0].user?.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
                   {task.assignees[0].user?.name?.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-xs text-[var(--asana-text-primary)] truncate">{task.assignees[0].user?.name}</span>
+                <span className="text-xs text-[var(--karya-text-primary)] truncate">{task.assignees[0].user?.name}</span>
               </>
             ) : (
               <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700/80 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
-                <Users className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 group-hover:text-asana-blue transition-colors" strokeWidth={1.5} />
+                <Users className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 group-hover:text-karya-blue transition-colors" strokeWidth={1.5} />
               </div>
             )}
           </button>
@@ -719,7 +719,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
       {cols.dueDate && (() => {
         const meta = getDueMeta(task.dueDate, task.status);
         return (
-        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center relative" style={cw('dueDate')} onClick={(e) => e.stopPropagation()}>
+        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--karya-border)]/40 flex items-center relative" style={cw('dueDate')} onClick={(e) => e.stopPropagation()}>
           {perm.taskEdit ? (
             <div className="relative cursor-pointer" onClick={() => dateRef.current?.showPicker?.()}>
               <input ref={dateRef} type="date" value={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
@@ -745,7 +745,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
 
       {/* ── Status ── */}
       {cols.status && (
-        <div ref={statusCellRef} className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center relative" style={cw('status')} onClick={(e) => e.stopPropagation()}>
+        <div ref={statusCellRef} className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--karya-border)]/40 flex items-center relative" style={cw('status')} onClick={(e) => e.stopPropagation()}>
           <button onClick={() => perm.taskEdit && setShowStatusPicker(true)}
             className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md truncate transition-all duration-180 hover:brightness-105 ${statusCfg.cls}`}>
             <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusCfg.dot }} />
@@ -762,7 +762,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
       {cols.priority && (() => {
         const pcfg = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.LOW;
         return (
-        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" style={cw('priority')} onClick={(e) => e.stopPropagation()}>
+        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--karya-border)]/40 flex items-center" style={cw('priority')} onClick={(e) => e.stopPropagation()}>
           <span className={`inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md ${pcfg.cls}`}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: pcfg.dot }} />
             {pcfg.label}
@@ -773,21 +773,21 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
 
       {/* ── Estimated time ── */}
       {cols.estimatedTime && (
-        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" style={cw('estimatedTime')} onClick={(e) => e.stopPropagation()}>
+        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--karya-border)]/40 flex items-center" style={cw('estimatedTime')} onClick={(e) => e.stopPropagation()}>
           <TimeCell taskId={task.id} field="estimatedTime" value={task.estimatedTime} taskTitle={task.title} canEdit={perm.timeTrack} onDone={onRefresh} queueOrRun={queueOrRun} emitInstant={emitInstant} resolveId={resolveId} />
         </div>
       )}
 
       {/* ── Actual time (Time Tracker) ── */}
       {cols.actualTime && (
-        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" style={cw('actualTime')} onClick={(e) => e.stopPropagation()}>
+        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--karya-border)]/40 flex items-center" style={cw('actualTime')} onClick={(e) => e.stopPropagation()}>
           <TimeTracker taskId={resolveId(task.id)} initialTotal={task.actualTime || 0} timerStartedAt={task.timerStartedAt} canEdit={perm.timeTrack} emitInstant={emitInstant} />
         </div>
       )}
 
       {/* ── Billable ── */}
       {cols.billable && (
-        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" style={cw('billable')} onClick={(e) => e.stopPropagation()}>
+        <div className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--karya-border)]/40 flex items-center" style={cw('billable')} onClick={(e) => e.stopPropagation()}>
           <button
             ref={billableBtnRef}
             onClick={() => {
@@ -819,7 +819,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
           {showBillableDrop && (
             <div
               ref={billableDropRef}
-              className="fixed z-[200] w-40 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in"
+              className="fixed z-[200] w-40 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg shadow-2xl py-1 animate-fade-in"
               style={{ top: billableDropPos.top ?? 'auto', bottom: billableDropPos.bottom ?? 'auto', left: billableDropPos.left }}
             >
               {[
@@ -843,7 +843,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
                     {opt.label}
                   </span>
                   {opt.value === task.billable && (
-                    <Check className="w-3.5 h-3.5 text-asana-blue ml-auto flex-shrink-0" strokeWidth={2.5} />
+                    <Check className="w-3.5 h-3.5 text-karya-blue ml-auto flex-shrink-0" strokeWidth={2.5} />
                   )}
                 </button>
               ))}
@@ -854,7 +854,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
 
       {/* ── Dynamic custom field cells ── */}
       {customFields.map(cf => (
-        <div key={cf.id} className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--asana-border)]/40 flex items-center" style={cw(cf.id)} onClick={(e) => e.stopPropagation()}>
+        <div key={cf.id} className="flex-shrink-0 px-3 py-[3px] border-r border-[var(--karya-border)]/40 flex items-center" style={cw(cf.id)} onClick={(e) => e.stopPropagation()}>
           <CustomFieldCell
             field={{ ...cf, _members: cf.type === 'PEOPLE' ? members : undefined }}
             taskId={task.id}
@@ -957,10 +957,10 @@ function FieldTypePicker({ onSelect, onClose }) {
     return (
       <>
         <div className="fixed inset-0 z-[90]" onClick={onClose} />
-        <div className="fixed z-[91] w-56 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl animate-fade-in"
+        <div className="fixed z-[91] w-56 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl shadow-2xl animate-fade-in"
           style={{ top: document.getElementById('add-field-btn')?.getBoundingClientRect().bottom + 4 || 200, right: Math.max(8, window.innerWidth - (document.getElementById('add-field-btn')?.getBoundingClientRect().right || window.innerWidth - 20)) }}>
           <div className="px-3 pt-2.5 pb-1">
-            <p className="text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Field types</p>
+            <p className="text-[10px] font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider">Field types</p>
           </div>
           <div className="max-h-80 overflow-y-auto pb-1">
             {FIELD_TYPES.map(ft => (
@@ -969,7 +969,7 @@ function FieldTypePicker({ onSelect, onClose }) {
                 <span className={`w-7 h-7 rounded-lg flex items-center justify-center mr-3 flex-shrink-0 ${ft.bg}`}>
                   <ft.Icon className={`w-3.5 h-3.5 ${ft.fg}`} strokeWidth={2} />
                 </span>
-                <span className="text-sm text-[var(--asana-text-primary)]">{ft.label}</span>
+                <span className="text-sm text-[var(--karya-text-primary)]">{ft.label}</span>
               </button>
             ))}
           </div>
@@ -981,12 +981,12 @@ function FieldTypePicker({ onSelect, onClose }) {
   // ── STEP 2: Add field modal ──
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-[var(--asana-surface)] rounded-xl shadow-2xl w-full max-w-[480px] animate-fade-in border border-[var(--asana-border)]">
+      <div className="bg-[var(--karya-surface)] rounded-xl shadow-2xl w-full max-w-[480px] animate-fade-in border border-[var(--karya-border)]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--asana-border)]">
-          <h2 className="text-base font-bold text-[var(--asana-text-primary)]">Add field</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--karya-border)]">
+          <h2 className="text-base font-bold text-[var(--karya-text-primary)]">Add field</h2>
           <div className="flex items-center space-x-2">
-            <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-[var(--asana-text-secondary)] transition-colors">
+            <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-[var(--karya-text-secondary)] transition-colors">
               <X className="w-5 h-5" strokeWidth={2} />
             </button>
           </div>
@@ -997,33 +997,33 @@ function FieldTypePicker({ onSelect, onClose }) {
           {/* Field title + Field type row */}
           <div className="flex space-x-4">
             <div className="flex-1">
-              <label className="block text-xs font-semibold text-[var(--asana-text-primary)] mb-1.5">
+              <label className="block text-xs font-semibold text-[var(--karya-text-primary)] mb-1.5">
                 Field title <span className="text-red-500">*</span>
               </label>
               <input type="text" value={name} onChange={(e) => setName(e.target.value)}
                 placeholder="Phone Number, Address..."
                 autoFocus
-                className="w-full px-3 py-2 text-sm bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-lg outline-none text-[var(--asana-text-primary)] placeholder-gray-400 focus:ring-1 focus:ring-asana-blue focus:border-asana-blue" />
+                className="w-full px-3 py-2 text-sm bg-[var(--karya-bg)] border border-[var(--karya-border)] rounded-lg outline-none text-[var(--karya-text-primary)] placeholder-gray-400 focus:ring-1 focus:ring-karya-blue focus:border-karya-blue" />
             </div>
             <div className="w-[160px]">
-              <label className="block text-xs font-semibold text-[var(--asana-text-primary)] mb-1.5">Field type</label>
+              <label className="block text-xs font-semibold text-[var(--karya-text-primary)] mb-1.5">Field type</label>
               <div className="relative" ref={typeDropdownRef}>
                 <button onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-                  className="w-full flex items-center px-3 py-2 bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-lg text-sm text-[var(--asana-text-primary)] hover:border-gray-400 dark:hover:border-gray-500 transition-colors">
+                  className="w-full flex items-center px-3 py-2 bg-[var(--karya-bg)] border border-[var(--karya-border)] rounded-lg text-sm text-[var(--karya-text-primary)] hover:border-gray-400 dark:hover:border-gray-500 transition-colors">
                   {selectedType && (
                     <span className={`w-6 h-6 rounded-md flex items-center justify-center mr-2 flex-shrink-0 ${selectedType.bg}`}>
                       <selectedType.Icon className={`w-3 h-3 ${selectedType.fg}`} strokeWidth={2} />
                     </span>
                   )}
                   <span className="truncate flex-1 text-left">{selectedType?.label}</span>
-                  <ChevronDown className="w-3.5 h-3.5 text-[var(--asana-text-secondary)] ml-1 flex-shrink-0" strokeWidth={2} />
+                  <ChevronDown className="w-3.5 h-3.5 text-[var(--karya-text-secondary)] ml-1 flex-shrink-0" strokeWidth={2} />
                 </button>
                 {showTypeDropdown && (
-                  <div className="fixed z-[300] w-[180px] bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 max-h-52 overflow-y-auto"
+                  <div className="fixed z-[300] w-[180px] bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg shadow-2xl py-1 max-h-52 overflow-y-auto"
                     style={{ top: typeDropdownRef.current?.getBoundingClientRect().bottom + 4, left: typeDropdownRef.current?.getBoundingClientRect().left }}>
                     {FIELD_TYPES.map(ft => (
                       <button key={ft.type} onClick={() => { setSelectedType(ft); setShowTypeDropdown(false); }}
-                        className={`w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50 ${selectedType?.type === ft.type ? 'bg-asana-blue/5 text-asana-blue font-medium' : 'text-[var(--asana-text-primary)]'}`}>
+                        className={`w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50 ${selectedType?.type === ft.type ? 'bg-karya-blue/5 text-karya-blue font-medium' : 'text-[var(--karya-text-primary)]'}`}>
                         <span className={`w-6 h-6 rounded-md flex items-center justify-center mr-2 flex-shrink-0 ${ft.bg}`}>
                           <ft.Icon className={`w-3 h-3 ${ft.fg}`} strokeWidth={2} />
                         </span>
@@ -1038,14 +1038,14 @@ function FieldTypePicker({ onSelect, onClose }) {
 
           {/* Description toggle */}
           {!showDesc ? (
-            <button onClick={() => setShowDesc(true)} className="text-xs text-asana-blue hover:underline">+ Add a description</button>
+            <button onClick={() => setShowDesc(true)} className="text-xs text-karya-blue hover:underline">+ Add a description</button>
           ) : (
             <div>
-              <label className="block text-xs font-semibold text-[var(--asana-text-primary)] mb-1.5">Description</label>
+              <label className="block text-xs font-semibold text-[var(--karya-text-primary)] mb-1.5">Description</label>
               <textarea value={description} onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe this field..."
                 rows={2}
-                className="w-full px-3 py-2 text-sm bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-lg outline-none text-[var(--asana-text-primary)] placeholder-gray-400 resize-none focus:ring-1 focus:ring-asana-blue" />
+                className="w-full px-3 py-2 text-sm bg-[var(--karya-bg)] border border-[var(--karya-border)] rounded-lg outline-none text-[var(--karya-text-primary)] placeholder-gray-400 resize-none focus:ring-1 focus:ring-karya-blue" />
             </div>
           )}
 
@@ -1054,7 +1054,7 @@ function FieldTypePicker({ onSelect, onClose }) {
           {/* Single/Multi select options */}
           {isSelectType && (
             <div>
-              <label className="block text-xs font-semibold text-[var(--asana-text-primary)] mb-2">Options</label>
+              <label className="block text-xs font-semibold text-[var(--karya-text-primary)] mb-2">Options</label>
               <div className="space-y-1.5">
                 {options.map((opt, i) => {
                   const c = OPTION_COLORS.find(oc => oc.name === opt.color) || OPTION_COLORS[0];
@@ -1065,8 +1065,8 @@ function FieldTypePicker({ onSelect, onClose }) {
                         const next = [...options]; next[i] = { ...opt, color: OPTION_COLORS[(ci + 1) % OPTION_COLORS.length].name };
                         setOptions(next);
                       }} className="w-4 h-4 rounded-full flex-shrink-0 hover:ring-2 hover:ring-gray-300 transition-all" style={{ backgroundColor: c.dot }} title="Change color" />
-                      <span className="text-sm text-[var(--asana-text-primary)] flex-1">{opt.value}</span>
-                      <button onClick={() => removeOption(i)} className="opacity-0 group-hover/opt:opacity-100 text-[var(--asana-text-secondary)] hover:text-red-500 transition-all">
+                      <span className="text-sm text-[var(--karya-text-primary)] flex-1">{opt.value}</span>
+                      <button onClick={() => removeOption(i)} className="opacity-0 group-hover/opt:opacity-100 text-[var(--karya-text-secondary)] hover:text-red-500 transition-all">
                         <X className="w-3.5 h-3.5" strokeWidth={2} />
                       </button>
                     </div>
@@ -1074,16 +1074,16 @@ function FieldTypePicker({ onSelect, onClose }) {
                 })}
                 {/* Add option row */}
                 <div className="flex items-center space-x-2 pt-1">
-                  <button className="w-4 h-4 rounded-full flex-shrink-0 border-2 border-[var(--asana-border)] hover:ring-2 hover:ring-gray-300 transition-all"
+                  <button className="w-4 h-4 rounded-full flex-shrink-0 border-2 border-[var(--karya-border)] hover:ring-2 hover:ring-gray-300 transition-all"
                     style={{ backgroundColor: newOptionColor.dot }}
                     onClick={() => { const idx = OPTION_COLORS.findIndex(c => c.name === newOptionColor.name); setNewOptionColor(OPTION_COLORS[(idx + 1) % OPTION_COLORS.length]); }}
                     title="Click to change color" />
                   <input type="text" value={newOptionName} onChange={(e) => setNewOptionName(e.target.value)}
                     placeholder="Add an option..."
-                    className="flex-1 text-sm bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400"
+                    className="flex-1 text-sm bg-transparent border-none outline-none text-[var(--karya-text-primary)] placeholder-gray-400"
                     onKeyDown={(e) => { if (e.key === 'Enter' && newOptionName.trim()) addOption(); }} />
                   {newOptionName.trim() && (
-                    <button onClick={addOption} className="text-asana-blue text-xs font-semibold hover:underline">Add</button>
+                    <button onClick={addOption} className="text-karya-blue text-xs font-semibold hover:underline">Add</button>
                   )}
                 </div>
               </div>
@@ -1093,7 +1093,7 @@ function FieldTypePicker({ onSelect, onClose }) {
           {/* Number format */}
           {selectedType?.type === 'NUMBER' && (
             <div>
-              <label className="block text-xs font-semibold text-[var(--asana-text-primary)] mb-2">Number format</label>
+              <label className="block text-xs font-semibold text-[var(--karya-text-primary)] mb-2">Number format</label>
               <div className="flex space-x-2">
                 {[
                   { value: 'number', label: 'Number', sub: '123' },
@@ -1103,8 +1103,8 @@ function FieldTypePicker({ onSelect, onClose }) {
                   <button key={f.value} onClick={() => setNumberFormat(f.value)}
                     className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors border ${
                       numberFormat === f.value
-                        ? 'border-asana-blue bg-asana-blue/5 text-asana-blue'
-                        : 'border-[var(--asana-border)] text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800'
+                        ? 'border-karya-blue bg-karya-blue/5 text-karya-blue'
+                        : 'border-[var(--karya-border)] text-[var(--karya-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}>
                     <span className="block text-sm font-bold">{f.sub}</span>
                     <span className="block mt-0.5">{f.label}</span>
@@ -1116,13 +1116,13 @@ function FieldTypePicker({ onSelect, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-[var(--asana-border)]">
+        <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-[var(--karya-border)]">
           <button onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-[var(--asana-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+            className="px-4 py-2 text-sm font-medium text-[var(--karya-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
             Cancel
           </button>
           <button onClick={handleCreate} disabled={!name.trim()}
-            className="px-5 py-2 text-sm font-semibold asana-button-primary rounded-lg disabled:opacity-40 disabled:cursor-not-allowed">
+            className="px-5 py-2 text-sm font-semibold karya-button-primary rounded-lg disabled:opacity-40 disabled:cursor-not-allowed">
             Create field
           </button>
         </div>
@@ -1132,13 +1132,13 @@ function FieldTypePicker({ onSelect, onClose }) {
 }
 
 /* ═══════════════════════════════════════════
-   Custom Field Cell — Asana-style rendering
+   Custom Field Cell — karya-style rendering
    ═══════════════════════════════════════════ */
 /* ═══════════════════════════════════════════
    Custom Field Time Tracker — stores data as JSON in custom field value
    Format: { total: minutes, entries: [{ mins, date, note }], timerStart: ISO|null }
    ═══════════════════════════════════════════ */
-// Asana-style time-input suggestions: when the user types a number or "Nh",
+// karya-style time-input suggestions: when the user types a number or "Nh",
 // offer interpretations they can click to log instantly.
 function buildTimeSuggestionsLocal(input) {
   const s = String(input || '').trim().toLowerCase();
@@ -1251,32 +1251,32 @@ function CustomFieldTimeTracker({ taskId, value, canEdit, onChange }) {
   return (
     <div className="relative w-full">
       <button ref={btnRef} onClick={(e) => { e.stopPropagation(); if (btnRef.current) { const r = btnRef.current.getBoundingClientRect(); const spaceBelow = window.innerHeight - r.bottom; const openAbove = spaceBelow < 300; setPopupPos({ top: openAbove ? null : r.bottom + 4, bottom: openAbove ? (window.innerHeight - r.top + 4) : null, left: Math.min(r.left, window.innerWidth - 300) }); } setShowPopup(true); }}
-        className={`text-xs flex items-center w-full ${total > 0 || timerStart ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)]'}`}>
+        className={`text-xs flex items-center w-full ${total > 0 || timerStart ? 'text-[var(--karya-text-primary)]' : 'text-[var(--karya-text-secondary)]'}`}>
         {timerStart && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse mr-1.5" />}
         {timerStart ? <span className="font-mono text-red-500 font-semibold">{timerDisplay}</span> : total > 0 ? fmtMins(total) : (
           <Clock className="w-3.5 h-3.5" strokeWidth={1.75} />
         )}
       </button>
       {showPopup && (
-        <div ref={popupRef} className="fixed z-[200] w-72 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl animate-fade-in"
+        <div ref={popupRef} className="fixed z-[200] w-72 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl shadow-2xl animate-fade-in"
           style={{ top: popupPos.top ?? 'auto', bottom: popupPos.bottom ?? 'auto', left: popupPos.left }}
           onClick={(e) => e.stopPropagation()}>
           <div className="max-h-48 overflow-y-auto">
             {entries.map((e, i) => (
-              <div key={i} className="flex items-center px-4 py-2.5 border-b border-[var(--asana-border)] group/entry">
-                <span className="text-sm font-semibold text-[var(--asana-text-primary)] flex-1">{fmtMins(e.mins)}</span>
+              <div key={i} className="flex items-center px-4 py-2.5 border-b border-[var(--karya-border)] group/entry">
+                <span className="text-sm font-semibold text-[var(--karya-text-primary)] flex-1">{fmtMins(e.mins)}</span>
                 {canEdit && (
-                  <button onClick={() => handleDeleteEntry(i)} className="opacity-0 group-hover/entry:opacity-100 p-0.5 text-[var(--asana-text-secondary)] hover:text-red-500">
+                  <button onClick={() => handleDeleteEntry(i)} className="opacity-0 group-hover/entry:opacity-100 p-0.5 text-[var(--karya-text-secondary)] hover:text-red-500">
                     <Trash2 className="w-3 h-3" strokeWidth={1.75} />
                   </button>
                 )}
-                <span className="text-[10px] text-[var(--asana-text-secondary)] ml-2">{new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                <span className="text-[10px] text-[var(--karya-text-secondary)] ml-2">{new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
               </div>
             ))}
-            {entries.length === 0 && !timerStart && <p className="text-xs text-[var(--asana-text-secondary)] text-center py-4">No time logged</p>}
+            {entries.length === 0 && !timerStart && <p className="text-xs text-[var(--karya-text-secondary)] text-center py-4">No time logged</p>}
           </div>
           {timerStart && (
-            <div className="px-4 py-2.5 border-b border-[var(--asana-border)] bg-red-50/50 dark:bg-red-900/10">
+            <div className="px-4 py-2.5 border-b border-[var(--karya-border)] bg-red-50/50 dark:bg-red-900/10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /><span className="text-sm font-mono font-bold text-red-600 dark:text-red-400">{timerDisplay}</span></div>
                 <button onClick={handleStopTimer} className="text-xs font-semibold text-red-600 px-2 py-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30">Stop</button>
@@ -1284,11 +1284,11 @@ function CustomFieldTimeTracker({ taskId, value, canEdit, onChange }) {
             </div>
           )}
           <div className="px-4 py-3">
-            <div className="mb-2"><span className="text-sm font-semibold text-[var(--asana-text-primary)]">{fmtMins(total + timerMins)}</span> <span className="text-[10px] text-[var(--asana-text-secondary)] uppercase">Total</span></div>
+            <div className="mb-2"><span className="text-sm font-semibold text-[var(--karya-text-primary)]">{fmtMins(total + timerMins)}</span> <span className="text-[10px] text-[var(--karya-text-secondary)] uppercase">Total</span></div>
             {canEdit && (
               <div className="flex items-center space-x-2">
                 {!timerStart ? (
-                  <button onClick={handleStartTimer} className="flex items-center text-xs px-3 py-1.5 rounded-md border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 font-medium">
+                  <button onClick={handleStartTimer} className="flex items-center text-xs px-3 py-1.5 rounded-md border border-[var(--karya-border)] text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 font-medium">
                     <Timer className="w-3.5 h-3.5 mr-1.5" strokeWidth={1.75} />
                     Start timer
                   </button>
@@ -1298,14 +1298,14 @@ function CustomFieldTimeTracker({ taskId, value, canEdit, onChange }) {
                 {addingTime ? (
                   <div className="relative flex items-center space-x-1">
                     <input type="text" value={addInput} onChange={(e) => setAddInput(e.target.value)} placeholder="1h 30m" autoFocus
-                      className="w-24 text-xs px-2 py-1.5 bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-md outline-none text-[var(--asana-text-primary)] focus:ring-1 focus:ring-asana-blue"
+                      className="w-24 text-xs px-2 py-1.5 bg-[var(--karya-bg)] border border-[var(--karya-border)] rounded-md outline-none text-[var(--karya-text-primary)] focus:ring-1 focus:ring-karya-blue"
                       onKeyDown={(e) => { if (e.key === 'Enter') handleAddTime(); if (e.key === 'Escape') { setAddingTime(false); setAddInput(''); } }} />
-                    <button onClick={handleAddTime} className="text-xs text-asana-blue font-semibold">Add</button>
+                    <button onClick={handleAddTime} className="text-xs text-karya-blue font-semibold">Add</button>
                     {(() => {
                       const sugs = buildTimeSuggestionsLocal(addInput);
                       if (!sugs.length) return null;
                       return (
-                        <div className="absolute bottom-full left-0 mb-1 z-[100] w-44 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-md shadow-lg py-1 animate-fade-in">
+                        <div className="absolute bottom-full left-0 mb-1 z-[100] w-44 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-md shadow-lg py-1 animate-fade-in">
                           {sugs.map((sug) => (
                             <button key={sug.label}
                               onMouseDown={(e) => {
@@ -1315,7 +1315,7 @@ function CustomFieldTimeTracker({ taskId, value, canEdit, onChange }) {
                                 setTotal(newTotal); setEntries(newEntries); setAddInput(''); setAddingTime(false);
                                 persist(newTotal, newEntries, timerStart);
                               }}
-                              className="w-full text-left px-3 py-1.5 text-xs text-[var(--asana-text-primary)] hover:bg-asana-blue hover:text-white transition-colors">
+                              className="w-full text-left px-3 py-1.5 text-xs text-[var(--karya-text-primary)] hover:bg-karya-blue hover:text-white transition-colors">
                               {sug.label}
                             </button>
                           ))}
@@ -1324,7 +1324,7 @@ function CustomFieldTimeTracker({ taskId, value, canEdit, onChange }) {
                     })()}
                   </div>
                 ) : (
-                  <button onClick={() => setAddingTime(true)} className="flex items-center text-xs px-3 py-1.5 rounded-md border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 font-medium">
+                  <button onClick={() => setAddingTime(true)} className="flex items-center text-xs px-3 py-1.5 rounded-md border border-[var(--karya-border)] text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 font-medium">
                     <Plus className="w-3.5 h-3.5 mr-1.5" strokeWidth={2} />
                     Add time
                   </button>
@@ -1390,7 +1390,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
   if (field.type === 'CHECKBOX') {
     return (
       <button onClick={() => canEdit && onChange(value === 'true' ? 'false' : 'true')}
-        className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${value === 'true' ? 'bg-asana-blue border-asana-blue' : 'border-gray-300 dark:border-gray-600'} ${canEdit ? 'cursor-pointer' : ''}`}>
+        className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${value === 'true' ? 'bg-karya-blue border-karya-blue' : 'border-gray-300 dark:border-gray-600'} ${canEdit ? 'cursor-pointer' : ''}`}>
         {value === 'true' && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
       </button>
     );
@@ -1410,26 +1410,26 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
               {selected.value}
             </span>
           ) : (
-            <span className="text-[12px] text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100">—</span>
+            <span className="text-[12px] text-[var(--karya-text-secondary)] opacity-0 group-hover:opacity-100">—</span>
           )}
         </button>
         {showDropdown && (
-          <div ref={dropdownRef} className="fixed z-[200] w-52 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
+          <div ref={dropdownRef} className="fixed z-[200] w-52 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
             style={{ top: dropPos.top ?? 'auto', bottom: dropPos.bottom ?? 'auto', left: dropPos.left }}>
             <button onClick={() => { onChange(''); setShowDropdown(false); }}
-              className="w-full px-3 py-1.5 text-left text-[12px] text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
+              className="w-full px-3 py-1.5 text-left text-[12px] text-[var(--karya-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
               Clear
             </button>
             {parsedOpts.map((opt) => {
               const c = OPTION_COLORS.find(oc => oc.name === opt.color) || OPTION_COLORS[0];
               return (
                 <button key={opt.value} onClick={() => { onChange(opt.value); setShowDropdown(false); }}
-                  className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${value === opt.value ? 'bg-asana-blue/5' : ''}`}>
+                  className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${value === opt.value ? 'bg-karya-blue/5' : ''}`}>
                   <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md ${c.cls}`}>
                     <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.dot }} />
                     {opt.value}
                   </span>
-                  {value === opt.value && <Check className="w-3.5 h-3.5 ml-auto text-asana-blue flex-shrink-0" strokeWidth={2.5} />}
+                  {value === opt.value && <Check className="w-3.5 h-3.5 ml-auto text-karya-blue flex-shrink-0" strokeWidth={2.5} />}
                 </button>
               );
             })}
@@ -1466,11 +1466,11 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
               )}
             </>
           ) : (
-            <span className="text-[12px] text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100">—</span>
+            <span className="text-[12px] text-[var(--karya-text-secondary)] opacity-0 group-hover:opacity-100">—</span>
           )}
         </button>
         {showDropdown && (
-          <div ref={dropdownRef} className="fixed z-[200] w-52 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
+          <div ref={dropdownRef} className="fixed z-[200] w-52 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-52 overflow-y-auto"
             style={{ top: dropPos.top ?? 'auto', bottom: dropPos.bottom ?? 'auto', left: dropPos.left }}>
             {parsedOpts.map(opt => {
               const c = OPTION_COLORS.find(oc => oc.name === opt.color) || OPTION_COLORS[0];
@@ -1481,12 +1481,12 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
                     const next = isSelected ? selectedValues.filter(v => v !== opt.value) : [...selectedValues, opt.value];
                     onChange(next.join(','));
                   }}
-                  className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${isSelected ? 'bg-asana-blue/5' : ''}`}>
+                  className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${isSelected ? 'bg-karya-blue/5' : ''}`}>
                   <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-md ${c.cls}`}>
                     <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.dot }} />
                     {opt.value}
                   </span>
-                  {isSelected && <Check className="w-3.5 h-3.5 ml-auto text-asana-blue flex-shrink-0" strokeWidth={2.5} />}
+                  {isSelected && <Check className="w-3.5 h-3.5 ml-auto text-karya-blue flex-shrink-0" strokeWidth={2.5} />}
                 </button>
               );
             })}
@@ -1500,7 +1500,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
   if (field.type === 'DATE') {
     return (
       <input type="date" value={value || ''} onChange={(e) => canEdit && onChange(e.target.value)} readOnly={!canEdit}
-        className="text-[12px] bg-transparent border-none p-0 text-[var(--asana-text-primary)] focus:ring-0 w-full cursor-pointer" />
+        className="text-[12px] bg-transparent border-none p-0 text-[var(--karya-text-primary)] focus:ring-0 w-full cursor-pointer" />
     );
   }
 
@@ -1516,27 +1516,27 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
                 style={{ backgroundColor: `hsl($((selectedName?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                 {selectedName.charAt(0).toUpperCase()}
               </div>
-              <span className="text-[12px] text-[var(--asana-text-primary)] truncate">{selectedName}</span>
+              <span className="text-[12px] text-[var(--karya-text-primary)] truncate">{selectedName}</span>
             </>
           ) : (
-            <span className="text-[12px] text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100">—</span>
+            <span className="text-[12px] text-[var(--karya-text-secondary)] opacity-0 group-hover:opacity-100">—</span>
           )}
         </button>
         {showDropdown && (
-          <div ref={dropdownRef} className="fixed z-[200] w-48 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-48 overflow-y-auto"
+          <div ref={dropdownRef} className="fixed z-[200] w-48 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg shadow-2xl py-1 animate-fade-in max-h-48 overflow-y-auto"
             style={{ top: dropPos.top ?? 'auto', bottom: dropPos.bottom ?? 'auto', left: dropPos.left }}>
             <button onClick={() => { onChange(''); setShowDropdown(false); }}
-              className="w-full px-3 py-1.5 text-left text-[12px] text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">Clear</button>
+              className="w-full px-3 py-1.5 text-left text-[12px] text-[var(--karya-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">Clear</button>
             {(field._members || []).map(m => {
               const name = m.user?.name || m.name || '';
               return (
                 <button key={name} onClick={() => { onChange(name); setShowDropdown(false); }}
-                  className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 ${value === name ? 'bg-asana-blue/5' : ''}`}>
+                  className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 ${value === name ? 'bg-karya-blue/5' : ''}`}>
                   <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold mr-2"
                     style={{ backgroundColor: `hsl($((name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                     {name.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-[12px] text-[var(--asana-text-primary)]">{name}</span>
+                  <span className="text-[12px] text-[var(--karya-text-primary)]">{name}</span>
                 </button>
               );
             })}
@@ -1552,20 +1552,20 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
     if (editing) {
       return (
         <input type="number" value={input} onChange={(e) => { setInput(e.target.value); debouncedOnChange(e.target.value); }} autoFocus
-          className="text-[12px] bg-transparent border-none p-0 text-[var(--asana-text-primary)] outline-none w-full text-right"
+          className="text-[12px] bg-transparent border-none p-0 text-[var(--karya-text-primary)] outline-none w-full text-right"
           onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setInput(value || ''); setEditing(false); } }} />
       );
     }
     const display = value ? (fmt === 'currency' ? `$${value}` : fmt === 'percentage' ? `${value}%` : value) : '';
     return (
       <span onClick={() => canEdit && setEditing(true)}
-        className={`text-[12px] text-right block w-full ${value ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100'} ${canEdit ? 'cursor-pointer' : ''}`}>
+        className={`text-[12px] text-right block w-full ${value ? 'text-[var(--karya-text-primary)]' : 'text-[var(--karya-text-secondary)] opacity-0 group-hover:opacity-100'} ${canEdit ? 'cursor-pointer' : ''}`}>
         {display || '—'}
       </span>
     );
   }
 
-  // TIME_TRACKING — full Asana-style timer + entries (uses custom field value as storage)
+  // TIME_TRACKING — full karya-style timer + entries (uses custom field value as storage)
   if (field.type === 'TIME_TRACKING') {
     return (
       <CustomFieldTimeTracker
@@ -1581,14 +1581,14 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
   if (editing) {
     return (
       <input type="text" value={input} onChange={(e) => { setInput(e.target.value); debouncedOnChange(e.target.value); }} autoFocus
-        className="text-[12px] bg-transparent border-none p-0 text-[var(--asana-text-primary)] outline-none w-full"
+        className="text-[12px] bg-transparent border-none p-0 text-[var(--karya-text-primary)] outline-none w-full"
         onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setInput(value || ''); setEditing(false); } }} />
     );
   }
 
   return (
     <span onClick={() => canEdit && setEditing(true)}
-      className={`text-[12px] truncate block ${value ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)] opacity-0 group-hover:opacity-100'} ${canEdit ? 'cursor-pointer' : ''}`}>
+      className={`text-[12px] truncate block ${value ? 'text-[var(--karya-text-primary)]' : 'text-[var(--karya-text-secondary)] opacity-0 group-hover:opacity-100'} ${canEdit ? 'cursor-pointer' : ''}`}>
       {value || '—'}
     </span>
   );
@@ -1623,7 +1623,7 @@ function TaskTreeNode({ task, depth, parentId, members, canEdit, perm, cols, cus
       ref={dragProvided.innerRef}
       {...dragProvided.draggableProps}
       data-just-created={task.id}
-      className={`${dragSnapshot.isDragging ? 'shadow-[0_8px_24px_-6px_rgba(15,23,42,0.18),0_2px_6px_-2px_rgba(15,23,42,0.12)] dark:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)] bg-[var(--asana-surface)] dark:bg-[#1f2937]' : 'w-max min-w-full'}`}
+      className={`${dragSnapshot.isDragging ? 'shadow-[0_8px_24px_-6px_rgba(15,23,42,0.18),0_2px_6px_-2px_rgba(15,23,42,0.12)] dark:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)] bg-[var(--karya-surface)] dark:bg-[#1f2937]' : 'w-max min-w-full'}`}
       style={{
         ...dragProvided.draggableProps.style,
         ...(dragSnapshot.isDragging ? { borderRadius: 6, zIndex: 9999 } : {}),
@@ -1647,17 +1647,17 @@ function AddSubtaskFooter({ task, depth, listId, addingSubtaskTo, setAddingSubta
   return (
     <Fragment>
       {canEdit && (hasSubtasks || addingSubtaskTo?.taskId === task.id) && (
-        <div className="border-b border-[var(--asana-border)]/30 w-max min-w-full">
+        <div className="border-b border-[var(--karya-border)]/30 w-max min-w-full">
           {addingSubtaskTo?.taskId === task.id ? (
             <form onSubmit={(e) => handleAddSubtask(e, listId, task.id)}
-              className="sticky left-0 inline-flex items-center py-[3px] w-[400px] bg-[var(--asana-surface)]"
+              className="sticky left-0 inline-flex items-center py-[3px] w-[400px] bg-[var(--karya-surface)]"
               style={{ paddingLeft: `${(depth + 1) * 1.5 + 0.25}rem`, paddingRight: '0.75rem' }}>
               <span className="w-4 mr-1 flex-shrink-0" />
               <span className="w-[18px] mr-1.5 flex-shrink-0" />
               <div className="w-[18px] h-[18px] rounded-full border-2 border-gray-200 dark:border-gray-700 flex-shrink-0 mr-3" />
               <input type="text" value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)}
                 placeholder="Add subtask..." autoFocus
-                className="flex-1 text-sm bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400"
+                className="flex-1 text-sm bg-transparent border-none outline-none text-[var(--karya-text-primary)] placeholder-gray-400"
                 onKeyDown={(e) => { if (e.key === 'Escape') { setAddingSubtaskTo(null); setNewSubtaskTitle(''); } }}
                 onBlur={() => {
                   if (newSubtaskTitle.trim()) handleAddSubtask({ preventDefault: () => {} }, listId, task.id);
@@ -1666,11 +1666,11 @@ function AddSubtaskFooter({ task, depth, listId, addingSubtaskTo, setAddingSubta
             </form>
           ) : (
             <button onClick={() => setAddingSubtaskTo({ listId, taskId: task.id })}
-              className="group/addsub sticky left-0 inline-flex items-center py-[3px] w-[400px] text-left text-[var(--asana-text-secondary)] hover:text-asana-blue bg-[var(--asana-surface)] text-xs transition-colors"
+              className="group/addsub sticky left-0 inline-flex items-center py-[3px] w-[400px] text-left text-[var(--karya-text-secondary)] hover:text-karya-blue bg-[var(--karya-surface)] text-xs transition-colors"
               style={{ paddingLeft: `${(depth + 1) * 1.5 + 0.25}rem`, paddingRight: '0.75rem' }}>
               <span className="w-4 mr-1 flex-shrink-0" />
               <span className="w-[18px] mr-1.5 flex-shrink-0" />
-              <span className="w-[18px] h-[18px] rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 group-hover/addsub:border-asana-blue flex items-center justify-center mr-3 flex-shrink-0 transition-colors">
+              <span className="w-[18px] h-[18px] rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 group-hover/addsub:border-karya-blue flex items-center justify-center mr-3 flex-shrink-0 transition-colors">
                 <Plus className="w-2.5 h-2.5" strokeWidth={2.5} />
               </span>
               Add subtask...
@@ -1688,8 +1688,8 @@ function AddSubtaskFooter({ task, depth, listId, addingSubtaskTo, setAddingSubta
 /* ── Inline skeleton row for pending items ── */
 function PendingRow({ title, type, depth = 0 }) {
   return (
-    <div className="flex items-stretch border-b border-[var(--asana-border)]/30 animate-pulse w-max min-w-full">
-      <div className={`${NAME_COL} flex items-center py-[3px] border-r border-[var(--asana-border)]/40`}
+    <div className="flex items-stretch border-b border-[var(--karya-border)]/30 animate-pulse w-max min-w-full">
+      <div className={`${NAME_COL} flex items-center py-[3px] border-r border-[var(--karya-border)]/40`}
         style={{ paddingLeft: `${depth * 1.5 + 1}rem`, paddingRight: '0.75rem' }}>
         <span className="w-[18px] mr-1.5 flex-shrink-0" />
         {type === 'section' ? (
@@ -1701,9 +1701,9 @@ function PendingRow({ title, type, depth = 0 }) {
           </>
         )}
       </div>
-      <div className="w-[130px] px-3 py-[7px] flex-shrink-0 border-r border-[var(--asana-border)]" />
-      <div className="w-[110px] px-3 py-[7px] flex-shrink-0 border-r border-[var(--asana-border)]" />
-      <div className="w-[110px] px-3 py-[7px] flex-shrink-0 border-r border-[var(--asana-border)]">
+      <div className="w-[130px] px-3 py-[7px] flex-shrink-0 border-r border-[var(--karya-border)]" />
+      <div className="w-[110px] px-3 py-[7px] flex-shrink-0 border-r border-[var(--karya-border)]" />
+      <div className="w-[110px] px-3 py-[7px] flex-shrink-0 border-r border-[var(--karya-border)]">
         {type !== 'section' && <div className="h-5 w-12 bg-gray-200/40 dark:bg-gray-700/40 rounded" />}
       </div>
     </div>
@@ -2142,7 +2142,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
     return any ? sum : null;
   };
 
-  // ── Drag-and-drop: move task/subtask between/within sections or parents (Asana-style)
+  // ── Drag-and-drop: move task/subtask between/within sections or parents (karya-style)
   // droppableId formats (use "::" as separator since UUIDs contain "-"):
   //   "section::{listId}"               → top-level task list inside a section
   //   "parent::{taskId}::{listId}"      → subtask list under a parent task
@@ -2272,7 +2272,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
       }}
     >
     <div className="relative flex-1 flex flex-col min-h-0">
-    <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)]/50 relative flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div className="bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)]/50 relative flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* ── Single unified scroll viewport: header + body live inside one scroll container.
            This is the only element @hello-pangea/dnd needs to find — both axes scroll here,
            so autoscroll-on-drag and manual-scroll-during-drag both work correctly.
@@ -2283,30 +2283,30 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
            content width (not just the scroll container's visible viewport),
            otherwise newly-added columns scroll into a transparent area. ── */}
       <div className="sticky top-0 z-30 rounded-t-lg">
-        <div className="flex items-stretch border-b border-[var(--asana-border)]/60 w-max min-w-full bg-[var(--asana-surface)]">
+        <div className="flex items-stretch border-b border-[var(--karya-border)]/60 w-max min-w-full bg-[var(--karya-surface)]">
         {/* Name column header */}
-        <div className="flex-shrink-0 sticky left-0 z-20 bg-[var(--asana-surface)] px-4 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center" style={{ width: cw('name') }}>
-          <span className="text-[11px] font-medium text-[var(--asana-text-secondary)]">Name</span>
+        <div className="flex-shrink-0 sticky left-0 z-20 bg-[var(--karya-surface)] px-4 py-2 border-r border-[var(--karya-border)]/40 relative flex items-center" style={{ width: cw('name') }}>
+          <span className="text-[11px] font-medium text-[var(--karya-text-secondary)]">Name</span>
           <ResizeHandle colKey="name" />
         </div>
-        {cols.assignee && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('assignee') }}><Users className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Assignee</span><ResizeHandle colKey="assignee" /></div>}
-        {cols.dueDate && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('dueDate') }}><Calendar className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Due date</span><ResizeHandle colKey="dueDate" /></div>}
-        {cols.status && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('status') }}><CircleDot className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Status</span><ResizeHandle colKey="status" /></div>}
-        {cols.priority && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('priority') }}><Flag className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Priority</span><ResizeHandle colKey="priority" /></div>}
-        {cols.estimatedTime && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('estimatedTime') }}><Clock className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Est. time</span><ResizeHandle colKey="estimatedTime" /></div>}
-        {cols.actualTime && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('actualTime') }}><Timer className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Actual time</span><ResizeHandle colKey="actualTime" /></div>}
-        {cols.billable && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('billable') }}><DollarSign className="w-3 h-3 text-[var(--asana-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate">Billable</span><ResizeHandle colKey="billable" /></div>}
+        {cols.assignee && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('assignee') }}><Users className="w-3 h-3 text-[var(--karya-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--karya-text-secondary)] truncate">Assignee</span><ResizeHandle colKey="assignee" /></div>}
+        {cols.dueDate && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('dueDate') }}><Calendar className="w-3 h-3 text-[var(--karya-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--karya-text-secondary)] truncate">Due date</span><ResizeHandle colKey="dueDate" /></div>}
+        {cols.status && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('status') }}><CircleDot className="w-3 h-3 text-[var(--karya-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--karya-text-secondary)] truncate">Status</span><ResizeHandle colKey="status" /></div>}
+        {cols.priority && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('priority') }}><Flag className="w-3 h-3 text-[var(--karya-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--karya-text-secondary)] truncate">Priority</span><ResizeHandle colKey="priority" /></div>}
+        {cols.estimatedTime && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('estimatedTime') }}><Clock className="w-3 h-3 text-[var(--karya-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--karya-text-secondary)] truncate">Est. time</span><ResizeHandle colKey="estimatedTime" /></div>}
+        {cols.actualTime && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('actualTime') }}><Timer className="w-3 h-3 text-[var(--karya-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--karya-text-secondary)] truncate">Actual time</span><ResizeHandle colKey="actualTime" /></div>}
+        {cols.billable && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40 relative flex items-center gap-1.5" style={{ width: cw('billable') }}><DollarSign className="w-3 h-3 text-[var(--karya-text-secondary)] flex-shrink-0" strokeWidth={1.75} /><span className="text-[11px] font-medium text-[var(--karya-text-secondary)] truncate">Billable</span><ResizeHandle colKey="billable" /></div>}
 
         {/* Dynamic custom field columns */}
         {customFields.map(cf => {
           const ft = FIELD_TYPES.find(f => f.type === cf.type);
           return (
-          <div key={cf.id} className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center gap-1.5 group/col relative" style={{ width: cw(cf.id) }}>
+          <div key={cf.id} className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40 flex items-center gap-1.5 group/col relative" style={{ width: cw(cf.id) }}>
             {ft && <ft.Icon className={`w-3 h-3 flex-shrink-0 ${ft.fg}`} strokeWidth={1.75} />}
-            <span className="text-[11px] font-medium text-[var(--asana-text-secondary)] truncate flex-1 min-w-0">{cf.name}</span>
+            <span className="text-[11px] font-medium text-[var(--karya-text-secondary)] truncate flex-1 min-w-0">{cf.name}</span>
             {perm.fieldDelete && (
               <button onClick={() => deleteCustomField(cf.id)}
-                className="opacity-0 group-hover/col:opacity-100 w-4 h-4 flex-shrink-0 flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-[var(--asana-text-secondary)] hover:text-red-500 transition-all">
+                className="opacity-0 group-hover/col:opacity-100 w-4 h-4 flex-shrink-0 flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-[var(--karya-text-secondary)] hover:text-red-500 transition-all">
                 <X className="w-2.5 h-2.5" strokeWidth={2.5} />
               </button>
             )}
@@ -2318,7 +2318,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
         {/* + Add field — pinned to right edge */}
         {perm.fieldCreate && (
           <button onClick={() => setShowFieldPicker(!showFieldPicker)}
-            className="sticky right-0 w-9 flex-shrink-0 flex items-center justify-center bg-[var(--asana-surface)] border-b border-l border-[var(--asana-border)]/60 text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
+            className="sticky right-0 w-9 flex-shrink-0 flex items-center justify-center bg-[var(--karya-surface)] border-b border-l border-[var(--karya-border)]/60 text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
             title="Add field">
             <Plus className="w-3.5 h-3.5" strokeWidth={2} />
           </button>
@@ -2347,12 +2347,12 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                 return (
               <div onMouseEnter={() => { hoveredSectionRef.current = list.id; }}
                 data-just-created={list.id}
-                className="flex items-stretch border-b border-[var(--asana-border)]/60 bg-gradient-to-b from-gray-50/90 to-gray-50/40 dark:from-[#1a1f2b]/95 dark:to-[#151a23]/80 hover:from-gray-100/80 dark:hover:from-[#1f2533]/95 transition-all duration-180 group/section shadow-[0_1px_0_0_rgba(15,23,42,0.04)] w-max min-w-full">
+                className="flex items-stretch border-b border-[var(--karya-border)]/60 bg-gradient-to-b from-gray-50/90 to-gray-50/40 dark:from-[#1a1f2b]/95 dark:to-[#151a23]/80 hover:from-gray-100/80 dark:hover:from-[#1f2533]/95 transition-all duration-180 group/section shadow-[0_1px_0_0_rgba(15,23,42,0.04)] w-max min-w-full">
                 {/* Name cell — holds collapse arrow, title, count, progress bar (bg overrides parent gradient so frozen-left looks clean) */}
                 <div className={`${NAME_COL} flex items-center px-4 py-3`}
                   style={{ background: 'inherit' }}>
                 <button onClick={() => toggleSection(list.id)} className="mr-2.5 flex-shrink-0 p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700/70 transition-colors">
-                  <ChevronDown className={`w-3.5 h-3.5 text-[var(--asana-text-secondary)] transition-transform duration-180 ${collapsedSections[list.id] ? '-rotate-90' : ''}`} strokeWidth={2.5} />
+                  <ChevronDown className={`w-3.5 h-3.5 text-[var(--karya-text-secondary)] transition-transform duration-180 ${collapsedSections[list.id] ? '-rotate-90' : ''}`} strokeWidth={2.5} />
                 </button>
 
                 {editingSectionId === list.id ? (
@@ -2361,16 +2361,16 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                     onBlur={() => handleStopEditingSection(list.id)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleStopEditingSection(list.id); if (e.key === 'Escape') setEditingSectionId(null); }}
                     autoFocus
-                    className="text-base font-semibold bg-transparent border-b-2 border-asana-blue outline-none text-[var(--asana-text-primary)] py-0 px-0 flex-1 min-w-0" />
+                    className="text-base font-semibold bg-transparent border-b-2 border-karya-blue outline-none text-[var(--karya-text-primary)] py-0 px-0 flex-1 min-w-0" />
                 ) : (
-                  <span className={`text-[15px] font-semibold tracking-tight text-[var(--asana-text-primary)] truncate ${perm.sectionEdit ? 'cursor-text hover:text-asana-blue transition-colors' : ''}`}
+                  <span className={`text-[15px] font-semibold tracking-tight text-[var(--karya-text-primary)] truncate ${perm.sectionEdit ? 'cursor-text hover:text-karya-blue transition-colors' : ''}`}
                     onDoubleClick={(e) => { if (!perm.sectionEdit) return; e.stopPropagation(); setEditingSectionId(list.id); setEditingSectionName(list.name); }}
                     onClick={() => toggleSection(list.id)}>
                     {liveEdits[`section-${list.id}-name`] || list.name}
                   </span>
                 )}
 
-                <span className="ml-2.5 text-[10px] text-[var(--asana-text-secondary)] bg-gray-200/80 dark:bg-gray-700/70 rounded-full px-2 py-0.5 font-semibold flex-shrink-0">
+                <span className="ml-2.5 text-[10px] text-[var(--karya-text-secondary)] bg-gray-200/80 dark:bg-gray-700/70 rounded-full px-2 py-0.5 font-semibold flex-shrink-0">
                   {total}
                 </span>
 
@@ -2378,7 +2378,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                   <div className="ml-3 flex items-center gap-2 flex-shrink-0">
                     <div className="w-24 h-1.5 rounded-full bg-gray-200/80 dark:bg-gray-700/60 overflow-hidden">
                       <div
-                        className="h-full rounded-full transition-all duration-500 ease-asana"
+                        className="h-full rounded-full transition-all duration-500 ease-karya"
                         style={{
                           width: `${pct}%`,
                           background: pct === 100
@@ -2387,7 +2387,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                         }}
                       />
                     </div>
-                    <span className="text-[11px] font-medium text-[var(--asana-text-secondary)] tabular-nums">
+                    <span className="text-[11px] font-medium text-[var(--karya-text-secondary)] tabular-nums">
                       {done}/{total} · {pct}%
                     </span>
                   </div>
@@ -2397,13 +2397,13 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                   <div className="ml-auto flex items-center space-x-0.5 opacity-0 group-hover/section:opacity-100 transition-all flex-shrink-0">
                     {perm.sectionEdit && (
                     <button onClick={(e) => { e.stopPropagation(); setEditingSectionId(list.id); setEditingSectionName(list.name); }}
-                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)]" title="Rename">
+                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)]" title="Rename">
                       <Pencil className="w-3.5 h-3.5" strokeWidth={1.75} />
                     </button>
                     )}
                     {perm.sectionDelete && (
                     <button onClick={async (e) => { e.stopPropagation(); const ok = await confirm({ title: 'Delete section?', message: `"${list.name}" and all its tasks will be permanently deleted.`, confirmText: 'Delete', variant: 'danger' }); if (!ok) return; emitInstant?.('section_deleted', { listId: resolveId(list.id) }); dispatch({ type: 'board/deleteList/fulfilled', payload: list.id }); queueOrRun(list.id, (realId) => dispatch(deleteList(realId))); }}
-                      className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-[var(--asana-text-secondary)] hover:text-red-500" title="Delete">
+                      className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-[var(--karya-text-secondary)] hover:text-red-500" title="Delete">
                       <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
                     </button>
                     )}
@@ -2446,7 +2446,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                       <div
                         ref={dropProvided.innerRef}
                         {...dropProvided.droppableProps}
-                        className={`min-h-[8px] transition-colors duration-180 ${dropSnapshot.isDraggingOver ? 'bg-blue-50/50 dark:bg-[#1f2937]/60 ring-1 ring-inset ring-asana-blue/30' : ''}`}
+                        className={`min-h-[8px] transition-colors duration-180 ${dropSnapshot.isDraggingOver ? 'bg-blue-50/50 dark:bg-[#1f2937]/60 ring-1 ring-inset ring-karya-blue/30' : ''}`}
                       >
                         {flatRows.map(({ task, depth, parentId }, flatIndex) => {
                           const isTemp = typeof task.id === 'string' && task.id.startsWith('temp-');
@@ -2485,10 +2485,10 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
 
                   {/* Add task row */}
                   {perm.taskCreate && (
-                    <div className="border-b border-[var(--asana-border)]/30 w-max min-w-full">
+                    <div className="border-b border-[var(--karya-border)]/30 w-max min-w-full">
                       {addingTaskTo === list.id ? (
                         <form onSubmit={(e) => handleAddTask(e, list.id)}
-                          className="sticky left-0 inline-flex items-center py-[7px] w-[400px] bg-[var(--asana-surface)]"
+                          className="sticky left-0 inline-flex items-center py-[7px] w-[400px] bg-[var(--karya-surface)]"
                           style={{ paddingLeft: '0.25rem', paddingRight: '0.75rem' }}>
                           <span className="w-4 mr-1 flex-shrink-0" />
                           <span className="w-[18px] mr-1.5 flex-shrink-0" />
@@ -2496,7 +2496,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                           <input type="text" value={newTaskTitle}
                             onChange={(e) => setNewTaskTitle(e.target.value)}
                             placeholder="Write a task name, press Enter" autoFocus
-                            className="flex-1 text-sm bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400"
+                            className="flex-1 text-sm bg-transparent border-none outline-none text-[var(--karya-text-primary)] placeholder-gray-400"
                             onKeyDown={(e) => { if (e.key === 'Escape') { setAddingTaskTo(null); setNewTaskTitle(''); } }}
                             onBlur={() => {
                               if (newTaskTitle.trim()) handleAddTask({ preventDefault: () => {} }, list.id);
@@ -2505,11 +2505,11 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                         </form>
                       ) : (
                         <button onClick={() => { setAddingTaskTo(list.id); setNewTaskTitle(''); }}
-                          className="group/add sticky left-0 inline-flex items-center py-[3px] w-[400px] text-left text-[var(--asana-text-secondary)] hover:text-asana-blue hover:bg-blue-50/40 dark:hover:bg-[#1f2937]/60 bg-[var(--asana-surface)] text-xs font-medium transition-all duration-180"
+                          className="group/add sticky left-0 inline-flex items-center py-[3px] w-[400px] text-left text-[var(--karya-text-secondary)] hover:text-karya-blue hover:bg-blue-50/40 dark:hover:bg-[#1f2937]/60 bg-[var(--karya-surface)] text-xs font-medium transition-all duration-180"
                           style={{ paddingLeft: '0.25rem', paddingRight: '0.75rem' }}>
                           <span className="w-4 mr-1 flex-shrink-0" />
                           <span className="w-[18px] mr-1.5 flex-shrink-0" />
-                          <span className="w-[18px] h-[18px] rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 group-hover/add:border-asana-blue flex items-center justify-center mr-3 flex-shrink-0 transition-colors">
+                          <span className="w-[18px] h-[18px] rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 group-hover/add:border-karya-blue flex items-center justify-center mr-3 flex-shrink-0 transition-colors">
                             <Plus className="w-2.5 h-2.5" strokeWidth={2.5} />
                           </span>
                           Add task
@@ -2531,24 +2531,24 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
                     const hasCfSums = Object.keys(cfSums).length > 0;
                     if (!(estSum > 0 || actSum > 0 || hasCfSums)) return null;
                     return (
-                      <div className="flex items-stretch border-t-2 border-t-[var(--asana-border)] bg-gray-50/80 dark:bg-gray-800/40 w-max min-w-full">
+                      <div className="flex items-stretch border-t-2 border-t-[var(--karya-border)] bg-gray-50/80 dark:bg-gray-800/40 w-max min-w-full">
                         <div className="flex-shrink-0 sticky left-0 z-10 bg-gray-50/80 dark:bg-gray-800/40 px-4 py-1.5 flex items-center gap-2" style={{ width: colWidths['name'] ?? DEFAULT_NAME_W }}>
-                          <span className="text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">SUM</span>
-                          <span className="text-[10px] text-[var(--asana-text-secondary)] truncate">{list.name}</span>
+                          <span className="text-[10px] font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider">SUM</span>
+                          <span className="text-[10px] text-[var(--karya-text-secondary)] truncate">{list.name}</span>
                         </div>
                         {cols.assignee && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['assignee'] ?? DEFAULT_COL_W }} />}
                         {cols.dueDate && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['dueDate'] ?? DEFAULT_COL_W }} />}
                         {cols.status && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['status'] ?? DEFAULT_COL_W }} />}
                         {cols.priority && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['priority'] ?? DEFAULT_COL_W }} />}
-                        {cols.estimatedTime && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['estimatedTime'] ?? DEFAULT_COL_W }}><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{estSum > 0 ? formatTime(estSum) : ''}</span></div>}
-                        {cols.actualTime && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['actualTime'] ?? DEFAULT_COL_W }}><span className="text-xs font-semibold text-[var(--asana-text-primary)]">{actSum > 0 ? formatTime(actSum) : ''}</span></div>}
+                        {cols.estimatedTime && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['estimatedTime'] ?? DEFAULT_COL_W }}><span className="text-xs font-semibold text-[var(--karya-text-primary)]">{estSum > 0 ? formatTime(estSum) : ''}</span></div>}
+                        {cols.actualTime && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['actualTime'] ?? DEFAULT_COL_W }}><span className="text-xs font-semibold text-[var(--karya-text-primary)]">{actSum > 0 ? formatTime(actSum) : ''}</span></div>}
                         {cols.billable && <div className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths['billable'] ?? DEFAULT_COL_W }} />}
                         {customFields.map(cf => {
                           const cfSum = cfSums[cf.id];
                           return (
                             <div key={cf.id} className="flex-shrink-0 px-3 py-1.5" style={{ width: colWidths[cf.id] ?? DEFAULT_COL_W }}>
                               {cfSum ? (
-                                <span className="text-xs font-semibold text-[var(--asana-text-primary)]">
+                                <span className="text-xs font-semibold text-[var(--karya-text-primary)]">
                                   {cf.type === 'TIME_TRACKING' ? formatTime(cfSum) :
                                    cf.type === 'NUMBER' ? (() => {
                                      const opts = typeof cf.options === 'string' ? JSON.parse(cf.options || '[]') : (cf.options || []);
@@ -2574,13 +2574,13 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
 
         {/* Add section input — inside the table when active */}
         {addingSection && perm.sectionCreate && (
-          <div className="px-4 py-2.5 border-b border-[var(--asana-border)]/30 sticky left-0">
+          <div className="px-4 py-2.5 border-b border-[var(--karya-border)]/30 sticky left-0">
             <form onSubmit={handleAddSection} className="flex items-center">
               <input type="text" value={newSectionName}
                 onChange={(e) => setNewSectionName(e.target.value)}
                 ref={addSectionInputRef}
                 placeholder="Section name, press Enter" autoFocus
-                className="text-sm font-bold bg-transparent border-none outline-none text-[var(--asana-text-primary)] placeholder-gray-400 flex-1"
+                className="text-sm font-bold bg-transparent border-none outline-none text-[var(--karya-text-primary)] placeholder-gray-400 flex-1"
                 onKeyDown={(e) => { if (e.key === 'Escape') { setAddingSection(false); setNewSectionName(''); } }}
                 onBlur={() => { if (!newSectionName.trim()) { setAddingSection(false); setNewSectionName(''); } }} />
             </form>
@@ -2614,28 +2614,28 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
         if (!hasTotals) return null;
 
         return (
-          <div className="flex items-stretch border-t border-[var(--asana-border)]/50 bg-gray-100/50 dark:bg-gray-800/40 font-semibold w-max min-w-full">
-            <div className="flex-shrink-0 sticky left-0 z-10 bg-gray-100/50 dark:bg-gray-800/40 px-4 py-2 border-r border-[var(--asana-border)]/40 flex items-center" style={{ width: colWidths['name'] ?? DEFAULT_NAME_W }}>
-              <span className="text-xs font-bold text-[var(--asana-text-primary)] uppercase tracking-wider">Total</span>
+          <div className="flex items-stretch border-t border-[var(--karya-border)]/50 bg-gray-100/50 dark:bg-gray-800/40 font-semibold w-max min-w-full">
+            <div className="flex-shrink-0 sticky left-0 z-10 bg-gray-100/50 dark:bg-gray-800/40 px-4 py-2 border-r border-[var(--karya-border)]/40 flex items-center" style={{ width: colWidths['name'] ?? DEFAULT_NAME_W }}>
+              <span className="text-xs font-bold text-[var(--karya-text-primary)] uppercase tracking-wider">Total</span>
             </div>
-            {cols.assignee && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" style={{ width: colWidths['assignee'] ?? DEFAULT_COL_W }} />}
-            {cols.dueDate && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" style={{ width: colWidths['dueDate'] ?? DEFAULT_COL_W }} />}
-            {cols.status && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" style={{ width: colWidths['status'] ?? DEFAULT_COL_W }} />}
-            {cols.priority && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40" style={{ width: colWidths['priority'] ?? DEFAULT_COL_W }} />}
+            {cols.assignee && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40" style={{ width: colWidths['assignee'] ?? DEFAULT_COL_W }} />}
+            {cols.dueDate && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40" style={{ width: colWidths['dueDate'] ?? DEFAULT_COL_W }} />}
+            {cols.status && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40" style={{ width: colWidths['status'] ?? DEFAULT_COL_W }} />}
+            {cols.priority && <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40" style={{ width: colWidths['priority'] ?? DEFAULT_COL_W }} />}
             {cols.estimatedTime && (
-              <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center" style={{ width: colWidths['estimatedTime'] ?? DEFAULT_COL_W }}>
-                <span className="text-xs font-bold text-[var(--asana-text-primary)]">{totalEst > 0 ? formatTime(totalEst) : ''}</span>
+              <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40 flex items-center" style={{ width: colWidths['estimatedTime'] ?? DEFAULT_COL_W }}>
+                <span className="text-xs font-bold text-[var(--karya-text-primary)]">{totalEst > 0 ? formatTime(totalEst) : ''}</span>
               </div>
             )}
             {cols.actualTime && (
-              <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center" style={{ width: colWidths['actualTime'] ?? DEFAULT_COL_W }}>
-                <span className="text-xs font-bold text-[var(--asana-text-primary)]">{totalAct > 0 ? formatTime(totalAct) : ''}</span>
+              <div className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40 flex items-center" style={{ width: colWidths['actualTime'] ?? DEFAULT_COL_W }}>
+                <span className="text-xs font-bold text-[var(--karya-text-primary)]">{totalAct > 0 ? formatTime(totalAct) : ''}</span>
               </div>
             )}
             {customFields.map(cf => (
-              <div key={cf.id} className="flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]/40 flex items-center" style={{ width: colWidths[cf.id] ?? DEFAULT_COL_W }}>
+              <div key={cf.id} className="flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]/40 flex items-center" style={{ width: colWidths[cf.id] ?? DEFAULT_COL_W }}>
                 {cfTotals[cf.id] ? (
-                  <span className="text-xs font-bold text-[var(--asana-text-primary)]">
+                  <span className="text-xs font-bold text-[var(--karya-text-primary)]">
                     {cf.type === 'TIME_TRACKING' ? formatTime(cfTotals[cf.id]) :
                      cf.type === 'NUMBER' ? (() => {
                        const opts = typeof cf.options === 'string' ? JSON.parse(cf.options || '[]') : (cf.options || []);
@@ -2663,7 +2663,7 @@ function ProjectListView({ lists, boardId, projectId, onTaskClick, columns = {},
     {perm.sectionCreate && !addingSection && (
       <div className="px-1 py-2 mt-1">
         <button onClick={() => { setAddingSection(true); setNewSectionName(''); }}
-          className="flex items-center text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] text-sm transition-colors px-3 py-1">
+          className="flex items-center text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)] text-sm transition-colors px-3 py-1">
           <Plus className="w-4 h-4 mr-2" strokeWidth={2} />
           Add section
         </button>

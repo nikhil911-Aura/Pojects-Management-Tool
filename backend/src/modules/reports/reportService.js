@@ -514,7 +514,7 @@ export const reportService = {
 // ── Excel workbook builder ──────────────────────────────────────────────────
 async function buildExcelWorkbook({ rows, taskTotals = [], filters, summary, isAdmin, includeAllUsers }) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Asana Clone';
+  wb.creator = 'Karya';
   wb.created = new Date();
 
   // ── Sheet 1: Summary ─────────────────────────────────────────────────────
@@ -1471,7 +1471,7 @@ function renderReportEmailHtml({ isAdmin, filters, summary, reportData, sender, 
           <tr>
             <td style="padding:20px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center">
               <div style="font-size:11px;color:#6b7280;line-height:1.6">
-                This report was sent by <strong style="color:#374151">${esc(senderName)}</strong> from Asana Clone.<br>
+                This report was sent by <strong style="color:#374151">${esc(senderName)}</strong> from Karya.<br>
                 Showing time logged on assigned tasks.
               </div>
             </td>

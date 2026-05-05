@@ -12,7 +12,7 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'asana_clone',
+    folder: 'karya',
     allowed_formats: ['jpg', 'png', 'pdf', 'docx', 'xlsx', 'txt'],
     resource_type: 'auto'
   }
@@ -21,7 +21,7 @@ const storage = new CloudinaryStorage({
 const avatarStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'asana_clone/avatars',
+    folder: 'karya/avatars',
     allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
     resource_type: 'image',
     transformation: [{ width: 600, height: 600, crop: 'fill', gravity: 'face' }]

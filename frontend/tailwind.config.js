@@ -8,7 +8,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        asana: {
+        karya: {
           blue: {
             DEFAULT: '#4573D2',
             light: '#E1E9F8',
@@ -49,18 +49,18 @@ export default {
         }
       },
       borderRadius: {
-        'asana': '6px',
-        'asana-lg': '12px',
+        'karya': '6px',
+        'karya-lg': '12px',
       },
       boxShadow: {
-        'asana-card': '0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1)',
-        'asana-hover': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-        'asana-row': '0 2px 8px -2px rgba(15, 23, 42, 0.08), 0 1px 3px -1px rgba(15, 23, 42, 0.06)',
-        'asana-row-dark': '0 2px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.04)',
-        'asana-pop': '0 12px 32px -8px rgba(15, 23, 42, 0.18), 0 4px 12px -4px rgba(15, 23, 42, 0.10)',
+        'karya-card': '0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1)',
+        'karya-hover': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        'karya-row': '0 2px 8px -2px rgba(15, 23, 42, 0.08), 0 1px 3px -1px rgba(15, 23, 42, 0.06)',
+        'karya-row-dark': '0 2px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.04)',
+        'karya-pop': '0 12px 32px -8px rgba(15, 23, 42, 0.18), 0 4px 12px -4px rgba(15, 23, 42, 0.10)',
       },
       transitionTimingFunction: {
-        'asana': 'cubic-bezier(0.16, 1, 0.3, 1)',
+        'karya': 'cubic-bezier(0.16, 1, 0.3, 1)',
       },
       transitionDuration: {
         '180': '180ms',

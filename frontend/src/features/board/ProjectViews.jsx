@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 
 /* ═══════════════════════════════════════════════════════════
    Shared helpers
@@ -43,11 +43,11 @@ export function OverviewView({ project, lists, members }) {
   return (
     <div className="max-w-4xl space-y-6 pb-8">
       {/* Project info */}
-      <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] p-6">
+      <div className="bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)] p-6">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-bold text-[var(--asana-text-primary)]">{project.name}</h2>
-            <p className="text-sm text-[var(--asana-text-secondary)] mt-1">{project.description || 'Add a project description...'}</p>
+            <h2 className="text-lg font-bold text-[var(--karya-text-primary)]">{project.name}</h2>
+            <p className="text-sm text-[var(--karya-text-secondary)] mt-1">{project.description || 'Add a project description...'}</p>
           </div>
           <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded ${project.visibility === 'PRIVATE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
             {project.visibility}
@@ -63,26 +63,26 @@ export function OverviewView({ project, lists, members }) {
           { label: 'In progress', value: tasks.filter(t => t.status === 'IN_PROGRESS').length, color: '#3b82f6' },
           { label: 'Overdue', value: overdue, color: '#ef4444' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] p-4">
-            <p className="text-[10px] font-bold uppercase text-[var(--asana-text-secondary)] tracking-wider mb-1">{label}</p>
+          <div key={label} className="bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)] p-4">
+            <p className="text-[10px] font-bold uppercase text-[var(--karya-text-secondary)] tracking-wider mb-1">{label}</p>
             <p className="text-2xl font-bold" style={{ color }}>{value}</p>
           </div>
         ))}
       </div>
 
       {/* Progress */}
-      <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] p-6">
+      <div className="bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)] p-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-[var(--asana-text-primary)]">Project progress</h3>
-          <span className="text-sm font-bold text-[var(--asana-text-primary)]">{total > 0 ? Math.round((done / total) * 100) : 0}%</span>
+          <h3 className="text-sm font-bold text-[var(--karya-text-primary)]">Project progress</h3>
+          <span className="text-sm font-bold text-[var(--karya-text-primary)]">{total > 0 ? Math.round((done / total) * 100) : 0}%</span>
         </div>
         <ProgressBar value={done} max={total} color="#22c55e" height={10} />
-        <p className="text-xs text-[var(--asana-text-secondary)] mt-2">{done} of {total} tasks completed</p>
+        <p className="text-xs text-[var(--karya-text-secondary)] mt-2">{done} of {total} tasks completed</p>
       </div>
 
       {/* Sections breakdown */}
-      <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] p-6">
-        <h3 className="text-sm font-bold text-[var(--asana-text-primary)] mb-4">Sections</h3>
+      <div className="bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)] p-6">
+        <h3 className="text-sm font-bold text-[var(--karya-text-primary)] mb-4">Sections</h3>
         <div className="space-y-3">
           {(lists || []).map((list, i) => {
             const lt = list.tasks?.length || 0;
@@ -90,8 +90,8 @@ export function OverviewView({ project, lists, members }) {
             return (
               <div key={list.id}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-[var(--asana-text-primary)]">{list.name}</span>
-                  <span className="text-[10px] text-[var(--asana-text-secondary)]">{ld}/{lt}</span>
+                  <span className="text-xs font-medium text-[var(--karya-text-primary)]">{list.name}</span>
+                  <span className="text-[10px] text-[var(--karya-text-secondary)]">{ld}/{lt}</span>
                 </div>
                 <ProgressBar value={ld} max={lt} color={BAR_COLORS[i % BAR_COLORS.length]} />
               </div>
@@ -101,8 +101,8 @@ export function OverviewView({ project, lists, members }) {
       </div>
 
       {/* Members */}
-      <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] p-6">
-        <h3 className="text-sm font-bold text-[var(--asana-text-primary)] mb-4">Project members</h3>
+      <div className="bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)] p-6">
+        <h3 className="text-sm font-bold text-[var(--karya-text-primary)] mb-4">Project members</h3>
         <div className="space-y-2.5">
           {(members || []).map(m => (
             <div key={m.userId || m.id} className="flex items-center space-x-3">
@@ -111,10 +111,10 @@ export function OverviewView({ project, lists, members }) {
                 {m.user?.name?.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[var(--asana-text-primary)]">{m.user?.name}</p>
-                <p className="text-[10px] text-[var(--asana-text-secondary)]">{m.user?.email}</p>
+                <p className="text-sm font-medium text-[var(--karya-text-primary)]">{m.user?.name}</p>
+                <p className="text-[10px] text-[var(--karya-text-secondary)]">{m.user?.email}</p>
               </div>
-              <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-[var(--asana-text-secondary)]">{m.projectRole}</span>
+              <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-[var(--karya-text-secondary)]">{m.projectRole}</span>
             </div>
           ))}
         </div>
@@ -172,22 +172,22 @@ export function TimelineView({ lists, onTaskClick }) {
   }
 
   return (
-    <div className="h-full overflow-auto bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)]">
+    <div className="h-full overflow-auto bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)]">
       <div className="min-w-max">
         {/* Header — week labels */}
-        <div className="flex border-b border-[var(--asana-border)] sticky top-0 bg-[var(--asana-surface)] z-10">
-          <div className="w-52 flex-shrink-0 px-3 py-2 border-r border-[var(--asana-border)]">
-            <span className="text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase">Task</span>
+        <div className="flex border-b border-[var(--karya-border)] sticky top-0 bg-[var(--karya-surface)] z-10">
+          <div className="w-52 flex-shrink-0 px-3 py-2 border-r border-[var(--karya-border)]">
+            <span className="text-[10px] font-bold text-[var(--karya-text-secondary)] uppercase">Task</span>
           </div>
           <div className="flex">
             {days.map((day, i) => {
               const isToday = day.toDateString() === today.toDateString();
               const isMonday = day.getDay() === 1;
               return (
-                <div key={i} className={`flex flex-col items-center justify-center border-r border-[var(--asana-border)]/30 ${isToday ? 'bg-asana-blue/5' : ''}`}
+                <div key={i} className={`flex flex-col items-center justify-center border-r border-[var(--karya-border)]/30 ${isToday ? 'bg-karya-blue/5' : ''}`}
                   style={{ width: dayWidth }}>
-                  {isMonday && <span className="text-[9px] font-medium text-[var(--asana-text-secondary)]">{formatDate(day)}</span>}
-                  <span className={`text-[9px] ${isToday ? 'font-bold text-asana-blue' : 'text-[var(--asana-text-secondary)]'}`}>
+                  {isMonday && <span className="text-[9px] font-medium text-[var(--karya-text-secondary)]">{formatDate(day)}</span>}
+                  <span className={`text-[9px] ${isToday ? 'font-bold text-karya-blue' : 'text-[var(--karya-text-secondary)]'}`}>
                     {['S', 'M', 'T', 'W', 'T', 'F', 'S'][day.getDay()]}
                   </span>
                 </div>
@@ -200,9 +200,9 @@ export function TimelineView({ lists, onTaskClick }) {
         {(lists || []).map((list, li) => (
           <div key={list.id}>
             {/* Section header */}
-            <div className="flex border-b border-[var(--asana-border)]">
+            <div className="flex border-b border-[var(--karya-border)]">
               <div className="w-52 flex-shrink-0 px-3 py-1.5 bg-gray-50/50 dark:bg-gray-800/30">
-                <span className="text-xs font-bold text-[var(--asana-text-primary)]">{list.name}</span>
+                <span className="text-xs font-bold text-[var(--karya-text-primary)]">{list.name}</span>
               </div>
               <div style={{ width: totalDays * dayWidth }} className="bg-gray-50/50 dark:bg-gray-800/30" />
             </div>
@@ -223,8 +223,8 @@ export function TimelineView({ lists, onTaskClick }) {
               const barWidth = isMilestone ? 0 : daySpan * dayWidth;
 
               return (
-                <div key={task.id} className="flex border-b border-[var(--asana-border)]/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 group">
-                  <div className="w-52 flex-shrink-0 px-3 py-2 flex items-center space-x-2 border-r border-[var(--asana-border)] cursor-pointer"
+                <div key={task.id} className="flex border-b border-[var(--karya-border)]/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 group">
+                  <div className="w-52 flex-shrink-0 px-3 py-2 flex items-center space-x-2 border-r border-[var(--karya-border)] cursor-pointer"
                     onClick={() => onTaskClick(task.id)}>
                     {isMilestone ? (
                       <svg width="12" height="12" viewBox="0 0 12 12" className="flex-shrink-0">
@@ -234,10 +234,10 @@ export function TimelineView({ lists, onTaskClick }) {
                     ) : (
                       <div className={`w-3 h-3 rounded-full flex-shrink-0 ${task.status === 'DONE' ? 'bg-green-500' : 'border-2 border-gray-300 dark:border-gray-600'}`} />
                     )}
-                    <span className={`text-xs truncate ${isMilestone ? 'font-bold' : ''} ${task.status === 'DONE' ? 'line-through text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>{task.title}</span>
+                    <span className={`text-xs truncate ${isMilestone ? 'font-bold' : ''} ${task.status === 'DONE' ? 'line-through text-[var(--karya-text-secondary)]' : 'text-[var(--karya-text-primary)]'}`}>{task.title}</span>
                   </div>
                   <div className="relative" style={{ width: totalDays * dayWidth, height: 32 }}>
-                    <div className="absolute top-0 bottom-0 w-px bg-asana-blue/40 z-10" style={{ left: getPosition(today) }} />
+                    <div className="absolute top-0 bottom-0 w-px bg-karya-blue/40 z-10" style={{ left: getPosition(today) }} />
                     {isMilestone ? (
                       /* Diamond marker for milestones */
                       <svg width="16" height="16" viewBox="0 0 16 16" className="absolute cursor-pointer hover:scale-125 transition-transform"
@@ -270,12 +270,12 @@ function ChartBar({ label, value, max, color }) {
   const pct = max > 0 ? (value / max) * 100 : 0;
   return (
     <div className="flex items-center space-x-3">
-      <span className="text-xs text-[var(--asana-text-secondary)] w-24 text-right truncate">{label}</span>
+      <span className="text-xs text-[var(--karya-text-secondary)] w-24 text-right truncate">{label}</span>
       <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-6 overflow-hidden relative">
         <div className="h-full rounded-full transition-all duration-500 flex items-center px-2" style={{ width: `${Math.max(pct, 2)}%`, backgroundColor: color }}>
           {pct > 15 && <span className="text-[10px] text-white font-bold">{value}</span>}
         </div>
-        {pct <= 15 && value > 0 && <span className="absolute left-[calc(var(--w)+8px)] top-1/2 -translate-y-1/2 text-[10px] font-bold text-[var(--asana-text-primary)]" style={{ '--w': `${pct}%`, left: `calc(${pct}% + 8px)` }}>{value}</span>}
+        {pct <= 15 && value > 0 && <span className="absolute left-[calc(var(--w)+8px)] top-1/2 -translate-y-1/2 text-[10px] font-bold text-[var(--karya-text-primary)]" style={{ '--w': `${pct}%`, left: `calc(${pct}% + 8px)` }}>{value}</span>}
       </div>
     </div>
   );
@@ -332,15 +332,15 @@ export function DashboardView({ lists, members }) {
           { label: 'Overdue', value: tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'DONE').length, icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
           { label: 'Unassigned', value: tasks.filter(t => !t.assignees?.length).length, icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
         ].map(({ label, value, icon }) => (
-          <div key={label} className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] p-5 flex items-center space-x-4">
+          <div key={label} className="bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)] p-5 flex items-center space-x-4">
             <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-[var(--karya-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={icon} />
               </svg>
             </div>
             <div>
-              <p className="text-2xl font-bold text-[var(--asana-text-primary)]">{value}</p>
-              <p className="text-[10px] text-[var(--asana-text-secondary)] uppercase font-semibold tracking-wider">{label}</p>
+              <p className="text-2xl font-bold text-[var(--karya-text-primary)]">{value}</p>
+              <p className="text-[10px] text-[var(--karya-text-secondary)] uppercase font-semibold tracking-wider">{label}</p>
             </div>
           </div>
         ))}
@@ -348,32 +348,32 @@ export function DashboardView({ lists, members }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         {/* By Status */}
-        <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] p-5">
-          <h3 className="text-sm font-bold text-[var(--asana-text-primary)] mb-4">Tasks by status</h3>
+        <div className="bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)] p-5">
+          <h3 className="text-sm font-bold text-[var(--karya-text-primary)] mb-4">Tasks by status</h3>
           <div className="space-y-3">
             {byStatus.map(d => <ChartBar key={d.label} {...d} max={total} />)}
           </div>
         </div>
 
         {/* By Priority */}
-        <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] p-5">
-          <h3 className="text-sm font-bold text-[var(--asana-text-primary)] mb-4">Tasks by priority</h3>
+        <div className="bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)] p-5">
+          <h3 className="text-sm font-bold text-[var(--karya-text-primary)] mb-4">Tasks by priority</h3>
           <div className="space-y-3">
             {byPriority.map(d => <ChartBar key={d.label} {...d} max={total} />)}
           </div>
         </div>
 
         {/* By Assignee */}
-        <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] p-5">
-          <h3 className="text-sm font-bold text-[var(--asana-text-primary)] mb-4">Tasks by assignee</h3>
+        <div className="bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)] p-5">
+          <h3 className="text-sm font-bold text-[var(--karya-text-primary)] mb-4">Tasks by assignee</h3>
           <div className="space-y-3">
             {byAssignee.map(d => <ChartBar key={d.label} {...d} max={total} />)}
           </div>
         </div>
 
         {/* By Section */}
-        <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] p-5">
-          <h3 className="text-sm font-bold text-[var(--asana-text-primary)] mb-4">Tasks by section</h3>
+        <div className="bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)] p-5">
+          <h3 className="text-sm font-bold text-[var(--karya-text-primary)] mb-4">Tasks by section</h3>
           <div className="space-y-3">
             {bySection.map(d => <ChartBar key={d.label} {...d} max={total} />)}
           </div>
@@ -410,14 +410,14 @@ export function GanttView({ lists, onTaskClick }) {
   }
 
   return (
-    <div className="h-full overflow-auto bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)]">
+    <div className="h-full overflow-auto bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)]">
       <div style={{ minWidth: totalDays * dayWidth + 220 }}>
         {/* Month headers */}
-        <div className="flex border-b border-[var(--asana-border)] sticky top-0 bg-[var(--asana-surface)] z-10 h-8">
-          <div className="w-[220px] flex-shrink-0 border-r border-[var(--asana-border)]" />
+        <div className="flex border-b border-[var(--karya-border)] sticky top-0 bg-[var(--karya-surface)] z-10 h-8">
+          <div className="w-[220px] flex-shrink-0 border-r border-[var(--karya-border)]" />
           <div className="relative flex-1" style={{ width: totalDays * dayWidth }}>
             {months.map((mo, i) => (
-              <span key={i} className="absolute text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase top-2"
+              <span key={i} className="absolute text-[10px] font-bold text-[var(--karya-text-secondary)] uppercase top-2"
                 style={{ left: mo.left }}>
                 {mo.date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
               </span>
@@ -428,9 +428,9 @@ export function GanttView({ lists, onTaskClick }) {
         {/* Rows */}
         {(lists || []).map((list, li) => (
           <div key={list.id}>
-            <div className="flex border-b border-[var(--asana-border)] bg-gray-50/50 dark:bg-gray-800/20">
-              <div className="w-[220px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--asana-border)]">
-                <span className="text-xs font-bold text-[var(--asana-text-primary)]">{list.name}</span>
+            <div className="flex border-b border-[var(--karya-border)] bg-gray-50/50 dark:bg-gray-800/20">
+              <div className="w-[220px] flex-shrink-0 px-3 py-1.5 border-r border-[var(--karya-border)]">
+                <span className="text-xs font-bold text-[var(--karya-text-primary)]">{list.name}</span>
               </div>
               <div style={{ width: totalDays * dayWidth }} />
             </div>
@@ -444,8 +444,8 @@ export function GanttView({ lists, onTaskClick }) {
               const width = isMilestone ? 0 : Math.max(getLeft(taskEnd) - left, dayWidth * 2);
 
               return (
-                <div key={task.id} className="flex border-b border-[var(--asana-border)]/40 hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
-                  <div className="w-[220px] flex-shrink-0 px-3 py-2 flex items-center space-x-2 border-r border-[var(--asana-border)] cursor-pointer"
+                <div key={task.id} className="flex border-b border-[var(--karya-border)]/40 hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
+                  <div className="w-[220px] flex-shrink-0 px-3 py-2 flex items-center space-x-2 border-r border-[var(--karya-border)] cursor-pointer"
                     onClick={() => onTaskClick(task.id)}>
                     {isMilestone ? (
                       <svg width="12" height="12" viewBox="0 0 12 12" className="flex-shrink-0">
@@ -455,8 +455,8 @@ export function GanttView({ lists, onTaskClick }) {
                     ) : (
                       <div className={`w-3 h-3 rounded-full flex-shrink-0 ${task.status === 'DONE' ? 'bg-green-500' : 'border-2 border-gray-300 dark:border-gray-600'}`} />
                     )}
-                    <span className={`text-[11px] truncate ${isMilestone ? 'font-bold' : ''} ${task.status === 'DONE' ? 'line-through text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>{task.title}</span>
-                    {due && <span className="text-[9px] text-[var(--asana-text-secondary)] ml-auto flex-shrink-0">{formatDate(due)}</span>}
+                    <span className={`text-[11px] truncate ${isMilestone ? 'font-bold' : ''} ${task.status === 'DONE' ? 'line-through text-[var(--karya-text-secondary)]' : 'text-[var(--karya-text-primary)]'}`}>{task.title}</span>
+                    {due && <span className="text-[9px] text-[var(--karya-text-secondary)] ml-auto flex-shrink-0">{formatDate(due)}</span>}
                   </div>
                   <div className="relative flex items-center" style={{ width: totalDays * dayWidth, height: 32 }}>
                     <div className="absolute top-0 bottom-0 w-px bg-red-400/30" style={{ left: getLeft(today) }} />
@@ -527,22 +527,22 @@ export function WorkloadView({ lists, members }) {
 
   return (
     <div className="space-y-4 max-w-5xl pb-8">
-      <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] overflow-x-auto">
+      <div className="bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)] overflow-x-auto">
         {/* Header */}
-        <div className="grid grid-cols-[200px_1fr_80px_80px_80px_100px] border-b border-[var(--asana-border)] bg-gray-50/50 dark:bg-gray-800/30 px-4 py-2">
-          <span className="text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase">Member</span>
-          <span className="text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase">Workload</span>
-          <span className="text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase text-center">Tasks</span>
-          <span className="text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase text-center">Done</span>
-          <span className="text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase text-center">Overdue</span>
-          <span className="text-[10px] font-bold text-[var(--asana-text-secondary)] uppercase text-center">Est. time</span>
+        <div className="grid grid-cols-[200px_1fr_80px_80px_80px_100px] border-b border-[var(--karya-border)] bg-gray-50/50 dark:bg-gray-800/30 px-4 py-2">
+          <span className="text-[10px] font-bold text-[var(--karya-text-secondary)] uppercase">Member</span>
+          <span className="text-[10px] font-bold text-[var(--karya-text-secondary)] uppercase">Workload</span>
+          <span className="text-[10px] font-bold text-[var(--karya-text-secondary)] uppercase text-center">Tasks</span>
+          <span className="text-[10px] font-bold text-[var(--karya-text-secondary)] uppercase text-center">Done</span>
+          <span className="text-[10px] font-bold text-[var(--karya-text-secondary)] uppercase text-center">Overdue</span>
+          <span className="text-[10px] font-bold text-[var(--karya-text-secondary)] uppercase text-center">Est. time</span>
         </div>
 
         {memberData.map((d, i) => {
           const pct = maxTasks > 0 ? (d.total / maxTasks) * 100 : 0;
           const isOverloaded = d.total > 10;
           return (
-            <div key={d.name} className="grid grid-cols-[200px_1fr_80px_80px_80px_100px] items-center border-b border-[var(--asana-border)] px-4 py-3 hover:bg-gray-50/50 dark:hover:bg-gray-800/20">
+            <div key={d.name} className="grid grid-cols-[200px_1fr_80px_80px_80px_100px] items-center border-b border-[var(--karya-border)] px-4 py-3 hover:bg-gray-50/50 dark:hover:bg-gray-800/20">
               <div className="flex items-center space-x-2.5">
                 {d.name !== 'Unassigned' ? (
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
@@ -551,12 +551,12 @@ export function WorkloadView({ lists, members }) {
                   </div>
                 ) : (
                   <div className="w-7 h-7 rounded-full border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
-                    <span className="text-[10px] text-[var(--asana-text-secondary)]">?</span>
+                    <span className="text-[10px] text-[var(--karya-text-secondary)]">?</span>
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-[var(--asana-text-primary)] truncate">{d.name}</p>
-                  {d.email && <p className="text-[9px] text-[var(--asana-text-secondary)] truncate">{d.email}</p>}
+                  <p className="text-xs font-medium text-[var(--karya-text-primary)] truncate">{d.name}</p>
+                  {d.email && <p className="text-[9px] text-[var(--karya-text-secondary)] truncate">{d.email}</p>}
                 </div>
               </div>
               <div className="px-2">
@@ -570,10 +570,10 @@ export function WorkloadView({ lists, members }) {
                   )}
                 </div>
               </div>
-              <p className="text-xs font-bold text-[var(--asana-text-primary)] text-center">{d.total}</p>
+              <p className="text-xs font-bold text-[var(--karya-text-primary)] text-center">{d.total}</p>
               <p className="text-xs font-bold text-green-500 text-center">{d.done}</p>
-              <p className={`text-xs font-bold text-center ${d.overdue > 0 ? 'text-red-500' : 'text-[var(--asana-text-secondary)]'}`}>{d.overdue}</p>
-              <p className="text-xs text-[var(--asana-text-secondary)] text-center">{fmtTime(d.estimatedMins)}</p>
+              <p className={`text-xs font-bold text-center ${d.overdue > 0 ? 'text-red-500' : 'text-[var(--karya-text-secondary)]'}`}>{d.overdue}</p>
+              <p className="text-xs text-[var(--karya-text-secondary)] text-center">{fmtTime(d.estimatedMins)}</p>
             </div>
           );
         })}

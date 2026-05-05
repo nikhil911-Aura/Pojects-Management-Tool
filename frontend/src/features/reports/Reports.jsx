@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+﻿import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
@@ -125,13 +125,13 @@ function Reports() {
   const title = activeTab === 'timesheet' ? 'My Work Report' : 'Team Work Report';
 
   return (
-    <div className="flex flex-col h-full bg-[var(--asana-bg)]">
+    <div className="flex flex-col h-full bg-[var(--karya-bg)]">
       {/* ── Header ── */}
-      <div className="px-6 pt-6 pb-4 border-b border-[var(--asana-border)] bg-[var(--asana-surface)]">
+      <div className="px-6 pt-6 pb-4 border-b border-[var(--karya-border)] bg-[var(--karya-surface)]">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className="text-xl font-bold text-[var(--asana-text-primary)]">{title}</h1>
-            <p className="text-xs text-[var(--asana-text-secondary)] mt-0.5">
+            <h1 className="text-xl font-bold text-[var(--karya-text-primary)]">{title}</h1>
+            <p className="text-xs text-[var(--karya-text-secondary)] mt-0.5">
               Showing time logged on assigned tasks
             </p>
           </div>
@@ -140,7 +140,7 @@ function Reports() {
             <button
               onClick={() => handleExport('xlsx')}
               disabled={exportLoading}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 text-xs font-medium transition-colors disabled:opacity-50"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md border border-[var(--karya-border)] text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 text-xs font-medium transition-colors disabled:opacity-50"
               title="Download Excel report"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,7 +150,7 @@ function Reports() {
             </button>
             <button
               onClick={() => setShowEmailModal(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-asana-blue hover:bg-blue-600 text-white text-xs font-medium transition-colors shadow-sm"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-karya-blue hover:bg-blue-600 text-white text-xs font-medium transition-colors shadow-sm"
               title="Email this report"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -179,10 +179,10 @@ function Reports() {
             <select
               value={showCustomRange ? 'custom' : filters.period || 'week'}
               onChange={(e) => handlePeriodChange(e.target.value)}
-              className="px-2.5 py-1.5 border border-[var(--asana-border)] rounded-md text-xs font-medium bg-[var(--asana-surface)] text-[var(--asana-text-primary)] focus:outline-none focus:ring-1 focus:ring-asana-blue/30 focus:border-asana-blue/30 cursor-pointer min-w-[140px]"
+              className="px-2.5 py-1.5 border border-[var(--karya-border)] rounded-md text-xs font-medium bg-[var(--karya-surface)] text-[var(--karya-text-primary)] focus:outline-none focus:ring-1 focus:ring-karya-blue/30 focus:border-karya-blue/30 cursor-pointer min-w-[140px]"
             >
               {PERIODS.map((p) => (
-                <option key={p.value} value={p.value} className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">{p.label}</option>
+                <option key={p.value} value={p.value} className="bg-[var(--karya-surface)] text-[var(--karya-text-primary)]">{p.label}</option>
               ))}
             </select>
           </FilterField>
@@ -194,7 +194,7 @@ function Reports() {
                   type="date"
                   value={filters.startDate || ''}
                   onChange={(e) => handleCustomRange(e.target.value, filters.endDate)}
-                  className="px-2.5 py-1.5 border border-[var(--asana-border)] rounded-md text-xs font-medium bg-[var(--asana-surface)] text-[var(--asana-text-primary)] focus:outline-none focus:ring-1 focus:ring-asana-blue/30"
+                  className="px-2.5 py-1.5 border border-[var(--karya-border)] rounded-md text-xs font-medium bg-[var(--karya-surface)] text-[var(--karya-text-primary)] focus:outline-none focus:ring-1 focus:ring-karya-blue/30"
                 />
               </FilterField>
               <FilterField label="To">
@@ -202,7 +202,7 @@ function Reports() {
                   type="date"
                   value={filters.endDate || ''}
                   onChange={(e) => handleCustomRange(filters.startDate, e.target.value)}
-                  className="px-2.5 py-1.5 border border-[var(--asana-border)] rounded-md text-xs font-medium bg-[var(--asana-surface)] text-[var(--asana-text-primary)] focus:outline-none focus:ring-1 focus:ring-asana-blue/30"
+                  className="px-2.5 py-1.5 border border-[var(--karya-border)] rounded-md text-xs font-medium bg-[var(--karya-surface)] text-[var(--karya-text-primary)] focus:outline-none focus:ring-1 focus:ring-karya-blue/30"
                 />
               </FilterField>
             </>
@@ -213,10 +213,10 @@ function Reports() {
               <select
                 value={filters.groupBy}
                 onChange={(e) => dispatch(setGroupBy(e.target.value))}
-                className="px-2.5 py-1.5 border border-[var(--asana-border)] rounded-md text-xs font-medium bg-[var(--asana-surface)] text-[var(--asana-text-primary)] focus:outline-none focus:ring-1 focus:ring-asana-blue/30 cursor-pointer min-w-[160px]"
+                className="px-2.5 py-1.5 border border-[var(--karya-border)] rounded-md text-xs font-medium bg-[var(--karya-surface)] text-[var(--karya-text-primary)] focus:outline-none focus:ring-1 focus:ring-karya-blue/30 cursor-pointer min-w-[160px]"
               >
                 {GROUP_BY_OPTIONS.map((g) => (
-                  <option key={g.value} value={g.value} className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">{g.label}</option>
+                  <option key={g.value} value={g.value} className="bg-[var(--karya-surface)] text-[var(--karya-text-primary)]">{g.label}</option>
                 ))}
               </select>
             </FilterField>
@@ -253,7 +253,7 @@ function Reports() {
                   const v = e.target.value;
                   dispatch(setBillableFilter(v === '' ? null : v === 'true'));
                 }}
-                className="px-2.5 py-1.5 border border-[var(--asana-border)] rounded-md text-xs font-medium bg-[var(--asana-surface)] text-[var(--asana-text-primary)] focus:outline-none focus:ring-1 focus:ring-asana-blue/30 cursor-pointer min-w-[140px]"
+                className="px-2.5 py-1.5 border border-[var(--karya-border)] rounded-md text-xs font-medium bg-[var(--karya-surface)] text-[var(--karya-text-primary)] focus:outline-none focus:ring-1 focus:ring-karya-blue/30 cursor-pointer min-w-[140px]"
               >
                 <option value="">All</option>
                 <option value="true">Billable</option>
@@ -370,8 +370,8 @@ function TabButton({ active, onClick, children }) {
       onClick={onClick}
       className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
         active
-          ? 'bg-asana-blue/10 text-asana-blue'
-          : 'text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-800'
+          ? 'bg-karya-blue/10 text-karya-blue'
+          : 'text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)] hover:bg-gray-100 dark:hover:bg-gray-800'
       }`}
     >
       {children}
@@ -383,7 +383,7 @@ function TabButton({ active, onClick, children }) {
 function FilterField({ label, children }) {
   return (
     <div className="flex flex-col">
-      <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] mb-1">
+      <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--karya-text-secondary)] mb-1">
         {label}
       </label>
       {children}
@@ -417,7 +417,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center justify-between gap-2 px-2.5 py-1.5 border border-[var(--asana-border)] rounded-md text-xs font-medium bg-[var(--asana-surface)] text-[var(--asana-text-primary)] hover:border-asana-blue/40 transition-colors min-w-[160px]"
+        className="flex items-center justify-between gap-2 px-2.5 py-1.5 border border-[var(--karya-border)] rounded-md text-xs font-medium bg-[var(--karya-surface)] text-[var(--karya-text-primary)] hover:border-karya-blue/40 transition-colors min-w-[160px]"
       >
         <span className="truncate">{buttonText}</span>
         <svg className={`w-3 h-3 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -425,17 +425,17 @@ function MultiSelectDropdown({ label, options, selected, onChange }) {
         </svg>
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 w-60 max-h-72 overflow-auto bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl py-1">
+        <div className="absolute z-50 mt-1 w-60 max-h-72 overflow-auto bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg shadow-xl py-1">
           {selected.length > 0 && (
             <button
               onClick={() => { onChange([]); }}
-              className="w-full text-left px-3 py-1.5 text-[11px] text-asana-blue hover:bg-gray-50 dark:hover:bg-gray-800/50 font-semibold"
+              className="w-full text-left px-3 py-1.5 text-[11px] text-karya-blue hover:bg-gray-50 dark:hover:bg-gray-800/50 font-semibold"
             >
               Clear selection
             </button>
           )}
           {options.length === 0 && (
-            <p className="text-xs text-[var(--asana-text-secondary)] px-3 py-2">No options</p>
+            <p className="text-xs text-[var(--karya-text-secondary)] px-3 py-2">No options</p>
           )}
           {options.map((opt) => (
             <button
@@ -447,10 +447,10 @@ function MultiSelectDropdown({ label, options, selected, onChange }) {
                 type="checkbox"
                 readOnly
                 checked={selected.includes(opt.value)}
-                className="w-3.5 h-3.5 rounded border-[var(--asana-border)] text-asana-blue cursor-pointer"
+                className="w-3.5 h-3.5 rounded border-[var(--karya-border)] text-karya-blue cursor-pointer"
               />
               {opt.color && <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: opt.color }} />}
-              <span className="text-[var(--asana-text-primary)] truncate">{opt.label}</span>
+              <span className="text-[var(--karya-text-primary)] truncate">{opt.label}</span>
             </button>
           ))}
         </div>
@@ -477,7 +477,7 @@ function SummaryCards({ summary, loading, canViewTeam }) {
       label: 'Total Hours',
       value: `${(summary.totalHours || 0).toFixed(2)}h`,
       bg: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/40',
-      text: 'text-asana-blue',
+      text: 'text-karya-blue',
     },
     {
       label: 'Entries Logged',
@@ -508,11 +508,11 @@ function SummaryCards({ summary, loading, canViewTeam }) {
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {cards.map((c) => (
         <div key={c.label} className={`p-4 rounded-lg border ${c.bg}`}>
-          <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)]">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--karya-text-secondary)]">
             {c.label}
           </div>
           <div className={`text-xl font-bold mt-1 truncate ${c.text}`}>{c.value}</div>
-          {c.sub && <div className="text-[11px] text-[var(--asana-text-secondary)] mt-0.5">{c.sub}</div>}
+          {c.sub && <div className="text-[11px] text-[var(--karya-text-secondary)] mt-0.5">{c.sub}</div>}
         </div>
       ))}
     </div>
@@ -558,7 +558,7 @@ function BillableDropdown({ taskId, value, onChange }) {
         {current.label}
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 left-0 w-36 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-md shadow-xl py-1">
+        <div className="absolute z-50 mt-1 left-0 w-36 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-md shadow-xl py-1">
           {BILLABLE_OPTIONS.map((opt) => (
             <button
               key={String(opt.value)}
@@ -567,7 +567,7 @@ function BillableDropdown({ taskId, value, onChange }) {
             >
               <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${opt.badge}`}>{opt.label}</span>
               {opt.value === value && (
-                <svg className="w-3 h-3 text-asana-blue ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-3 h-3 text-karya-blue ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
               )}
@@ -640,7 +640,7 @@ function ReportSections({ data, loading, onTaskClick, groupBy }) {
         return (
           <div
             key={groupKey}
-            className="bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl overflow-hidden shadow-sm"
+            className="bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl overflow-hidden shadow-sm"
           >
             {/* Group header */}
             <button
@@ -649,7 +649,7 @@ function ReportSections({ data, loading, onTaskClick, groupBy }) {
             >
               <div className="flex items-center space-x-3 min-w-0">
                 <svg
-                  className={`w-3.5 h-3.5 transition-transform flex-shrink-0 text-[var(--asana-text-secondary)] ${open ? 'rotate-90' : ''}`}
+                  className={`w-3.5 h-3.5 transition-transform flex-shrink-0 text-[var(--karya-text-secondary)] ${open ? 'rotate-90' : ''}`}
                   fill="none" stroke="currentColor" viewBox="0 0 24 24"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
@@ -658,13 +658,13 @@ function ReportSections({ data, loading, onTaskClick, groupBy }) {
               </div>
 
               <div className="flex items-center space-x-2 flex-shrink-0">
-                <span className="text-[11px] font-semibold text-asana-blue bg-asana-blue/10 px-2.5 py-1 rounded-full">
+                <span className="text-[11px] font-semibold text-karya-blue bg-karya-blue/10 px-2.5 py-1 rounded-full">
                   Total: {fmtHrs(group.totalMinutes)}
                 </span>
                 <span
                   role="button"
                   onClick={(e) => { e.stopPropagation(); copyToClipboard(group); }}
-                  className="p-1.5 rounded-md text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[var(--asana-text-primary)] transition-colors"
+                  className="p-1.5 rounded-md text-[var(--karya-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[var(--karya-text-primary)] transition-colors"
                   title="Copy to clipboard"
                 >
                   {copied === groupKey ? (
@@ -682,18 +682,18 @@ function ReportSections({ data, loading, onTaskClick, groupBy }) {
 
             {/* Tasks table */}
             {open && (
-              <div className="border-t border-[var(--asana-border)] overflow-x-auto">
+              <div className="border-t border-[var(--karya-border)] overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-gray-50/50 dark:bg-gray-800/30">
-                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Task</th>
-                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Section</th>
-                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Status</th>
-                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Due Date</th>
-                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Billable</th>
-                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Time Entry Date</th>
-                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Entries</th>
-                      <th className="text-right font-semibold text-[10px] uppercase tracking-wider text-[var(--asana-text-secondary)] px-4 py-2.5">Time</th>
+                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--karya-text-secondary)] px-4 py-2.5">Task</th>
+                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--karya-text-secondary)] px-4 py-2.5">Section</th>
+                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--karya-text-secondary)] px-4 py-2.5">Status</th>
+                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--karya-text-secondary)] px-4 py-2.5">Due Date</th>
+                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--karya-text-secondary)] px-4 py-2.5">Billable</th>
+                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--karya-text-secondary)] px-4 py-2.5">Time Entry Date</th>
+                      <th className="text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--karya-text-secondary)] px-4 py-2.5">Entries</th>
+                      <th className="text-right font-semibold text-[10px] uppercase tracking-wider text-[var(--karya-text-secondary)] px-4 py-2.5">Time</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -709,26 +709,26 @@ function ReportSections({ data, loading, onTaskClick, groupBy }) {
                       <tr
                         key={task.id}
                         onClick={() => onTaskClick(task.id)}
-                        className="border-t border-[var(--asana-border)] hover:bg-gray-50/50 dark:hover:bg-gray-800/30 cursor-pointer transition-colors"
+                        className="border-t border-[var(--karya-border)] hover:bg-gray-50/50 dark:hover:bg-gray-800/30 cursor-pointer transition-colors"
                       >
                         <td className="px-4 py-2.5">
                           <div className="flex items-center space-x-2">
                             {task.projectColor && (
                               <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: task.projectColor }} />
                             )}
-                            <span className="text-[var(--asana-text-primary)] font-medium truncate">{task.title}</span>
+                            <span className="text-[var(--karya-text-primary)] font-medium truncate">{task.title}</span>
                           </div>
                           {task.projectName && groupBy === 'person' && (
-                            <span className="text-[10px] text-[var(--asana-text-secondary)] ml-4">{task.projectName}</span>
+                            <span className="text-[10px] text-[var(--karya-text-secondary)] ml-4">{task.projectName}</span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-[var(--asana-text-secondary)]">{task.section || '—'}</td>
+                        <td className="px-4 py-2.5 text-[var(--karya-text-secondary)]">{task.section || '—'}</td>
                         <td className="px-4 py-2.5">
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${STATUS_BADGE[task.status] || STATUS_BADGE.TODO}`}>
                             {STATUS_LABEL[task.status] || task.status}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5 text-[var(--asana-text-secondary)]">
+                        <td className="px-4 py-2.5 text-[var(--karya-text-secondary)]">
                           {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
                         </td>
                         <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -738,9 +738,9 @@ function ReportSections({ data, loading, onTaskClick, groupBy }) {
                             onChange={(val) => updateBillable(task.id, val)}
                           />
                         </td>
-                        <td className="px-4 py-2.5 text-[var(--asana-text-secondary)] whitespace-nowrap">{latestEntryDate}</td>
-                        <td className="px-4 py-2.5 text-[var(--asana-text-secondary)]">{task.entries?.length || 0}</td>
-                        <td className="px-4 py-2.5 text-right font-semibold text-[var(--asana-text-primary)]">
+                        <td className="px-4 py-2.5 text-[var(--karya-text-secondary)] whitespace-nowrap">{latestEntryDate}</td>
+                        <td className="px-4 py-2.5 text-[var(--karya-text-secondary)]">{task.entries?.length || 0}</td>
+                        <td className="px-4 py-2.5 text-right font-semibold text-[var(--karya-text-primary)]">
                           {fmtHrs(task.totalMinutes)}
                         </td>
                       </tr>
@@ -756,9 +756,9 @@ function ReportSections({ data, loading, onTaskClick, groupBy }) {
 
       {/* Grand total */}
       {data?.grandTotalMinutes != null && (
-        <div className="flex items-center justify-end px-4 py-3 bg-gray-50 dark:bg-gray-800/30 rounded-lg border border-[var(--asana-border)]">
-          <span className="text-xs font-semibold text-[var(--asana-text-secondary)] mr-3">Grand Total:</span>
-          <span className="text-sm font-bold text-asana-blue">{fmtHrs(data.grandTotalMinutes)}</span>
+        <div className="flex items-center justify-end px-4 py-3 bg-gray-50 dark:bg-gray-800/30 rounded-lg border border-[var(--karya-border)]">
+          <span className="text-xs font-semibold text-[var(--karya-text-secondary)] mr-3">Grand Total:</span>
+          <span className="text-sm font-bold text-karya-blue">{fmtHrs(data.grandTotalMinutes)}</span>
         </div>
       )}
     </div>
@@ -771,10 +771,10 @@ function renderGroupTitle(group) {
     return (
       <div className="flex items-center space-x-2 min-w-0">
         <Avatar name={group.user.name} />
-        <span className="text-sm font-semibold text-[var(--asana-text-primary)] truncate">{group.user.name}</span>
-        <span className="text-[var(--asana-text-secondary)]">·</span>
+        <span className="text-sm font-semibold text-[var(--karya-text-primary)] truncate">{group.user.name}</span>
+        <span className="text-[var(--karya-text-secondary)]">·</span>
         <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: group.project.color || '#4573D2' }} />
-        <span className="text-sm font-medium text-[var(--asana-text-primary)] truncate">{group.project.name}</span>
+        <span className="text-sm font-medium text-[var(--karya-text-primary)] truncate">{group.project.name}</span>
       </div>
     );
   }
@@ -782,9 +782,9 @@ function renderGroupTitle(group) {
     return (
       <div className="flex items-center space-x-2 min-w-0">
         <Avatar name={group.user.name} />
-        <span className="text-sm font-semibold text-[var(--asana-text-primary)] truncate">{group.user.name}</span>
+        <span className="text-sm font-semibold text-[var(--karya-text-primary)] truncate">{group.user.name}</span>
         {(group.taskCount != null) && (
-          <span className="text-[10px] text-[var(--asana-text-secondary)] ml-1">
+          <span className="text-[10px] text-[var(--karya-text-secondary)] ml-1">
             {group.taskCount} task{group.taskCount === 1 ? '' : 's'} · {group.projectCount || 0} project{group.projectCount === 1 ? '' : 's'}
           </span>
         )}
@@ -795,9 +795,9 @@ function renderGroupTitle(group) {
     return (
       <div className="flex items-center space-x-2 min-w-0">
         <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: group.project.color || '#4573D2' }} />
-        <span className="text-sm font-semibold text-[var(--asana-text-primary)] truncate">{group.project.name}</span>
+        <span className="text-sm font-semibold text-[var(--karya-text-primary)] truncate">{group.project.name}</span>
         {(group.taskCount != null) && (
-          <span className="text-[10px] text-[var(--asana-text-secondary)] ml-1">
+          <span className="text-[10px] text-[var(--karya-text-secondary)] ml-1">
             {group.taskCount} task{group.taskCount === 1 ? '' : 's'} · {group.memberCount || 0} member{group.memberCount === 1 ? '' : 's'}
           </span>
         )}
@@ -827,18 +827,18 @@ function EmptyState({ icon, title, message }) {
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3">
         {icon === 'clock' && (
-          <svg className="w-7 h-7 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-7 h-7 text-[var(--karya-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         )}
         {icon === 'lock' && (
-          <svg className="w-7 h-7 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-7 h-7 text-[var(--karya-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
         )}
       </div>
-      <p className="text-sm font-semibold text-[var(--asana-text-primary)]">{title}</p>
-      <p className="text-xs text-[var(--asana-text-secondary)] mt-1">{message}</p>
+      <p className="text-sm font-semibold text-[var(--karya-text-primary)]">{title}</p>
+      <p className="text-xs text-[var(--karya-text-secondary)] mt-1">{message}</p>
     </div>
   );
 }
@@ -965,9 +965,9 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
-      <div className="bg-[var(--asana-surface)] rounded-2xl shadow-2xl w-full max-w-2xl border border-[var(--asana-border)] overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-[var(--karya-surface)] rounded-2xl shadow-2xl w-full max-w-2xl border border-[var(--karya-border)] overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-5 bg-gradient-to-br from-asana-blue to-indigo-600 text-white">
+        <div className="px-6 py-5 bg-gradient-to-br from-karya-blue to-indigo-600 text-white">
           <div className="flex items-start justify-between">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">Email Report</div>
@@ -990,7 +990,7 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
           {/* ── Selected chips ── */}
           {selected.size > 0 && (
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] mb-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--karya-text-secondary)] mb-1.5">
                 Selected ({selected.size})
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -998,9 +998,9 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
                   const m = memberOptions.find(x => x.email === email);
                   const s = savedRecipients.find(x => x.email === email);
                   return (
-                    <span key={email} className="inline-flex items-center gap-1 bg-asana-blue/10 text-asana-blue text-xs font-medium px-2 py-1 rounded-md">
+                    <span key={email} className="inline-flex items-center gap-1 bg-karya-blue/10 text-karya-blue text-xs font-medium px-2 py-1 rounded-md">
                       <span>{m?.name || s?.name || email}</span>
-                      <button onClick={() => toggle(email)} className="hover:bg-asana-blue/20 rounded p-0.5">
+                      <button onClick={() => toggle(email)} className="hover:bg-karya-blue/20 rounded p-0.5">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -1015,12 +1015,12 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
           {/* ── Saved recipients ── */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)]">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[var(--karya-text-secondary)]">
                 Saved Recipients ({savedRecipients.length})
               </label>
               <div className="flex items-center gap-3">
                 {savedRecipients.length > 0 && (
-                  <button onClick={selectAllSaved} className="text-[11px] font-semibold text-asana-blue hover:underline">
+                  <button onClick={selectAllSaved} className="text-[11px] font-semibold text-karya-blue hover:underline">
                     {savedAllSelected ? 'Deselect All' : 'Select All'}
                   </button>
                 )}
@@ -1035,7 +1035,7 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
 
             {/* Add form */}
             {showAddForm && (
-              <div className="border border-[var(--asana-border)] rounded-lg p-3 mb-2 bg-[var(--asana-bg)] space-y-2">
+              <div className="border border-[var(--karya-border)] rounded-lg p-3 mb-2 bg-[var(--karya-bg)] space-y-2">
                 <div className="flex gap-2">
                   <input
                     type="email"
@@ -1043,7 +1043,7 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
                     value={emailInput}
                     onChange={e => { setEmailInput(e.target.value); setError(''); }}
                     onKeyDown={e => e.key === 'Enter' && handleAddRecipient()}
-                    className="flex-1 px-2.5 py-1.5 border border-[var(--asana-border)] rounded-md text-xs bg-[var(--asana-surface)] text-[var(--asana-text-primary)] focus:outline-none focus:ring-1 focus:ring-asana-blue/30"
+                    className="flex-1 px-2.5 py-1.5 border border-[var(--karya-border)] rounded-md text-xs bg-[var(--karya-surface)] text-[var(--karya-text-primary)] focus:outline-none focus:ring-1 focus:ring-karya-blue/30"
                     autoFocus
                   />
                   <input
@@ -1052,7 +1052,7 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
                     value={nameInput}
                     onChange={e => setNameInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleAddRecipient()}
-                    className="w-36 px-2.5 py-1.5 border border-[var(--asana-border)] rounded-md text-xs bg-[var(--asana-surface)] text-[var(--asana-text-primary)] focus:outline-none focus:ring-1 focus:ring-asana-blue/30"
+                    className="w-36 px-2.5 py-1.5 border border-[var(--karya-border)] rounded-md text-xs bg-[var(--karya-surface)] text-[var(--karya-text-primary)] focus:outline-none focus:ring-1 focus:ring-karya-blue/30"
                   />
                   <button
                     onClick={handleAddRecipient}
@@ -1062,20 +1062,20 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
                     {adding ? '...' : 'Save'}
                   </button>
                 </div>
-                <p className="text-[10px] text-[var(--asana-text-secondary)]">
+                <p className="text-[10px] text-[var(--karya-text-secondary)]">
                   This email will be saved for future reports. Press Enter to add.
                 </p>
               </div>
             )}
 
             {/* Saved list */}
-            <div className="border border-[var(--asana-border)] rounded-lg max-h-40 overflow-y-auto divide-y divide-[var(--asana-border)]">
+            <div className="border border-[var(--karya-border)] rounded-lg max-h-40 overflow-y-auto divide-y divide-[var(--karya-border)]">
               {loadingSaved ? (
                 <div className="py-4 text-center">
-                  <div className="animate-spin w-4 h-4 border-2 border-asana-blue border-t-transparent rounded-full mx-auto" />
+                  <div className="animate-spin w-4 h-4 border-2 border-karya-blue border-t-transparent rounded-full mx-auto" />
                 </div>
               ) : savedRecipients.length === 0 ? (
-                <p className="text-xs text-[var(--asana-text-secondary)] text-center py-4">
+                <p className="text-xs text-[var(--karya-text-secondary)] text-center py-4">
                   No saved recipients yet. Click "+ Add Email" to save one.
                 </p>
               ) : (
@@ -1085,7 +1085,7 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
                       type="checkbox"
                       checked={selected.has(r.email)}
                       onChange={() => toggle(r.email)}
-                      className="w-3.5 h-3.5 rounded text-asana-blue cursor-pointer"
+                      className="w-3.5 h-3.5 rounded text-karya-blue cursor-pointer"
                     />
                     <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 flex-shrink-0">
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1093,12 +1093,12 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
                       </svg>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-[var(--asana-text-primary)] truncate">{r.name || r.email}</p>
-                      {r.name && <p className="text-[10px] text-[var(--asana-text-secondary)] truncate">{r.email}</p>}
+                      <p className="text-xs font-semibold text-[var(--karya-text-primary)] truncate">{r.name || r.email}</p>
+                      {r.name && <p className="text-[10px] text-[var(--karya-text-secondary)] truncate">{r.email}</p>}
                     </div>
                     <button
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteRecipient(r.id, r.email); }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all"
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--karya-text-secondary)] hover:text-red-500 rounded transition-all"
                       title="Remove saved email"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1114,18 +1114,18 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
           {/* ── Workspace members ── */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)]">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[var(--karya-text-secondary)]">
                 Workspace Members ({memberOptions.length})
               </label>
               {filteredMembers.length > 0 && (
-                <button onClick={selectAllMembers} className="text-[11px] font-semibold text-asana-blue hover:underline">
+                <button onClick={selectAllMembers} className="text-[11px] font-semibold text-karya-blue hover:underline">
                   {membersAllSelected ? 'Deselect All' : 'Select All'}
                 </button>
               )}
             </div>
 
             <div className="relative mb-2">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--karya-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
@@ -1133,13 +1133,13 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
                 placeholder="Search members by name or email…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 border border-[var(--asana-border)] rounded-md text-xs bg-[var(--asana-bg)] text-[var(--asana-text-primary)] focus:outline-none focus:ring-1 focus:ring-asana-blue/30 focus:border-asana-blue/30"
+                className="w-full pl-9 pr-3 py-2 border border-[var(--karya-border)] rounded-md text-xs bg-[var(--karya-bg)] text-[var(--karya-text-primary)] focus:outline-none focus:ring-1 focus:ring-karya-blue/30 focus:border-karya-blue/30"
               />
             </div>
 
-            <div className="border border-[var(--asana-border)] rounded-lg max-h-48 overflow-y-auto divide-y divide-[var(--asana-border)]">
+            <div className="border border-[var(--karya-border)] rounded-lg max-h-48 overflow-y-auto divide-y divide-[var(--karya-border)]">
               {filteredMembers.length === 0 ? (
-                <p className="text-xs text-[var(--asana-text-secondary)] text-center py-4">
+                <p className="text-xs text-[var(--karya-text-secondary)] text-center py-4">
                   {memberOptions.length === 0 ? 'No workspace members loaded' : 'No members match your search'}
                 </p>
               ) : (
@@ -1149,12 +1149,12 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
                       type="checkbox"
                       checked={selected.has(m.email)}
                       onChange={() => toggle(m.email)}
-                      className="w-3.5 h-3.5 rounded text-asana-blue cursor-pointer"
+                      className="w-3.5 h-3.5 rounded text-karya-blue cursor-pointer"
                     />
                     <Avatar name={m.name} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-[var(--asana-text-primary)] truncate">{m.name}</p>
-                      <p className="text-[10px] text-[var(--asana-text-secondary)] truncate">{m.email}</p>
+                      <p className="text-xs font-semibold text-[var(--karya-text-primary)] truncate">{m.name}</p>
+                      <p className="text-[10px] text-[var(--karya-text-secondary)] truncate">{m.email}</p>
                     </div>
                   </label>
                 ))
@@ -1164,7 +1164,7 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
 
           {/* ── Personal message ── */}
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] mb-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--karya-text-secondary)] mb-1.5">
               Message <span className="font-normal normal-case text-[10px]">(optional)</span>
             </label>
             <textarea
@@ -1172,7 +1172,7 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
               onChange={e => setMessage(e.target.value.slice(0, 1000))}
               placeholder="Add a personal note that will appear at the top of the email..."
               rows={2}
-              className="w-full px-3 py-2 border border-[var(--asana-border)] rounded-lg text-xs bg-[var(--asana-bg)] text-[var(--asana-text-primary)] placeholder-[var(--asana-text-muted)] focus:outline-none focus:ring-2 focus:ring-asana-blue/20 focus:border-asana-blue/40 resize-none"
+              className="w-full px-3 py-2 border border-[var(--karya-border)] rounded-lg text-xs bg-[var(--karya-bg)] text-[var(--karya-text-primary)] placeholder-[var(--karya-text-muted)] focus:outline-none focus:ring-2 focus:ring-karya-blue/20 focus:border-karya-blue/40 resize-none"
             />
           </div>
 
@@ -1184,23 +1184,23 @@ function EmailReportModal({ workspaceMembers, workspaceId, onClose, onSend, load
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 bg-gray-50 dark:bg-gray-800/30 border-t border-[var(--asana-border)] flex items-center justify-between">
-          <p className="text-[11px] text-[var(--asana-text-secondary)]">
+        <div className="px-6 py-3.5 bg-gray-50 dark:bg-gray-800/30 border-t border-[var(--karya-border)] flex items-center justify-between">
+          <p className="text-[11px] text-[var(--karya-text-secondary)]">
             {selected.size > 0 && (
               <>
-                Sending to <span className="font-bold text-[var(--asana-text-primary)]">{selected.size}</span> recipient{selected.size === 1 ? '' : 's'}
+                Sending to <span className="font-bold text-[var(--karya-text-primary)]">{selected.size}</span> recipient{selected.size === 1 ? '' : 's'}
                 {selected.size > 20 && <span className="text-red-500 ml-1">(max 20!)</span>}
               </>
             )}
           </p>
           <div className="flex items-center space-x-2">
-            <button onClick={onClose} disabled={loading} className="px-3 py-1.5 rounded-md text-xs font-medium text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50">
+            <button onClick={onClose} disabled={loading} className="px-3 py-1.5 rounded-md text-xs font-medium text-[var(--karya-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50">
               Cancel
             </button>
             <button
               onClick={handleSend}
               disabled={selected.size === 0 || loading || selected.size > 20}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-semibold bg-asana-blue text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-semibold bg-karya-blue text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               {loading ? (
                 <>
