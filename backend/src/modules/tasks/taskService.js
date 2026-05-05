@@ -2,6 +2,7 @@ import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
 import { emitToProject, emitToWorkspace } from '../../core/socket.js';
 import { cloudinary, signAttachment } from '../../core/cloudinary.js';
+import { stripHtml } from '../../core/utils/sanitize.js';
 
 // ── Cloudinary URL → publicId fallback for old attachments without publicId ──
 // URL format: https://res.cloudinary.com/{cloud}/image/upload/v1234/asana_clone/abc123.jpg
@@ -125,7 +126,8 @@ export const taskService = {
 
   // Create task or subtask
   async create(listId, userId, taskData, excludeSocketId) {
-    const { title, description, status, priority, dueDate, estimatedTime, actualTime, taskType, parentId } = taskData;
+    const { description, status, priority, dueDate, estimatedTime, actualTime, taskType, parentId } = taskData;
+    const title = stripHtml(taskData.title);
 
     const { list, workspaceMember, projectRole, customPermissions, projectId } = await getContextFromList(listId, userId);
 
@@ -222,7 +224,8 @@ export const taskService = {
       throw ApiError.forbidden('You do not have permission to edit this task');
     }
 
-    const { title, description, status, priority, dueDate, estimatedTime, actualTime, taskType, parentId, billable } = updateData;
+    const { description, status, priority, dueDate, estimatedTime, actualTime, taskType, parentId, billable } = updateData;
+    const title = updateData.title !== undefined ? stripHtml(updateData.title) : undefined;
 
     const updated = await prisma.task.update({
       where: { id: taskId },
@@ -461,6 +464,11 @@ export const taskService = {
     if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'task.assign')) {
       throw ApiError.forbidden('You do not have permission to assign users');
     }
+
+    const existing = await prisma.taskAssignee.findUnique({
+      where: { userId_taskId: { userId: assigneeId, taskId } }
+    });
+    if (existing) throw ApiError.conflict('User is already assigned to this task');
 
     const assignee = await prisma.taskAssignee.create({
       data: { userId: assigneeId, taskId },

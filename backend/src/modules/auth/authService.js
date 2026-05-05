@@ -81,10 +81,17 @@ export const authService = {
     });
     const workspaces = memberships.map(m => ({ ...m.workspace, role: m.role, customRole: m.customRole || null }));
 
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = user;
+    // Return only safe public fields — never expose password, refreshToken, or refreshTokenExp
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatar: user.avatar,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
 
-    return { user: userWithoutPassword, ...tokens, workspaces };
+    return { user: safeUser, ...tokens, workspaces };
   },
 
   // Refresh token

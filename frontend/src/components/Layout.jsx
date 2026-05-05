@@ -284,7 +284,7 @@ function Layout() {
                           {task.assignees?.length > 0 && (
                             <div
                               className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0"
-                              style={{ backgroundColor: `hsl(${task.assignees[0].user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}
+                              style={{ backgroundColor: `hsl(${(task.assignees[0].user?.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}
                               title={task.assignees[0].user?.name}
                             >
                               {task.assignees[0].user?.name?.charAt(0).toUpperCase()}

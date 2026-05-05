@@ -243,7 +243,7 @@ function DetailAssigneePicker({ taskId, members, onClose, onDone, onOptimisticAs
             <button key={u.id} onClick={() => handleAssign(u.id)}
               className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold mr-2.5"
-                style={{ backgroundColor: `hsl(${u.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                style={{ backgroundColor: `hsl($((u.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                 {u.name?.charAt(0).toUpperCase()}
               </div>
               <span className="text-xs text-[var(--asana-text-primary)] truncate">{u.name}</span>
@@ -657,7 +657,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                 {task.assignees?.length > 0 ? (
                   <>
                     <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                      style={{ backgroundColor: `hsl(${task.assignees[0].user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                      style={{ backgroundColor: `hsl(${(task.assignees[0].user?.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
                       {task.assignees[0].user?.name?.charAt(0).toUpperCase()}
                     </div>
                     <span className="text-sm text-[var(--asana-text-primary)] truncate">{task.assignees[0].user?.name}</span>
@@ -775,7 +775,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                   <span className={`text-sm flex-1 ${sub.status === 'DONE' ? 'line-through text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>{sub.title}</span>
                   {sub.assignees?.length > 0 && (
                     <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0"
-                      style={{ backgroundColor: `hsl(${sub.assignees[0].user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                      style={{ backgroundColor: `hsl(${(sub.assignees[0].user?.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
                       {sub.assignees[0].user?.name?.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -872,7 +872,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             {canComment && activeTab === 'comments' && (
               <div className="flex space-x-3 mb-4">
                 <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
-                  style={{ backgroundColor: `hsl(${user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                  style={{ backgroundColor: `hsl($((user?.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                   {user?.name?.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 border border-[var(--asana-border)] rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-asana-blue/30 focus-within:border-asana-blue/30 transition-all bg-[var(--asana-bg)]">
@@ -893,7 +893,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                 {(localComments || task.comments || []).map((comment) => (
                   <div key={comment.id} className="flex space-x-3 group">
                     <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
-                      style={{ backgroundColor: `hsl(${comment.user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                      style={{ backgroundColor: `hsl($((comment.user?.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                       {comment.user?.name?.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">

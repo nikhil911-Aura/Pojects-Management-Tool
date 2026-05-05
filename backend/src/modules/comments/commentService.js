@@ -1,5 +1,6 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
+import { stripHtml } from '../../core/utils/sanitize.js';
 
 function isWorkspaceAdmin(workspaceRole) {
   return workspaceRole === 'OWNER' || workspaceRole === 'ADMIN';
@@ -68,8 +69,11 @@ export const commentService = {
       throw ApiError.forbidden('You do not have permission to post comments');
     }
 
+    const sanitized = stripHtml(content);
+    if (!sanitized) throw ApiError.badRequest('Comment content cannot be empty');
+
     const comment = await prisma.comment.create({
-      data: { content, userId, taskId },
+      data: { content: sanitized, userId, taskId },
       include: { user: { select: { id: true, name: true, avatar: true } } }
     });
 
@@ -97,7 +101,10 @@ export const commentService = {
     if (!comment) throw ApiError.notFound('Comment not found');
     if (comment.userId !== userId) throw ApiError.forbidden('You can only edit your own comments');
 
-    return prisma.comment.update({ where: { id: commentId }, data: { content } });
+    const sanitized = stripHtml(content);
+    if (!sanitized) throw ApiError.badRequest('Comment content cannot be empty');
+
+    return prisma.comment.update({ where: { id: commentId }, data: { content: sanitized } });
   },
 
   // Delete comment — own comments with comment.delete permission, or workspace Admin

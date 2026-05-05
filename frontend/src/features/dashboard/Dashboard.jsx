@@ -10,7 +10,7 @@ function ProjectCard({ project }) {
   // Use pre-computed stats from backend (or fallback to legacy board.lists.tasks)
   const stats = project.stats;
   const sections = stats?.sections ?? project.board?.lists?.length ?? 0;
-  const tasks = stats?.tasks ?? project.board?.lists?.flatMap(l => l.tasks || []).filter(t => !t.parentId && t.taskType !== 'MILESTONE').length ?? 0;
+  const tasks = stats?.tasks ?? (project.board?.lists?.flatMap(l => l.tasks || []).filter(t => !t.parentId && t.taskType !== 'MILESTONE').length ?? 0);
   const milestones = stats?.milestones ?? 0;
   const subtasks = stats?.subtasks ?? 0;
   const total = stats?.total ?? 0;

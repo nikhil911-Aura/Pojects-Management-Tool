@@ -232,7 +232,7 @@ function TaskList({ tasks, onTaskClick, showAssignee = false }) {
             {showAssignee && assignee && (
               <div
                 className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0 mr-3"
-                style={{ backgroundColor: `hsl(${(assignee.name || '').charCodeAt(0) * 15}, 60%, 50%)` }}
+                style={{ backgroundColor: `hsl(${(assignee.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}
                 title={assignee.name}
               >
                 {assignee.name?.charAt(0).toUpperCase()}

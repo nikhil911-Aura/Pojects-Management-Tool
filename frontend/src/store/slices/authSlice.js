@@ -11,7 +11,7 @@ export const register = createAsyncThunk(
       localStorage.setItem('refreshToken', refreshToken);
       return { user, accessToken, refreshToken };
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Registration failed');
+      return rejectWithValue(error.response?.data?.message || error.message || 'Registration failed');
     }
   }
 );
@@ -26,7 +26,7 @@ export const login = createAsyncThunk(
       localStorage.setItem('refreshToken', refreshToken);
       return { user, accessToken, refreshToken, workspaces };
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Login failed');
+      return rejectWithValue(error.response?.data?.message || error.message || 'Login failed');
     }
   }
 );
@@ -38,7 +38,7 @@ export const getCurrentUser = createAsyncThunk(
       const response = await api.get('/api/v1/auth/me');
       return response.data.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to get user');
+      return rejectWithValue(error.response?.data?.message || error.message || 'Failed to get user');
     }
   }
 );

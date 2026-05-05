@@ -202,7 +202,7 @@ function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, em
             <button key={user.id} onClick={() => handleAssign(user.id)}
               className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold mr-2.5 flex-shrink-0"
-                style={{ backgroundColor: `hsl(${user.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                style={{ backgroundColor: `hsl($((user.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                 {user.name?.charAt(0).toUpperCase()}
               </div>
               <span className="text-xs text-[var(--asana-text-primary)] truncate">{user.name}</span>
@@ -697,7 +697,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
             {task.assignees?.length > 0 ? (
               <>
                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                  style={{ backgroundColor: `hsl(${task.assignees[0].user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                  style={{ backgroundColor: `hsl(${(task.assignees[0].user?.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
                   {task.assignees[0].user?.name?.charAt(0).toUpperCase()}
                 </div>
                 <span className="text-xs text-[var(--asana-text-primary)] truncate">{task.assignees[0].user?.name}</span>
@@ -1513,7 +1513,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
           {selectedName ? (
             <>
               <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold mr-1.5 flex-shrink-0"
-                style={{ backgroundColor: `hsl(${selectedName.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                style={{ backgroundColor: `hsl($((selectedName?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                 {selectedName.charAt(0).toUpperCase()}
               </div>
               <span className="text-[12px] text-[var(--asana-text-primary)] truncate">{selectedName}</span>
@@ -1533,7 +1533,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
                 <button key={name} onClick={() => { onChange(name); setShowDropdown(false); }}
                   className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 ${value === name ? 'bg-asana-blue/5' : ''}`}>
                   <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold mr-2"
-                    style={{ backgroundColor: `hsl(${name.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                    style={{ backgroundColor: `hsl($((name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                     {name.charAt(0).toUpperCase()}
                   </div>
                   <span className="text-[12px] text-[var(--asana-text-primary)]">{name}</span>

@@ -810,7 +810,7 @@ function renderGroupTitle(group) {
 // ── Avatar circle ───────────────────────────────────────────────────────────
 function Avatar({ name }) {
   const initial = (name || '?').charAt(0).toUpperCase();
-  const hue = (name || '').charCodeAt(0) * 15;
+  const hue = (name?.charCodeAt(0) ?? 65) * 15;
   return (
     <div
       className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
