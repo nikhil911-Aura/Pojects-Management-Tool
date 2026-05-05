@@ -619,7 +619,8 @@ function ProjectBoard() {
               )}
             </div>
 
-            {/* Share button */}
+            {/* Share button — only visible to users who can invite */}
+            {canInvite && (
             <button
               onClick={() => setShowShare(true)}
               className="flex items-center text-xs px-2 sm:px-3 py-1.5 rounded-asana bg-green-500 hover:bg-green-600 text-white font-semibold transition-colors"
@@ -629,6 +630,7 @@ function ProjectBoard() {
               </svg>
               <span className="hidden sm:inline">Share</span>
             </button>
+            )}
 
 
             {can('section.create') && (

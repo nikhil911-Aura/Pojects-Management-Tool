@@ -95,11 +95,16 @@ export const commentService = {
     });
   },
 
-  // Update comment — own comments only (must have at least COMMENTER access)
+  // Update comment — own comments only, must still have comment.create permission
   async update(commentId, userId, content) {
     const comment = await prisma.comment.findUnique({ where: { id: commentId } });
     if (!comment) throw ApiError.notFound('Comment not found');
     if (comment.userId !== userId) throw ApiError.forbidden('You can only edit your own comments');
+
+    const { workspaceMember, projectRole, customPermissions } = await getContextFromTask(comment.taskId, userId);
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'comment.create')) {
+      throw ApiError.forbidden('You do not have permission to post comments');
+    }
 
     const sanitized = stripHtml(content);
     if (!sanitized) throw ApiError.badRequest('Comment content cannot be empty');
