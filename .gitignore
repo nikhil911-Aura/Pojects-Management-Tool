@@ -5,6 +5,9 @@ backend/node_modules/
 
 # Environment files
 .env
+.env.development
+.env.production
+.env.local
 frontend/.env
 backend/.env
 

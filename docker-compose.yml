@@ -2,22 +2,42 @@ networks:
   my-mern-app-network:
     driver: bridge
 
+volumes:
+  postgres_data:
+
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-projectmanagement}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - my-mern-app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-projectmanagement}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: 5000
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-projectmanagement}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRE: ${JWT_EXPIRE:-15m}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_REFRESH_EXPIRE: ${JWT_REFRESH_EXPIRE:-7d}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      APP_URL: ${APP_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      APP_URL: ${APP_URL:-http://localhost:8080}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
@@ -27,7 +47,10 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-noreply@example.com}
     ports:
-      - "5000:5000"
+      - "8000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - my-mern-app-network
     healthcheck:
@@ -45,7 +68,7 @@ services:
         VITE_API_URL: ""
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "8080:80"
     depends_on:
       backend:
         condition: service_healthy
