@@ -45,7 +45,19 @@ export const inviteUserValidation = [
   body('role')
     .optional()
     .isIn(['ADMIN', 'MEMBER', 'GUEST'])
-    .withMessage('Invalid role')
+    .withMessage('Invalid role'),
+  body('customRoleId')
+    .optional({ nullable: true, checkFalsy: true })
+    .isUUID()
+    .withMessage('Invalid custom role id'),
+  body('projectIds')
+    .optional()
+    .isArray()
+    .withMessage('projectIds must be an array'),
+  body('projectIds.*')
+    .optional()
+    .isUUID()
+    .withMessage('Each project id must be a UUID'),
 ];
 
 export const updateRoleValidation = [
@@ -54,7 +66,11 @@ export const updateRoleValidation = [
     .withMessage('Invalid user ID'),
   body('role')
     .isIn(['ADMIN', 'MEMBER', 'GUEST'])
-    .withMessage('Invalid role')
+    .withMessage('Invalid role'),
+  body('customRoleId')
+    .optional({ nullable: true, checkFalsy: true })
+    .isUUID()
+    .withMessage('Invalid custom role id')
 ];
 
 export default {

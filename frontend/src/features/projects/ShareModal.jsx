@@ -1,22 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchProject, addProjectMember, updateProjectMemberRole, removeProjectMember } from '../../store/slices/projectSlice';
+import { fetchWorkspace } from '../../store/slices/workspaceSlice';
 import { useRole } from '../../hooks/useRole';
+import CustomRoleModal from './CustomRoleModal';
+import { useConfirm } from '../../hooks/useConfirm';
+import api from '../../services/api';
 
-const PROJECT_ROLE_LABELS = {
-  EDITOR:    { label: 'Editor',    desc: 'Can edit tasks, sections, and comments' },
-  COMMENTER: { label: 'Commenter', desc: 'Can view and comment, but not edit' },
-  VIEWER:    { label: 'Viewer',    desc: 'Read-only access' },
-};
-
-const PROJECT_ROLE_STYLE = {
-  EDITOR:    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  COMMENTER: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-  VIEWER:    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
-};
-
-/* Custom role dropdown — no native <select> ugliness */
-function RoleDropdown({ value, onChange, compact = false }) {
+/* ── Role dropdown — reads from the project's named roles ── */
+function RoleDropdown({ roles, value, onChange, compact = false, canCreateRole = true }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const ref = useRef(null);
@@ -32,41 +24,51 @@ function RoleDropdown({ value, onChange, compact = false }) {
   const handleOpen = () => {
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
-      const dropdownHeight = 180;
       const spaceBelow = window.innerHeight - rect.bottom;
-      if (spaceBelow < dropdownHeight) {
-        setPos({ top: rect.top - dropdownHeight - 4, left: rect.right - 208 });
-      } else {
-        setPos({ top: rect.bottom + 4, left: rect.right - 208 });
-      }
+      setPos({
+        top: spaceBelow < 250 ? rect.top - 250 - 4 : rect.bottom + 4,
+        left: rect.right - 240,
+      });
     }
     setOpen(!open);
   };
 
-  const current = PROJECT_ROLE_LABELS[value] || PROJECT_ROLE_LABELS.EDITOR;
-  const style = PROJECT_ROLE_STYLE[value] || PROJECT_ROLE_STYLE.EDITOR;
+  const current = roles.find(r => r.id === value);
+  const displayName = current?.name || 'Select role';
+  const displayColor = current?.color || '#6B7280';
 
   return (
     <>
       <button ref={btnRef} onClick={handleOpen}
-        className={`flex items-center space-x-1.5 text-xs font-bold rounded-lg px-2.5 py-1.5 transition-colors hover:ring-1 hover:ring-[var(--asana-border)] ${style} ${compact ? '' : 'min-w-[100px]'}`}>
-        <span>{current.label}</span>
-        <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        className={`flex items-center justify-between text-xs font-bold rounded-lg px-2.5 py-1.5 transition-colors hover:ring-1 hover:ring-[var(--asana-border)] ${compact ? 'min-w-[110px]' : 'min-w-[120px]'}`}
+        style={{ backgroundColor: `${displayColor}20`, color: displayColor }}>
+        <span className="truncate">{displayName}</span>
+        <svg className={`w-3 h-3 ml-1.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
       {open && (
-        <div ref={ref} className="fixed z-[200] w-52 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1 animate-fade-in"
+        <div ref={ref} className="fixed z-[200] w-60 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1 animate-fade-in max-h-72 overflow-y-auto"
           style={{ top: pos.top, left: Math.max(8, pos.left) }}>
-          {Object.entries(PROJECT_ROLE_LABELS).map(([key, { label, desc }]) => {
-            const isActive = value === key;
+          {roles.map((role) => {
+            const isActive = value === role.id;
             return (
-              <button key={key} onClick={() => { onChange(key); setOpen(false); }}
+              <button key={role.id} onClick={() => { onChange(role.id); setOpen(false); }}
                 className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${isActive ? 'bg-asana-blue/5' : ''}`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className={`text-xs font-bold inline-block px-2 py-0.5 rounded ${PROJECT_ROLE_STYLE[key]}`}>{label}</span>
-                    <p className="text-[10px] text-[var(--asana-text-secondary)] mt-0.5 ml-0.5">{desc}</p>
+                    <span className="text-xs font-bold inline-block px-2 py-0.5 rounded"
+                      style={{ backgroundColor: `${role.color}20`, color: role.color }}>
+                      {role.name}
+                    </span>
+                    {role.description && (
+                      <p className="text-[10px] text-[var(--asana-text-secondary)] mt-0.5 ml-0.5">{role.description}</p>
+                    )}
+                    {role.isSystem && (
+                      <p className="text-[10px] text-[var(--asana-text-secondary)] mt-0.5 ml-0.5">
+                        {role.name === 'Editor' ? 'Full edit access' : role.name === 'Commenter' ? 'View + comment only' : 'Read-only'}
+                      </p>
+                    )}
                   </div>
                   {isActive && (
                     <svg className="w-4 h-4 text-asana-blue flex-shrink-0 ml-2" fill="currentColor" viewBox="0 0 20 20">
@@ -77,6 +79,18 @@ function RoleDropdown({ value, onChange, compact = false }) {
               </button>
             );
           })}
+          {/* Create custom role option — admins only */}
+          {canCreateRole && (
+            <div className="border-t border-[var(--asana-border)] mt-1 pt-1">
+              <button onClick={() => { onChange('__CREATE_CUSTOM__'); setOpen(false); }}
+                className="w-full flex items-center px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <svg className="w-3.5 h-3.5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">Create custom role...</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </>
@@ -88,61 +102,165 @@ function ShareModal({ projectId, onClose, emitInstant }) {
   const { currentProject } = useAppSelector(state => state.project);
   const { currentWorkspace } = useAppSelector(state => state.workspace);
   const { user: currentUser } = useAppSelector(state => state.auth);
-  const { isWorkspaceAdmin } = useRole();
+  const { isWorkspaceAdmin, can, workspaceRole, isProjectMember } = useRole();
+  const canInvite = isWorkspaceAdmin || isProjectMember || can('project.invite');
+  const canManageRoles = isWorkspaceAdmin || can('project.invite');
+  const canChangeRole = isWorkspaceAdmin || can('project.changeRole');
+  const isWorkspaceOwner = workspaceRole === 'OWNER';
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const [search, setSearch] = useState('');
-  const [selectedRole, setSelectedRole] = useState('EDITOR');
+  const [selectedRoleId, setSelectedRoleId] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
 
+  // Project's named roles (system + custom)
+  const [projectRoles, setProjectRoles] = useState([]);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
+
+  // Custom role modal
+  const [customModalTarget, setCustomModalTarget] = useState(null);
+  // { memberId, memberName, roleId, permissions } or { mode: 'create', memberId }
+
+  // Load project roles
+  useEffect(() => {
+    if (!projectId) return;
+    const wsId = currentWorkspace?.id;
+    if (!wsId) { setRolesLoaded(true); return; }
+    api.get(`/api/v1/projects/roles/workspace/${wsId}`).then((res) => {
+      const roles = res.data.data || [];
+      setProjectRoles(roles);
+      // Default to Editor for new member invites
+      const editor = roles.find(r => r.isSystem && r.name === 'Editor');
+      if (editor && !selectedRoleId) setSelectedRoleId(editor.id);
+      setRolesLoaded(true);
+    }).catch(() => setRolesLoaded(true));
+  }, [projectId]);
+
+  // Ensure workspace members are loaded for the invite search
+  useEffect(() => {
+    if (currentWorkspace?.id && !Array.isArray(currentWorkspace.members)) {
+      dispatch(fetchWorkspace(currentWorkspace.id));
+    }
+  }, [currentWorkspace?.id, currentWorkspace?.members, dispatch]);
+
   const projectMembers = currentProject?.members || [];
   const projectMemberIds = new Set(projectMembers.map(m => m.userId));
-
-  // Workspace members not yet in the project
   const availableMembers = (currentWorkspace?.members || []).filter(
     m => !projectMemberIds.has(m.userId || m.user?.id)
   );
+
+  // Map: userId → workspace role (OWNER/ADMIN/MEMBER/GUEST). Used to protect
+  // workspace owners/admins from having their role changed by lower-privilege users.
+  const wsRoleByUserId = {};
+  (currentWorkspace?.members || []).forEach(m => {
+    const uid = m.userId || m.user?.id;
+    if (uid) wsRoleByUserId[uid] = m.role;
+  });
+
+  // Returns true if the current user is allowed to change `targetUid`'s role.
+  const canChangeRoleFor = (targetUid) => {
+    if (!canChangeRole) return false;
+    // Workspace OWNER/ADMIN can change their OWN project role; others cannot.
+    if (targetUid === currentUser?.id && !isWorkspaceAdmin) return false;
+    const targetWsRole = wsRoleByUserId[targetUid];
+    // Only the workspace OWNER can change another OWNER or an ADMIN
+    // (but the caller may always change their own row if they passed the check above)
+    if (targetUid !== currentUser?.id && (targetWsRole === 'OWNER' || targetWsRole === 'ADMIN') && !isWorkspaceOwner) return false;
+    return true;
+  };
+
+  // Returns true if the current user is allowed to remove `targetUid` from the project.
+  const canRemoveFor = (targetUid) => {
+    if (!canInvite) return false;
+    if (targetUid === currentUser?.id) return false;
+    // Project creator can only be removed by a workspace OWNER/ADMIN
+    if (targetUid === currentProject?.createdById && !isWorkspaceAdmin) return false;
+    const targetWsRole = wsRoleByUserId[targetUid];
+    // Only the workspace OWNER can remove another OWNER or an ADMIN
+    if ((targetWsRole === 'OWNER' || targetWsRole === 'ADMIN') && !isWorkspaceOwner) return false;
+    return true;
+  };
   const filteredAvailable = availableMembers.filter(m =>
     (m.user?.name || '').toLowerCase().includes(search.toLowerCase()) ||
     (m.user?.email || '').toLowerCase().includes(search.toLowerCase())
   );
 
   const handleAdd = () => {
-    if (!selectedUserId) return;
+    if (!selectedUserId || !selectedRoleId) return;
     setError('');
-
-    // Find the user from workspace members for optimistic display
     const wsm = availableMembers.find(m => (m.userId || m.user?.id) === selectedUserId);
     const user = wsm?.user || { id: selectedUserId, name: 'Member', email: '' };
-    const tempMember = { userId: selectedUserId, projectRole: selectedRole, user };
+    const role = projectRoles.find(r => r.id === selectedRoleId);
+    // Map to a valid enum value: system roles use their name, custom roles use 'CUSTOM'
+    const enumMap = { Editor: 'EDITOR', Commenter: 'COMMENTER', Viewer: 'VIEWER' };
+    const enumValue = role?.isSystem ? (enumMap[role.name] || 'EDITOR') : 'CUSTOM';
+    const tempMember = { userId: selectedUserId, projectRole: enumValue, projectRoleId: selectedRoleId, customRole: role, user };
 
-    // Optimistic: add to Redux project members instantly
     dispatch({ type: 'project/addProjectMember/fulfilled', payload: { projectId, member: tempMember } });
-    // Broadcast to other users
     emitInstant?.('member_added_instant', { member: tempMember });
-
     setSelectedUserId('');
     setSearch('');
-
-    // Background API
-    dispatch(addProjectMember({ projectId, userId: selectedUserId, projectRole: selectedRole }));
+    dispatch(addProjectMember({ projectId, userId: selectedUserId, projectRole: enumValue, roleId: selectedRoleId }));
   };
 
-  const handleRoleChange = (memberId, newRole) => {
-    // Optimistic: update in Redux instantly
-    dispatch({ type: 'project/updateProjectMemberRole/fulfilled', payload: { projectId, member: { userId: memberId, projectRole: newRole } } });
-    emitInstant?.('member_role_changed_instant', { userId: memberId, projectRole: newRole });
-    // Background API
-    dispatch(updateProjectMemberRole({ projectId, memberId, projectRole: newRole }));
+  const handleRoleChange = (memberId, newRoleId) => {
+    if (newRoleId === '__CREATE_CUSTOM__') {
+      // Open custom role creator, pre-targeted at this member
+      setCustomModalTarget({ mode: 'create', memberId, memberName: projectMembers.find(m => (m.userId || m.user?.id) === memberId)?.user?.name || 'Member' });
+      return;
+    }
+    // Apply the named role
+    dispatch(updateProjectMemberRole({ projectId, memberId, roleId: newRoleId }));
+    emitInstant?.('member_role_changed_instant', { userId: memberId, roleId: newRoleId });
   };
 
-  const handleRemove = (memberId) => {
-    if (!window.confirm('Remove this person from the project?')) return;
-    // Optimistic: remove from Redux instantly
+  const handleSaveCustomRole = async (permissions, roleName) => {
+    if (!customModalTarget) return;
+    try {
+      const res = await api.post(`/api/v1/projects/roles/workspace/${currentWorkspace?.id}`, {
+        name: roleName || `Custom Role`,
+        permissions,
+        color: '#8B5CF6',
+      });
+      const newRole = res.data.data;
+      setProjectRoles(prev => [...prev, newRole]);
+
+      if (customModalTarget.memberId) {
+        dispatch(updateProjectMemberRole({ projectId, memberId: customModalTarget.memberId, roleId: newRole.id }));
+      }
+      setCustomModalTarget(null);
+    } catch (err) {
+      // Re-throw so CustomRoleModal can display the error inline (e.g. duplicate name)
+      throw new Error(err.response?.data?.message || err.message || 'Failed to create role');
+    }
+  };
+
+  const handleEditRole = (role) => {
+    setCustomModalTarget({ mode: 'edit', roleId: role.id, roleName: role.name, permissions: role.permissions });
+  };
+
+  const handleUpdateRole = async (permissions) => {
+    if (!customModalTarget?.roleId) return;
+    try {
+      await api.put(`/api/v1/projects/roles/${customModalTarget.roleId}`, { permissions });
+      // Update local projectRoles state
+      setProjectRoles(prev => prev.map(r => r.id === customModalTarget.roleId ? { ...r, permissions } : r));
+      // Also refresh the project to update member.customRole in Redux
+      // so the next edit-click shows fresh data (not stale from the member row).
+      dispatch(fetchProject(projectId));
+    } catch (err) {
+      console.error('Failed to update role:', err);
+    }
+    setCustomModalTarget(null);
+  };
+
+  const handleRemove = async (memberId) => {
+    const ok = await confirm({ title: 'Remove member?', message: 'This person will lose access to the project.', confirmText: 'Remove', variant: 'danger' });
+    if (!ok) return;
     dispatch({ type: 'project/removeProjectMember/fulfilled', payload: { projectId, memberId } });
     emitInstant?.('member_removed_instant', { userId: memberId });
-    // Background API
     dispatch(removeProjectMember({ projectId, memberId }));
   };
 
@@ -161,7 +279,7 @@ function ShareModal({ projectId, onClose, emitInstant }) {
 
         <div className="px-6 py-4 space-y-5">
           {/* Add member — Admin only */}
-          {isWorkspaceAdmin && (
+          {canInvite && rolesLoaded && (
             <div>
               <label className="block text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-2">
                 Add people
@@ -198,11 +316,22 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                     </div>
                   )}
                 </div>
-                <RoleDropdown value={selectedRole} onChange={setSelectedRole} />
+                <RoleDropdown
+                  roles={canManageRoles ? projectRoles : projectRoles.filter(r => r.isSystem)}
+                  value={selectedRoleId}
+                  canCreateRole={canManageRoles}
+                  onChange={(id) => {
+                    if (id === '__CREATE_CUSTOM__') {
+                      setCustomModalTarget({ mode: 'create', memberId: null, memberName: '' });
+                    } else {
+                      setSelectedRoleId(id);
+                    }
+                  }}
+                />
                 <button
                   onClick={handleAdd}
-                  disabled={!selectedUserId || adding}
-                  className="asana-button-primary text-sm px-4 disabled:opacity-50"
+                  disabled={!selectedUserId || !selectedRoleId || adding}
+                  className={`asana-button-primary text-sm px-4 transition-opacity ${(!selectedUserId || !selectedRoleId || adding) ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'opacity-100'}`}
                 >
                   {adding ? '...' : 'Invite'}
                 </button>
@@ -221,6 +350,9 @@ function ShareModal({ projectId, onClose, emitInstant }) {
               {projectMembers.map(m => {
                 const uid = m.userId || m.user?.id;
                 const isYou = uid === currentUser?.id;
+                const memberRole = m.customRole || projectRoles.find(r => r.id === m.projectRoleId);
+                const memberRoleId = m.projectRoleId || memberRole?.id || '';
+
                 return (
                   <div key={uid} className="flex items-center justify-between py-2 px-1 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/50 group transition-colors">
                     <div className="flex items-center space-x-3 min-w-0">
@@ -228,18 +360,45 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                         {m.user?.name?.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-[var(--asana-text-primary)] truncate">
-                          {m.user?.name}
-                          {isYou && <span className="ml-1.5 text-[10px] bg-asana-blue/10 text-asana-blue px-1.5 py-0.5 rounded-full font-bold">You</span>}
-                        </p>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="text-sm font-medium text-[var(--asana-text-primary)] truncate min-w-0">
+                            {m.user?.name}
+                          </p>
+                          {isYou && <span className="text-[10px] bg-asana-blue/10 text-asana-blue px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">You</span>}
+                          {uid === currentProject?.createdById && <span className="text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">Creator</span>}
+                        </div>
                         <p className="text-xs text-[var(--asana-text-secondary)] truncate">{m.user?.email}</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2 flex-shrink-0 ml-3">
-                      {isWorkspaceAdmin && !isYou ? (
-                        <>
-                          <RoleDropdown value={m.projectRole || 'EDITOR'} onChange={(val) => handleRoleChange(uid, val)} compact />
+                    <div className="flex items-center justify-end gap-1 flex-shrink-0 ml-3 w-[180px]">
+                      {/* Edit permissions icon for custom roles — fixed slot */}
+                      <div className="w-6 flex justify-center">
+                        {canChangeRoleFor(uid) && rolesLoaded && memberRole && !memberRole.isSystem && (
+                          <button onClick={() => handleEditRole(memberRole)}
+                            className="p-1 rounded-md text-[var(--asana-text-secondary)] hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 transition-colors"
+                            title="Edit role permissions">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Role: dropdown if user can change this member's role, otherwise static badge */}
+                      {canChangeRoleFor(uid) && rolesLoaded ? (
+                        <RoleDropdown roles={projectRoles} value={memberRoleId} onChange={(id) => handleRoleChange(uid, id)} compact />
+                      ) : (
+                        <span className="text-xs font-bold rounded-lg px-2.5 py-1.5 min-w-[110px] text-center"
+                          style={{ backgroundColor: `${memberRole?.color || '#6B7280'}20`, color: memberRole?.color || '#6B7280' }}>
+                          {memberRole?.name || m.projectRole || 'Member'}
+                        </span>
+                      )}
+
+                      {/* Remove button — fixed slot */}
+                      <div className="w-6 flex justify-center">
+                        {canRemoveFor(uid) && (
                           <button
                             onClick={() => handleRemove(uid)}
                             className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all"
@@ -249,12 +408,8 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </button>
-                        </>
-                      ) : (
-                        <span className={`text-xs font-bold rounded-full px-2.5 py-1 ${PROJECT_ROLE_STYLE[m.projectRole] || PROJECT_ROLE_STYLE.EDITOR}`}>
-                          {PROJECT_ROLE_LABELS[m.projectRole]?.label || 'Editor'}
-                        </span>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -265,20 +420,97 @@ function ShareModal({ projectId, onClose, emitInstant }) {
             </div>
           </div>
 
-          {/* Role legend */}
-          <div className="pt-2 border-t border-[var(--asana-border)]">
-            <p className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-2">Role permissions</p>
-            <div className="space-y-1.5">
-              {Object.entries(PROJECT_ROLE_LABELS).map(([val, { label, desc }]) => (
-                <div key={val} className="flex items-start space-x-2">
-                  <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 mt-0.5 flex-shrink-0 ${PROJECT_ROLE_STYLE[val]}`}>{label}</span>
-                  <span className="text-xs text-[var(--asana-text-secondary)]">{desc}</span>
+          {/* Roles management — admins + users with project.invite permission */}
+          {canManageRoles && <div className="pt-2 border-t border-[var(--asana-border)]">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Project roles</p>
+              {canInvite && (
+                <button
+                  onClick={() => setCustomModalTarget({ mode: 'create', memberId: null, memberName: '' })}
+                  className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                >
+                  + New role
+                </button>
+              )}
+            </div>
+            <div className="space-y-1">
+              {projectRoles.map((role) => (
+                <div key={role.id} className="flex items-center justify-between py-1.5 px-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/30 group/role transition-colors">
+                  <div className="flex items-center space-x-2 min-w-0">
+                    <span className="text-[10px] font-bold rounded-full px-2 py-0.5 flex-shrink-0"
+                      style={{ backgroundColor: `${role.color}20`, color: role.color }}>
+                      {role.name}
+                    </span>
+                    <span className="text-xs text-[var(--asana-text-secondary)] truncate">
+                      {role.isSystem
+                        ? (role.name === 'Editor' ? 'Full edit access' : role.name === 'Commenter' ? 'View + comment' : 'Read-only')
+                        : `${Object.values(role.permissions || {}).filter(Boolean).length} permissions`
+                      }
+                    </span>
+                    {role.isSystem && (
+                      <span className="text-[9px] text-[var(--asana-text-muted)] bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">System</span>
+                    )}
+                  </div>
+
+                  {canInvite && (
+                    <div className="flex items-center space-x-1 opacity-0 group-hover/role:opacity-100 transition-opacity">
+                      {/* Edit permissions */}
+                      <button
+                        onClick={() => handleEditRole(role)}
+                        className="p-1 rounded text-[var(--asana-text-secondary)] hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-[var(--asana-text-primary)] transition-colors"
+                        title={`Edit ${role.name} permissions`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      {/* Delete — only for non-system roles */}
+                      {!role.isSystem && (
+                        <button
+                          onClick={async () => {
+                            const memberCount = role._count?.members || 0;
+                            const msg = memberCount > 0
+                              ? `${memberCount} member(s) using this role will be reassigned to Viewer.`
+                              : 'This role will be permanently deleted.';
+                            const ok = await confirm({ title: `Delete "${role.name}"?`, message: msg, confirmText: 'Delete Role', variant: 'danger' });
+                            if (!ok) return;
+                            try {
+                              await api.delete(`/api/v1/projects/roles/${role.id}`);
+                              setProjectRoles(prev => prev.filter(r => r.id !== role.id));
+                            } catch (err) {
+                              console.error('Failed to delete role:', err);
+                            }
+                          }}
+                          className="p-1 rounded text-[var(--asana-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
+                          title={`Delete ${role.name}`}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
       </div>
+
+      {/* Custom role modal */}
+      {ConfirmDialog}
+      {customModalTarget && (
+        <CustomRoleModal
+          currentPermissions={customModalTarget.permissions || null}
+          memberName={customModalTarget.memberName || ''}
+          showNameField={customModalTarget.mode === 'create'}
+          roleName={customModalTarget.roleName || ''}
+          projectId={projectId}
+          onSave={customModalTarget.mode === 'edit' ? handleUpdateRole : handleSaveCustomRole}
+          onCancel={() => setCustomModalTarget(null)}
+        />
+      )}
     </div>
   );
 }

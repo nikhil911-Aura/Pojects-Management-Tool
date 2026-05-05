@@ -68,9 +68,7 @@ function Settings() {
       <div className="bg-[var(--asana-surface)] border border-asana-border rounded-asana-lg px-6">
         <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] pt-5 pb-2">Account</h2>
         <SettingsRow label="Language" description="Interface language">
-          <select className="asana-input text-sm py-1 px-2">
-            <option>English</option>
-          </select>
+          <span className="text-sm text-[var(--asana-text-secondary)]">English</span>
         </SettingsRow>
         <SettingsRow label="Timezone" description="Used for due dates and reminders">
           <span className="text-sm text-[var(--asana-text-secondary)]">

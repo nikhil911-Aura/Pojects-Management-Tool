@@ -88,9 +88,16 @@ export const moveTaskValidation = [
     .isUUID()
     .withMessage('Invalid list ID'),
   body('position')
-    .optional()
+    .optional({ values: 'undefined' })
     .isFloat()
-    .withMessage('Position must be a number')
+    .withMessage('Position must be a number'),
+  // parentId may be: a UUID string (becomes a subtask), null (becomes top-level), or omitted (no change)
+  body('parentId')
+    .custom((value) => {
+      if (value === undefined || value === null) return true;
+      if (typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value)) return true;
+      throw new Error('parentId must be a UUID string or null');
+    })
 ];
 
 export const assignUserValidation = [

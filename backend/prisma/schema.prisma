@@ -18,7 +18,9 @@ enum Role {
 enum TaskStatus {
   TODO
   IN_PROGRESS
+  BLOCKED
   REVIEW
+  NEXT_SPRINT
   DONE
 }
 
@@ -49,10 +51,12 @@ enum MemberStatus {
 // Editor: full read/write within the project
 // Commenter: can view + comment, cannot edit tasks or sections
 // Viewer: read-only, cannot comment or edit
+// Custom: granular permissions defined in ProjectMember.customPermissions JSON
 enum ProjectRole {
   EDITOR
   COMMENTER
   VIEWER
+  CUSTOM
 }
 
 // Models
@@ -73,7 +77,10 @@ model User {
   activityLogs  ActivityLog[]
   attachments   Attachment[]
   timeEntries   TimeEntry[]
-  invitesSent   WorkspaceInvite[]
+  invitesSent       WorkspaceInvite[]
+  projectsCreated   Project[]        @relation("ProjectsCreated")
+  addedRecipients   ReportRecipient[]
+  viewPreferences   UserViewPreference[]
 
   // Refresh tokens
   refreshToken  String?
@@ -89,19 +96,24 @@ model Workspace {
   updatedAt   DateTime  @updatedAt
 
   // Relations
-  members     WorkspaceMember[]
-  projects    Project[]
-  tags        Tag[]
-  invites     WorkspaceInvite[]
+  members           WorkspaceMember[]
+  projects          Project[]
+  tags              Tag[]
+  invites           WorkspaceInvite[]
+  roles             CustomProjectRole[]
+  reportRecipients  ReportRecipient[]
 }
 
 model WorkspaceMember {
-  id          String    @id @default(uuid())
-  role        Role         @default(MEMBER)
-  status      MemberStatus @default(ACTIVE)
-  joinedAt    DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id              String    @id @default(uuid())
+  role            Role         @default(MEMBER)
+  status          MemberStatus @default(ACTIVE)
+  joinedAt        DateTime?
+  lastInboxSeenAt DateTime?
+  customRoleId    String?
+  customRole      CustomProjectRole? @relation("WorkspaceMemberCustomRole", fields: [customRoleId], references: [id], onDelete: SetNull)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   // Relations
   userId      String
@@ -115,21 +127,25 @@ model WorkspaceMember {
 }
 
 model WorkspaceInvite {
-  id          String       @id @default(uuid())
-  email       String
-  role        Role         @default(MEMBER)
-  token       String       @unique
-  status      InviteStatus @default(PENDING)
-  expiresAt   DateTime
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id            String       @id @default(uuid())
+  email         String
+  role          Role         @default(MEMBER)
+  customRoleId  String?
+  customRole    CustomProjectRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  projectIds    String[]     @default([])
+  token         String       @unique
+  status        InviteStatus @default(PENDING)
+  expiresAt     DateTime
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   // Relations
-  workspaceId String
-  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  invitedById String
-  invitedBy   User         @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  workspaceId   String
+  workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedById   String
+  invitedBy     User         @relation(fields: [invitedById], references: [id], onDelete: Cascade)
 
+  @@unique([email, workspaceId])
   @@index([email])
   @@index([token])
   @@index([workspaceId])
@@ -149,9 +165,12 @@ model Project {
   // Relations
   workspaceId  String
   workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdById  String?
+  createdBy    User?            @relation("ProjectsCreated", fields: [createdById], references: [id], onDelete: SetNull)
   board        Board?
   members      ProjectMember[]
   customFields CustomField[]
+  viewPreferences UserViewPreference[]
 
   @@index([workspaceId])
 }
@@ -196,11 +215,40 @@ model CustomFieldValue {
   @@index([taskId])
 }
 
+// Reusable named role shared across ALL projects in a workspace.
+// 3 system roles (Editor / Commenter / Viewer) are seeded on workspace creation.
+// Admins can create additional custom roles like "QA Tester", "Client Reviewer".
+// When assigning a member to a project, pick from this workspace-wide pool.
+model CustomProjectRole {
+  id          String   @id @default(uuid())
+  name        String                         // "Editor", "QA Tester", etc.
+  description String?
+  color       String   @default("#6B7280")   // badge color
+  isSystem    Boolean  @default(false)       // true for Editor/Commenter/Viewer — can't delete/rename
+  permissions Json     @default("{}")        // { "task.create": true, "task.delete": false, ... }
+  position    Int      @default(0)           // display order in dropdowns
+  createdAt   DateTime @default(now())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members     ProjectMember[]
+  invites     WorkspaceInvite[]
+  workspaceMembers WorkspaceMember[] @relation("WorkspaceMemberCustomRole")
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
 model ProjectMember {
   id          String      @id @default(uuid())
-  role        Role        @default(MEMBER)        // kept for compat, not used for permission checks
-  projectRole ProjectRole @default(EDITOR)        // actual permission level within the project
+  role        Role        @default(MEMBER)        // workspace-level role (kept for legacy compat)
+  projectRole ProjectRole @default(EDITOR)        // DEPRECATED — kept for data migration only
+  customPermissions Json?                         // DEPRECATED — migrated into CustomProjectRole.permissions
   createdAt   DateTime    @default(now())
+
+  // New: points to the named role in CustomProjectRole
+  projectRoleId String?
+  customRole    CustomProjectRole? @relation(fields: [projectRoleId], references: [id], onDelete: SetNull)
 
   // Relations
   userId    String
@@ -211,6 +259,7 @@ model ProjectMember {
   @@unique([userId, projectId])
   @@index([userId])
   @@index([projectId])
+  @@index([projectRoleId])
 }
 
 model Board {
@@ -260,6 +309,7 @@ model Task {
   actualTime      Int?       // computed sum of time entries in minutes
   timerStartedAt  DateTime?  // when the active timer started (null = no timer running)
   timerStartedBy  String?    // userId of who started the timer
+  billable        Boolean?
   position        Float      @default(0)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -272,6 +322,12 @@ model Task {
   parentId    String?
   parent      Task?      @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
   subtasks    Task[]     @relation("Subtasks")
+
+  // Multi-project milestones: when a milestone is added to another project,
+  // a new task is created there with linkedMilestoneId pointing to the original.
+  linkedMilestoneId String?
+  linkedMilestone   Task?   @relation("MilestoneLinks", fields: [linkedMilestoneId], references: [id], onDelete: SetNull)
+  milestoneLinks    Task[]  @relation("MilestoneLinks") // all copies in other projects
 
   assignees        TaskAssignee[]
   comments         Comment[]
@@ -351,6 +407,7 @@ model Attachment {
   id        String   @id @default(uuid())
   filename  String
   url       String
+  publicId  String?  // Cloudinary public ID for deletion — e.g. "asana_clone/abc123"
   mimeType  String
   size      Int
   createdAt DateTime @default(now())
@@ -379,4 +436,35 @@ model TimeEntry {
 
   @@index([taskId])
   @@index([userId])
+}
+
+// Saved email recipients for sending reports — workspace-scoped
+model UserViewPreference {
+  id        String   @id @default(uuid())
+  colWidths Json     @default("{}")
+  updatedAt DateTime @updatedAt
+
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
+}
+
+model ReportRecipient {
+  id          String   @id @default(uuid())
+  email       String
+  name        String?
+  createdAt   DateTime @default(now())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  addedById   String
+  addedBy     User      @relation(fields: [addedById], references: [id], onDelete: Cascade)
+
+  @@unique([email, workspaceId])
+  @@index([workspaceId])
 }

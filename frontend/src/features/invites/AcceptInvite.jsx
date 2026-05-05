@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { acceptInvite } from '../../store/slices/workspaceSlice';
+import { acceptInvite, fetchWorkspace, setCurrentWorkspace } from '../../store/slices/workspaceSlice';
+import { fetchProjects } from '../../store/slices/projectSlice';
 import api from '../../services/api';
 
 const INVITE_TOKEN_KEY = 'pendingInviteToken';
@@ -34,17 +35,32 @@ function AcceptInvite() {
         setLoading(false);
         return;
       }
-      
+
       try {
         const response = await api.get(`/api/v1/invites/validate/${token}`);
         setInvite(response.data.data);
-        
+
         // Check email mismatch
         if (currentUser && currentUser.email !== response.data.data.email) {
           setEmailMismatch(true);
         }
       } catch (err) {
-        setError(err.response?.data?.message || 'Invalid or expired invitation');
+        const message = err.response?.data?.message || 'Invalid or expired invitation';
+        setError(message);
+        // Token reached a terminal state (accepted / cancelled / expired / invalid).
+        // Clear it from localStorage so the user isn't redirected back here on
+        // every subsequent login. Without this, the post-login flow in Login.jsx
+        // re-reads the stale token forever and the user is stuck in a loop.
+        const lower = String(message).toLowerCase();
+        const isTerminal =
+          lower.includes('accepted') ||
+          lower.includes('cancelled') ||
+          lower.includes('canceled') ||
+          lower.includes('expired') ||
+          lower.includes('invalid');
+        if (isTerminal) {
+          localStorage.removeItem(INVITE_TOKEN_KEY);
+        }
       } finally {
         setLoading(false);
       }
@@ -52,14 +68,19 @@ function AcceptInvite() {
 
     if (token) {
       validateToken();
+    } else {
+      // No token in URL or localStorage — make sure no stale token is left behind.
+      localStorage.removeItem(INVITE_TOKEN_KEY);
+      setLoading(false);
     }
   }, [token, currentUser]);
 
   const handleAccept = async () => {
-    // If not logged in, store token in localStorage (survives refresh/close) and redirect
+    // If not logged in, redirect to login (existing user) or register (new user)
     if (!isAuthenticated) {
       localStorage.setItem(INVITE_TOKEN_KEY, token);
-      navigate('/login', { state: { from: `/invite/accept/${token}` } });
+      const redirectTo = invite?.userExists ? '/login' : '/register';
+      navigate(redirectTo, { state: { from: `/invite/accept/${token}` } });
       return;
     }
 
@@ -74,6 +95,17 @@ function AcceptInvite() {
       const result = await dispatch(acceptInvite(token)).unwrap();
       // Clear token on successful acceptance
       localStorage.removeItem(INVITE_TOKEN_KEY);
+
+      // Fetch the new workspace and set it as the active workspace
+      // BEFORE navigating — so the Layout, Sidebar, and Workspace page
+      // all have the correct currentWorkspace immediately.
+      const wsResult = await dispatch(fetchWorkspace(result.workspaceId)).unwrap();
+      dispatch(setCurrentWorkspace(wsResult));
+      dispatch(fetchProjects(result.workspaceId));
+
+      // Persist so page reloads keep this workspace selected
+      localStorage.setItem('lastWorkspaceId', result.workspaceId);
+
       navigate(`/workspace/${result.workspaceId}`);
     } catch (err) {
       setError(err || 'Failed to accept invitation');
@@ -97,6 +129,30 @@ function AcceptInvite() {
   }
 
   if (error) {
+    // Detect specific backend error states from validateToken so we can show
+    // a friendly title/icon instead of a generic "problem".
+    const lower = String(error).toLowerCase();
+    const isCancelled = lower.includes('cancelled') || lower.includes('canceled');
+    const isExpired = lower.includes('expired');
+    const isAccepted = lower.includes('already been accepted');
+    const isInvalid = lower.includes('invalid');
+
+    let title = 'Invitation Problem';
+    let body = error;
+    if (isCancelled) {
+      title = 'Invitation Cancelled';
+      body = 'The workspace administrator cancelled this invitation. Please contact them to request a new one.';
+    } else if (isExpired) {
+      title = 'Invitation Expired';
+      body = 'This invitation link has expired. Ask the workspace administrator to send you a new one.';
+    } else if (isAccepted) {
+      title = 'Already Accepted';
+      body = 'This invitation has already been accepted. You can sign in to access the workspace.';
+    } else if (isInvalid) {
+      title = 'Invalid Invitation';
+      body = 'This invitation link is not valid. It may have been removed or mistyped.';
+    }
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
@@ -105,8 +161,8 @@ function AcceptInvite() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Invitation Problem</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{title}</h2>
+          <p className="text-gray-600 mb-6">{body}</p>
           <Link to="/" className="inline-block bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition-colors">
             Go to Dashboard
           </Link>
@@ -165,11 +221,15 @@ function AcceptInvite() {
                   : 'bg-white border-2 border-primary-600 text-primary-600 hover:bg-primary-50'
               }`}
             >
-              {processing ? 'Accepting...' : currentUser ? 'Accept Invitation' : 'Sign up to join'}
+              {processing ? 'Accepting...' : currentUser ? 'Accept Invitation' : invite?.userExists ? 'Log in to accept' : 'Sign up to join'}
             </button>
             {!currentUser && (
               <p className="text-xs text-center text-gray-500 mt-2">
-                Already have an account? <button onClick={() => { localStorage.setItem(INVITE_TOKEN_KEY, token); navigate('/login', { state: { from: `/invite/accept/${token}` } }); }} className="text-primary-600 hover:underline font-medium">Log in</button>
+                {invite?.userExists ? (
+                  <>Don't have access? <button onClick={() => { localStorage.setItem(INVITE_TOKEN_KEY, token); navigate('/register', { state: { from: `/invite/accept/${token}` } }); }} className="text-primary-600 hover:underline font-medium">Create account</button></>
+                ) : (
+                  <>Already have an account? <button onClick={() => { localStorage.setItem(INVITE_TOKEN_KEY, token); navigate('/login', { state: { from: `/invite/accept/${token}` } }); }} className="text-primary-600 hover:underline font-medium">Log in</button></>
+                )}
               </p>
             )}
             <p className="text-xs text-center text-gray-400">

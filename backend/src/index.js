@@ -17,12 +17,14 @@ import activityRoutes from './modules/activity/activityRoutes.js';
 import inviteRoutes from './modules/invites/inviteRoutes.js';
 import customFieldRoutes from './modules/customFields/customFieldRoutes.js';
 import timeTrackingRoutes from './modules/timeTracking/timeTrackingRoutes.js';
+import reportRoutes from './modules/reports/reportRoutes.js';
+import viewPrefsRoutes from './modules/viewPrefs/viewPrefsRoutes.js';
 
 const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.1.14:3000'],
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://172.19.128.1:3000'],
   credentials: true
 }));
 app.use(express.json());
@@ -43,6 +45,8 @@ app.use('/api/v1/activities', activityRoutes);
 app.use('/api/v1/invites', inviteRoutes);
 app.use('/api/v1/custom-fields', customFieldRoutes);
 app.use('/api/v1/time-tracking', timeTrackingRoutes);
+app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/view-prefs', viewPrefsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

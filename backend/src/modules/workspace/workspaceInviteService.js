@@ -3,13 +3,35 @@ import crypto from 'crypto';
 import { ApiError } from '../../core/utils/apiResponse.js';
 import emailService from '../email/emailService.js';
 import config from '../../core/config/index.js';
+import { emitToWorkspace } from '../../core/socket.js';
 
 export const workspaceInviteService = {
   /**
    * Create and send a workspace invitation
    */
   async createInvite(workspaceId, inviterId, inviteData) {
-    const { email, role = 'MEMBER' } = inviteData;
+    const { email, role = 'MEMBER', customRoleId = null, projectIds = [] } = inviteData;
+
+    // Validate custom role belongs to this workspace (if provided)
+    if (customRoleId) {
+      const cr = await prisma.customProjectRole.findUnique({ where: { id: customRoleId } });
+      if (!cr || cr.workspaceId !== workspaceId) {
+        throw ApiError.badRequest('Invalid custom role for this workspace');
+      }
+    }
+
+    // Validate projectIds all belong to this workspace
+    let validProjectIds = [];
+    if (Array.isArray(projectIds) && projectIds.length > 0) {
+      const projects = await prisma.project.findMany({
+        where: { id: { in: projectIds }, workspaceId },
+        select: { id: true },
+      });
+      validProjectIds = projects.map(p => p.id);
+      if (validProjectIds.length !== projectIds.length) {
+        throw ApiError.badRequest('One or more selected projects are not in this workspace');
+      }
+    }
 
     // 1. Validate inviter permissions
     const inviterMembership = await prisma.workspaceMember.findFirst({
@@ -51,13 +73,14 @@ export const workspaceInviteService = {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
-    // 4. Create or update invite in DB
+    // 4. Create or update invite in DB (unique by email + workspaceId)
     const invite = await prisma.workspaceInvite.upsert({
-      where: { token: hashedToken }, // This is unlikely to hit on upsert with new token, but email + workspaceId unique would be better if we had it.
-      // Actually, let's just find existing pending invite for this email/workspace and update it.
+      where: { email_workspaceId: { email, workspaceId } },
       create: {
         email,
         role,
+        customRoleId,
+        projectIds: validProjectIds,
         token: hashedToken,
         expiresAt,
         workspaceId,
@@ -66,6 +89,8 @@ export const workspaceInviteService = {
       },
       update: {
         role,
+        customRoleId,
+        projectIds: validProjectIds,
         token: hashedToken,
         expiresAt,
         status: 'PENDING'
@@ -88,20 +113,18 @@ export const workspaceInviteService = {
     });
     */
 
-    // 5. Send email
+    // 5. Send email in background — don't block the response on SMTP latency
     const inviteLink = `${config.frontendUrl}/invite/accept/${rawToken}`;
-    console.log(`[WorkspaceInviteService] New Token Generated: ${rawToken}`);
-    console.log(`[WorkspaceInviteService] Hashed Token: ${hashedToken}`);
-    console.log(`[WorkspaceInviteService] Invite Saved: ${invite.id} (Status: ${invite.status})`);
-    
-    await emailService.sendInviteEmail(
+    emailService.sendInviteEmail(
       email,
       inviterMembership.workspace.name,
       inviterMembership.user.name,
       inviteLink
-    );
+    ).catch(err => {
+      console.error(`[WorkspaceInviteService] Email delivery failed for ${email}:`, err?.message);
+    });
 
-    return { message: `Invitation sent to ${email}`, inviteId: invite.id, debugToken: rawToken };
+    return { message: `Invitation sent to ${email}`, inviteId: invite.id };
   },
 
   /**
@@ -139,7 +162,13 @@ export const workspaceInviteService = {
       throw ApiError.badRequest('Invitation has expired');
     }
 
-    return invite;
+    // Check if the invited email already has an account
+    const existingUser = await prisma.user.findUnique({
+      where: { email: invite.email },
+      select: { id: true },
+    });
+
+    return { ...invite, userExists: !!existingUser };
   },
 
   /**
@@ -157,7 +186,7 @@ export const workspaceInviteService = {
 
     // Start transaction
     return await prisma.$transaction(async (tx) => {
-      // 1. Create or Update Membership
+      // 1. Create or Update workspace membership
       await tx.workspaceMember.upsert({
         where: {
           userId_workspaceId: {
@@ -169,23 +198,92 @@ export const workspaceInviteService = {
           userId,
           workspaceId: invite.workspaceId,
           role: invite.role,
+          customRoleId: invite.customRoleId || null,
           status: 'ACTIVE',
           joinedAt: new Date()
         },
         update: {
           role: invite.role,
+          customRoleId: invite.customRoleId || null,
           status: 'ACTIVE',
           joinedAt: new Date()
         }
       });
 
-      // 2. Update Invite Status
+      // 2. Add user to projects:
+      //    - If invite.projectIds is non-empty, add to those specific projects
+      //    - Else if a customRoleId was specified, add to ALL projects in the workspace
+      //    - Otherwise, skip (user is workspace-only)
+      const explicitProjectIds = Array.isArray(invite.projectIds) ? invite.projectIds : [];
+      let projectsToJoin = [];
+      if (explicitProjectIds.length > 0) {
+        projectsToJoin = await tx.project.findMany({
+          where: { id: { in: explicitProjectIds }, workspaceId: invite.workspaceId },
+          select: { id: true },
+        });
+      } else if (invite.customRoleId) {
+        projectsToJoin = await tx.project.findMany({
+          where: { workspaceId: invite.workspaceId },
+          select: { id: true },
+        });
+      }
+
+      if (projectsToJoin.length > 0) {
+        // Resolve the role to apply:
+        // - If a custom role was chosen, use it
+        // - Else: default based on workspace role
+        //     GUEST   → Viewer (read-only; can't edit)
+        //     MEMBER  → Editor
+        //     ADMIN/OWNER → Editor (they bypass anyway)
+        let targetRoleId = invite.customRoleId;
+        let defaultSystemName = 'Manager';
+        let legacyRole = 'EDITOR';
+        if (!invite.customRoleId) {
+          if (invite.role === 'GUEST') {
+            defaultSystemName = 'Guest';
+            legacyRole = 'VIEWER';
+          }
+        } else {
+          legacyRole = 'CUSTOM';
+        }
+
+        if (!targetRoleId) {
+          const systemRole = await tx.customProjectRole.findFirst({
+            where: { workspaceId: invite.workspaceId, isSystem: true, name: defaultSystemName },
+            select: { id: true },
+          });
+          if (systemRole) targetRoleId = systemRole.id;
+        }
+
+        for (const project of projectsToJoin) {
+          await tx.projectMember.upsert({
+            where: { userId_projectId: { userId, projectId: project.id } },
+            create: {
+              userId,
+              projectId: project.id,
+              role: invite.role,
+              projectRole: legacyRole,
+              projectRoleId: targetRoleId,
+            },
+            update: {
+              projectRole: legacyRole,
+              projectRoleId: targetRoleId,
+            },
+          });
+        }
+      }
+
+      // 3. Update Invite Status
       await tx.workspaceInvite.update({
         where: { id: invite.id },
         data: { status: 'ACCEPTED' }
       });
 
-      return { message: 'Invitation accepted successfully', workspaceId: invite.workspaceId };
+      return { message: 'Invitation accepted successfully', workspaceId: invite.workspaceId, inviteId: invite.id };
+    }).then((result) => {
+      // Notify all workspace clients so admins' member list & invite list refresh live
+      emitToWorkspace(result.workspaceId, 'invite_accepted', { inviteId: result.inviteId, userId, email: invite.email });
+      return result;
     });
   },
 
@@ -269,18 +367,50 @@ export const workspaceInviteService = {
    * Get pending invites for a workspace
    */
   async getWorkspaceInvites(workspaceId) {
-    return await prisma.workspaceInvite.findMany({
+    // Fetch pending invites
+    const invites = await prisma.workspaceInvite.findMany({
       where: {
         workspaceId,
         status: 'PENDING'
       },
       include: {
-        invitedBy: {
-          select: { name: true, email: true }
-        }
+        invitedBy: { select: { name: true, email: true } },
+        customRole: { select: { id: true, name: true, color: true } },
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    if (invites.length === 0) return invites;
+
+    // Auto-clean: if any "pending" invite's email is already an ACTIVE member
+    // (e.g. they accepted through a different pathway, or via direct add),
+    // mark those invites as ACCEPTED and filter them out. Prevents stale
+    // "PENDING" rows from lingering forever in the admin UI.
+    const emails = invites.map(i => i.email.toLowerCase());
+    const activeMembers = await prisma.workspaceMember.findMany({
+      where: {
+        workspaceId,
+        status: 'ACTIVE',
+        user: { email: { in: emails, mode: 'insensitive' } },
+      },
+      include: { user: { select: { email: true } } },
+    });
+    const activeEmailSet = new Set(activeMembers.map(m => m.user.email.toLowerCase()));
+
+    if (activeEmailSet.size > 0) {
+      const staleInviteIds = invites
+        .filter(i => activeEmailSet.has(i.email.toLowerCase()))
+        .map(i => i.id);
+      if (staleInviteIds.length > 0) {
+        await prisma.workspaceInvite.updateMany({
+          where: { id: { in: staleInviteIds } },
+          data: { status: 'ACCEPTED' },
+        });
+      }
+      return invites.filter(i => !activeEmailSet.has(i.email.toLowerCase()));
+    }
+
+    return invites;
   }
 };
 

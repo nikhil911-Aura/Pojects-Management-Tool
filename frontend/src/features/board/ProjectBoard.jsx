@@ -3,6 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchProject, deleteProject, updateProject } from '../../store/slices/projectSlice';
+import { setCurrentWorkspace } from '../../store/slices/workspaceSlice';
 import { fetchLists, createList, deleteList, clearLists } from '../../store/slices/boardSlice';
 import api from '../../services/api';
 import { createTask, moveTask as moveTaskAction } from '../../store/slices/taskSlice';
@@ -12,8 +13,8 @@ import { OverviewView, TimelineView, DashboardView, GanttView, WorkloadView } fr
 import TaskDetail from '../tasks/TaskDetail';
 import { useSocket } from '../../hooks/useSocket';
 import { useRole } from '../../hooks/useRole';
+import { useConfirm } from '../../hooks/useConfirm';
 import ShareModal from '../projects/ShareModal';
-import ProjectMembersPanel from '../projects/ProjectMembersPanel';
 import { useCelebration } from '../../components/Celebration';
 
 const PRIORITY_DOT = {
@@ -109,7 +110,8 @@ function ProjectBoard() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { currentProject, projectLoading, projects } = useAppSelector((state) => state.project);
-  const { lists, loading: listsLoading } = useAppSelector((state) => state.board);
+  const { lists, loading: listsLoading, listsForBoardId } = useAppSelector((state) => state.board);
+  const { currentWorkspace, workspaces } = useAppSelector((state) => state.workspace);
 
   const [initialLoaded, setInitialLoaded] = useState(false);
   const prevProjectIdRef = useRef(projectId);
@@ -120,20 +122,52 @@ function ProjectBoard() {
     setInitialLoaded(false);
   }
 
-  // Show content if data is loaded AND matches current route
-  // This avoids showing stale data from a different project
-  const isReady = initialLoaded && currentProject?.id === projectId;
+  // Show content only when EVERY piece of data matches the current route:
+  //   1. The bootstrap effect has finished (initialLoaded)
+  //   2. currentProject's id matches the URL (no stale project from a previous nav)
+  //   3. state.board.lists is for THIS project's board (no cross-project task leakage)
+  // Without #3, switching projects fast could briefly render the old project's
+  // tasks under the new project's name.
+  const isReady =
+    initialLoaded &&
+    currentProject?.id === projectId &&
+    (!currentProject?.board?.id || listsForBoardId === currentProject.board.id);
+
+  // ── Workspace auto-sync: if this project belongs to a different workspace
+  // than the currently active one, switch the sidebar to the right workspace.
+  // Without this, navigating to a cross-workspace project URL (bookmark,
+  // shared link, browser history) would load the project's data correctly
+  // in the main area but leave the sidebar showing the wrong workspace's
+  // projects — the bug the user reported.
+  useEffect(() => {
+    if (!currentProject?.workspace?.id) return;
+    const projectWsId = currentProject.workspace.id;
+    if (currentWorkspace?.id === projectWsId) return;
+    // Find the workspace object in the already-loaded workspaces array
+    // so we can switch with full data (name, role, etc).
+    const targetWs = workspaces.find(w => w.id === projectWsId);
+    if (targetWs) {
+      dispatch(setCurrentWorkspace(targetWs));
+    }
+  }, [currentProject?.workspace?.id, currentWorkspace?.id, workspaces, dispatch]);
 
   const { pendingItems, addPendingItem, clearPendingItems, liveEdits, emitLiveEdit, emitInstant, customFieldEvent, setCustomFieldCallback, releaseEditLock } = useSocket(projectId, currentProject?.board?.id);
 
-  const { canEdit, isWorkspaceAdmin } = useRole();
+  const { canEdit, can, isWorkspaceAdmin, isProjectMember } = useRole();
+  const { confirm, ConfirmDialog } = useConfirm();
+  // Project-level permissions — used to gate UI elements that were previously
+  // restricted to workspace admins only but should now be available to custom
+  // roles with the right permissions.
+  const canInvite = isWorkspaceAdmin || isProjectMember || can('project.invite');
+  const canEditProject = isWorkspaceAdmin || can('project.edit');
+  const canDeleteProject = isWorkspaceAdmin || can('project.delete');
   const { celebrate, CelebrationComponent } = useCelebration();
 
   const [prefetchedCF, setPrefetchedCF] = useState({ fields: null, values: null });
   const [showShare, setShowShare] = useState(searchParams.get('share') === '1');
-  const [showMembersPanel, setShowMembersPanel] = useState(false);
   const [showCreateList, setShowCreateList] = useState(false);
   const [addSectionTrigger, setAddSectionTrigger] = useState(0);
+  const [addTaskTrigger, setAddTaskTrigger] = useState(0);
   const [showCreateTask, setShowCreateTask] = useState(null);
   const [newListName, setNewListName] = useState('');
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -146,14 +180,21 @@ function ProjectBoard() {
   const [listGroupBy, setListGroupBy] = useState(null);
   const [listColumns, setListColumns] = useState({ assignee: true, dueDate: true, status: true, estimatedTime: true, actualTime: true, priority: false });
   const [listSearch, setListSearch] = useState('');
+  // Save View — incremented to tell ProjectListView to persist its current collapsed state
+  const [saveViewTrigger, setSaveViewTrigger] = useState(0);
+  const savedViewKey = projectId ? `listview:${projectId}:collapsed` : null;
+  const hasSavedView = savedViewKey ? !!localStorage.getItem(savedViewKey) : false;
   const [showProjectMenu, setShowProjectMenu] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [editingProjectName, setEditingProjectName] = useState(false);
   const [projectNameInput, setProjectNameInput] = useState('');
+  const [projectFetchError, setProjectFetchError] = useState(null); // { type: 'forbidden'|'not_found'|'unknown', message }
   const projectMenuRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
     setInitialLoaded(false);
+    setProjectFetchError(null);
 
     // Try to get boardId from sidebar projects list (already in Redux) for parallel fetch
     const cachedProject = projects.find(p => p.id === projectId);
@@ -173,12 +214,23 @@ function ProjectBoard() {
       }
     }).catch(() => {});
 
+    const handleProjectError = (err) => {
+      if (cancelled) return;
+      const msg = typeof err === 'string' ? err : (err?.message || '');
+      const lower = msg.toLowerCase();
+      let type = 'unknown';
+      if (lower.includes('access') || lower.includes('forbidden') || lower.includes('permission')) type = 'forbidden';
+      else if (lower.includes('not found')) type = 'not_found';
+      setProjectFetchError({ type, message: msg });
+      setInitialLoaded(true);
+    };
+
     if (knownBoardId) {
       // Parallel: fire all at the same time
       const listsPromise = dispatch(fetchLists(knownBoardId)).unwrap();
       Promise.all([projectPromise, listsPromise, cfPromise])
         .then(() => { if (!cancelled) setInitialLoaded(true); })
-        .catch(() => { if (!cancelled) setInitialLoaded(true); });
+        .catch((err) => handleProjectError(err));
     } else {
       // Fallback: sequential for lists, parallel for custom fields
       projectPromise.then(async (project) => {
@@ -188,9 +240,7 @@ function ProjectBoard() {
         }
         await cfPromise;
         if (!cancelled) setInitialLoaded(true);
-      }).catch(() => {
-        if (!cancelled) setInitialLoaded(true);
-      });
+      }).catch((err) => handleProjectError(err));
     }
 
     // Reset local UI state
@@ -255,7 +305,8 @@ function ProjectBoard() {
   };
 
   const handleDeleteProject = async () => {
-    if (!window.confirm(`Delete "${currentProject?.name}" and all its tasks, sections, and data? This cannot be undone.`)) return;
+    const ok = await confirm({ title: 'Delete project?', message: `"${currentProject?.name}" and all its tasks, sections, and data will be permanently deleted. This cannot be undone.`, confirmText: 'Delete Project', variant: 'danger' });
+    if (!ok) return;
     await dispatch(deleteProject(projectId)).unwrap();
     navigate('/');
   };
@@ -282,6 +333,54 @@ function ProjectBoard() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showProjectMenu]);
+
+  if (projectFetchError) {
+    const isForbidden = projectFetchError.type === 'forbidden';
+    const isNotFound  = projectFetchError.type === 'not_found';
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-[var(--asana-bg)] px-6 text-center">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-5 bg-gray-100 dark:bg-gray-800">
+          {isForbidden ? (
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          ) : isNotFound ? (
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          ) : (
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          )}
+        </div>
+        <h2 className="text-[15px] font-semibold text-[var(--asana-text-primary)] mb-2">
+          {isForbidden ? "You don't have access to this project"
+            : isNotFound ? 'Project not found'
+            : 'Something went wrong'}
+        </h2>
+        <p className="text-[13px] text-[var(--asana-text-secondary)] max-w-sm mb-6">
+          {isForbidden
+            ? "This is a private project. Ask the project owner to add you as a member, or request access from your workspace admin."
+            : isNotFound
+            ? "This project may have been deleted or the link is no longer valid."
+            : "We couldn't load this project. Please try again."}
+        </p>
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)}
+            className="px-4 py-2 text-[13px] font-medium rounded-md border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            Go back
+          </button>
+          {!isForbidden && (
+            <button onClick={() => { setProjectFetchError(null); setInitialLoaded(false); dispatch(fetchProject(projectId)); }}
+              className="px-4 py-2 text-[13px] font-medium rounded-md bg-asana-blue text-white hover:bg-asana-blue/90 transition-colors">
+              Try again
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!isReady) {
     return (
@@ -374,8 +473,8 @@ function ProjectBoard() {
                     onBlur={handleRenameProject}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleRenameProject(); if (e.key === 'Escape') setEditingProjectName(false); }} />
                 ) : (
-                  <h1 className={`text-base font-bold text-[var(--asana-text-primary)] ${isWorkspaceAdmin ? 'cursor-pointer hover:text-asana-blue transition-colors' : ''}`}
-                    onClick={() => { if (isWorkspaceAdmin) { setProjectNameInput(currentProject.name); setEditingProjectName(true); } }}>
+                  <h1 className={`text-base font-bold text-[var(--asana-text-primary)] ${canEditProject ? 'cursor-pointer hover:text-asana-blue transition-colors' : ''}`}
+                    onClick={() => { if (canEditProject) { setProjectNameInput(currentProject.name); setEditingProjectName(true); } }}>
                     {currentProject.name}
                   </h1>
                 )}
@@ -386,9 +485,14 @@ function ProjectBoard() {
                 }`}>
                   {currentProject.visibility === 'PRIVATE' ? 'Private' : 'Public'}
                 </span>
+                {currentProject.createdBy?.name && (
+                  <span className="text-[10px] text-[var(--asana-text-tertiary)] font-medium hidden sm:inline-flex items-center gap-1">
+                    <span className="opacity-50">by</span> {currentProject.createdBy.name}
+                  </span>
+                )}
 
                 {/* Project actions "..." menu */}
-                {isWorkspaceAdmin && (
+                {(canEditProject || canDeleteProject) && (
                   <div className="relative" ref={projectMenuRef}>
                     <button onClick={() => setShowProjectMenu(!showProjectMenu)}
                       className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] transition-colors">
@@ -405,12 +509,38 @@ function ProjectBoard() {
                           </svg>
                           Rename project
                         </button>
-                        <button onClick={() => { navigator.clipboard.writeText(window.location.href); setShowProjectMenu(false); }}
+                        <button onClick={() => {
+                            const url = `${window.location.origin}/project/${projectId}`;
+                            const done = () => {
+                              setLinkCopied(true);
+                              setTimeout(() => { setLinkCopied(false); setShowProjectMenu(false); }, 1500);
+                            };
+                            if (navigator.clipboard && window.isSecureContext) {
+                              navigator.clipboard.writeText(url).then(done).catch(done);
+                            } else {
+                              const ta = document.createElement('textarea');
+                              ta.value = url;
+                              ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0.01;pointer-events:none;';
+                              document.body.appendChild(ta);
+                              ta.focus();
+                              ta.select();
+                              ta.setSelectionRange(0, 99999);
+                              try { document.execCommand('copy'); } catch (_) {}
+                              document.body.removeChild(ta);
+                              done();
+                            }
+                          }}
                           className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                          <svg className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                          </svg>
-                          Copy project link
+                          {linkCopied ? (
+                            <svg className="w-4 h-4 mr-2.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                          )}
+                          {linkCopied ? <span className="text-green-500 font-medium">Link copied!</span> : 'Copy project link'}
                         </button>
                         <button onClick={handleToggleVisibility}
                           className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -458,15 +588,15 @@ function ProjectBoard() {
                 {members.length > 5 && (
                   <div
                     className="w-8 h-8 rounded-full border-2 border-[var(--asana-surface)] bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] font-bold text-[var(--asana-text-secondary)] cursor-pointer hover:scale-110 transition-transform"
-                    onClick={() => isWorkspaceAdmin && setShowMembersPanel(true)}
+                    onClick={() => isWorkspaceAdmin && setShowShare(true)}
                   >
                     +{members.length - 5}
                   </div>
                 )}
               </div>
 
-              {/* Add member button (admin only) */}
-              {isWorkspaceAdmin && (
+              {/* Add member button */}
+              {canInvite && (
                 <button
                   onClick={() => setShowShare(true)}
                   className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-[var(--asana-text-secondary)] hover:border-asana-blue hover:text-asana-blue transition-colors ml-1"
@@ -478,8 +608,8 @@ function ProjectBoard() {
                 </button>
               )}
 
-              {/* Member popover (admin/owner only) */}
-              {activeMemberPopover && isWorkspaceAdmin && (
+              {/* Member popover */}
+              {activeMemberPopover && canInvite && (
                 <MemberPopover
                   member={activeMemberPopover.member}
                   color={MEMBER_COLORS[activeMemberPopover.index % MEMBER_COLORS.length]}
@@ -500,20 +630,8 @@ function ProjectBoard() {
               <span className="hidden sm:inline">Share</span>
             </button>
 
-            {/* Members panel (admin only) */}
-            {isWorkspaceAdmin && (
-              <button
-                onClick={() => setShowMembersPanel(true)}
-                className="flex items-center text-xs px-3 py-1.5 rounded-asana border border-[var(--asana-border)] text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                <span className="hidden sm:inline">Members</span>
-              </button>
-            )}
 
-            {canEdit && (
+            {can('section.create') && (
               <button
                 onClick={() => {
                   if (activeView === 'list') {
@@ -568,14 +686,21 @@ function ProjectBoard() {
           onColumnsChange={setListColumns}
           members={members}
           canEdit={canEdit}
+          canCreateTask={can('task.create')}
           hasActiveFilters={!!(listFilters.status || listFilters.priority || listFilters.assignee || listFilters.dueDate)}
           searchQuery={listSearch}
           onSearchChange={setListSearch}
+          onAddTask={() => setAddTaskTrigger(prev => prev + 1)}
+          onSaveView={() => setSaveViewTrigger(p => p + 1)}
+          hasSavedView={hasSavedView}
         />
       )}
 
-      {/* ── View content ── */}
-      <div className="flex-1 overflow-auto p-3 sm:p-6 bg-[var(--asana-bg)]">
+      {/* ── View content ──
+          List view manages its own internal scroll container; other views (overview,
+          timeline, dashboard, gantt, workload) rely on this wrapper to scroll. We toggle
+          overflow on activeView so @hello-pangea/dnd never sees nested scroll parents. */}
+      <div className={`flex-1 ${activeView === 'list' ? 'overflow-hidden' : 'overflow-auto'} p-3 sm:p-6 bg-[var(--asana-bg)]`}>
         {activeView === 'board' ? (
           <div className="h-full overflow-x-auto pb-4">
             <DragDropContext onDragEnd={handleDragEnd}>
@@ -750,6 +875,7 @@ function ProjectBoard() {
             </DragDropContext>
           </div>
         ) : activeView === 'list' ? (
+          <div className="h-full flex flex-col min-h-0 overflow-hidden">
           <ProjectListView
             lists={(() => {
               let processed = listGroupBy ? applyGrouping(lists, listGroupBy) : lists;
@@ -760,6 +886,7 @@ function ProjectBoard() {
               return processed;
             })()}
             boardId={currentProject?.board?.id}
+            projectId={projectId}
             onTaskClick={openTask}
             columns={listColumns}
             pendingItems={pendingItems}
@@ -771,11 +898,14 @@ function ProjectBoard() {
             releaseEditLock={releaseEditLock}
             emitInstant={emitInstant}
             addSectionTrigger={addSectionTrigger}
+            addTaskTrigger={addTaskTrigger}
             customFieldEvent={customFieldEvent}
             setCustomFieldCallback={setCustomFieldCallback}
             prefetchedCustomFields={prefetchedCF.fields}
             prefetchedFieldValues={prefetchedCF.values}
+            saveViewTrigger={saveViewTrigger}
           />
+          </div>
         ) : activeView === 'overview' ? (
           <OverviewView project={currentProject} lists={lists} members={members} />
         ) : activeView === 'timeline' ? (
@@ -801,16 +931,6 @@ function ProjectBoard() {
         />
       )}
 
-      {/* ── Members Panel (Admin/Owner only) ── */}
-      {showMembersPanel && isWorkspaceAdmin && (
-        <ProjectMembersPanel
-          project={currentProject}
-          onClose={() => setShowMembersPanel(false)}
-          onOpenShare={() => { setShowMembersPanel(false); setShowShare(true); }}
-          emitInstant={emitInstant}
-        />
-      )}
-
       {/* ── Task detail panel ── */}
       {selectedTaskId && (() => {
         // Find task from lists for instant preview (no loading spinner)
@@ -832,6 +952,7 @@ function ProjectBoard() {
 
       {/* Celebration animation */}
       <CelebrationComponent />
+      {ConfirmDialog}
     </div>
   );
 }

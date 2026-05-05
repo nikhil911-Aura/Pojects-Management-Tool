@@ -1,6 +1,40 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
 import { emitToWorkspace, emitToProject } from '../../core/socket.js';
+import { cloudinary } from '../../core/cloudinary.js';
+import projectRoleService from './projectRoleService.js';
+
+// ── Permission helpers ───────────────────────────────────────────────────────
+
+function isWorkspaceAdmin(workspaceRole) {
+  return workspaceRole === 'OWNER' || workspaceRole === 'ADMIN';
+}
+
+function hasPermission(workspaceRole, projectRole, customPermissions, key) {
+  if (isWorkspaceAdmin(workspaceRole)) return true;
+  if (customPermissions && typeof customPermissions === 'object') return !!customPermissions[key];
+  if (projectRole === 'EDITOR') return true;
+  return false;
+}
+
+// Get workspace + project role for a user in a project
+async function getProjectPermissionContext(projectId, userId) {
+  const wsMember = await prisma.workspaceMember.findFirst({
+    where: { workspace: { projects: { some: { id: projectId } } }, userId }
+  });
+  if (!wsMember) return { wsRole: null, projectRole: null, customPermissions: null };
+
+  const projMember = await prisma.projectMember.findFirst({
+    where: { projectId, userId },
+    include: { customRole: true }
+  });
+
+  return {
+    wsRole: wsMember.role,
+    projectRole: projMember?.projectRole ?? null,
+    customPermissions: projMember?.customRole?.permissions ?? null
+  };
+}
 
 export const projectService = {
   // Create project
@@ -33,6 +67,7 @@ export const projectService = {
         views: views?.length > 0 ? views : ['overview', 'list', 'board', 'timeline', 'dashboard'],
         visibility: visibility || 'PRIVATE',
         workspaceId,
+        createdById: userId,
         board: {
           create: {
             name: 'Board',
@@ -74,6 +109,15 @@ export const projectService = {
       }
     });
 
+    // Ensure the workspace has system roles (Editor / Commenter / Viewer).
+    // seedSystemRoles is idempotent — only creates if missing.
+    const roleMap = await projectRoleService.seedSystemRoles(workspaceId);
+    // Assign the project creator to the Manager role (full edit access).
+    await prisma.projectMember.updateMany({
+      where: { projectId: project.id, userId },
+      data: { projectRoleId: roleMap['Manager'] },
+    });
+
     emitToWorkspace(workspaceId, 'project_created', { project }, excludeSocketId);
     return project;
   },
@@ -90,15 +134,30 @@ export const projectService = {
 
     const isAdmin = membership.role === 'OWNER' || membership.role === 'ADMIN';
 
+    // Check if the user has a workspace-level custom role that grants
+    // `project.viewPrivate` — only a workspace-scoped permission should allow
+    // seeing private projects the user isn't a member of. Project-level roles
+    // (e.g. "Manager" on project A) must NOT leak visibility into other projects.
+    let canViewAllPrivate = false;
+    if (!isAdmin && membership.customRoleId) {
+      const wsPerms = (await prisma.customProjectRole.findUnique({
+        where: { id: membership.customRoleId },
+        select: { permissions: true },
+      }))?.permissions;
+      if (wsPerms && typeof wsPerms === 'object' && wsPerms['project.viewPrivate']) {
+        canViewAllPrivate = true;
+      }
+    }
+
     const projects = await prisma.project.findMany({
       where: {
         workspaceId,
         // Admins/Owners see all projects
-        // Members see: PUBLIC projects + PRIVATE projects they're explicitly in
-        // Guests see: ONLY projects they're explicitly in (regardless of visibility)
-        ...(!isAdmin && {
+        // canViewAllPrivate roles also see all projects
+        // Everyone else (MEMBER + GUEST): PUBLIC projects + PRIVATE projects they're in
+        ...(!isAdmin && !canViewAllPrivate && {
           OR: [
-            ...(membership.role === 'MEMBER' ? [{ visibility: 'PUBLIC' }] : []),
+            { visibility: 'PUBLIC' },
             { members: { some: { userId } } }
           ]
         })
@@ -189,13 +248,16 @@ export const projectService = {
         board: {
           select: { id: true }
         },
+        createdBy: {
+          select: { id: true, name: true, email: true, avatar: true }
+        },
         workspace: {
           select: {
             id: true,
             name: true,
             members: {
               where: { userId },
-              select: { role: true },
+              select: { role: true, customRoleId: true },
               take: 1
             }
           }
@@ -209,7 +271,8 @@ export const projectService = {
                 email: true,
                 avatar: true
               }
-            }
+            },
+            customRole: true
           }
         }
       }
@@ -230,9 +293,21 @@ export const projectService = {
 
     if (!isAdmin) {
       const isProjectMember = project.members.some(m => m.userId === userId);
-      const isPublicForMember = membership.role === 'MEMBER' && project.visibility === 'PUBLIC';
+      const isPublic = project.visibility === 'PUBLIC';
 
-      if (!isProjectMember && !isPublicForMember) {
+      // Only a workspace-level custom role may grant `project.viewPrivate`.
+      // A project-level role (e.g. "Manager" on project A) must NOT leak
+      // visibility into other private projects.
+      let canViewAllPrivate = false;
+      if (!isProjectMember && !isPublic && membership.customRoleId) {
+        const wsPerms = (await prisma.customProjectRole.findUnique({
+          where: { id: membership.customRoleId },
+          select: { permissions: true },
+        }))?.permissions;
+        canViewAllPrivate = !!(wsPerms && typeof wsPerms === 'object' && wsPerms['project.viewPrivate']);
+      }
+
+      if (!isProjectMember && !isPublic && !canViewAllPrivate) {
         throw ApiError.forbidden('You do not have access to this project');
       }
     }
@@ -252,16 +327,8 @@ export const projectService = {
       throw ApiError.notFound('Project not found');
     }
 
-    // Check workspace permission
-    const membership = await prisma.workspaceMember.findFirst({
-      where: {
-        workspaceId: project.workspaceId,
-        userId,
-        role: { in: ['OWNER', 'ADMIN'] }
-      }
-    });
-
-    if (!membership) {
+    const { wsRole, projectRole, customPermissions } = await getProjectPermissionContext(projectId, userId);
+    if (!hasPermission(wsRole, projectRole, customPermissions, 'project.edit')) {
       throw ApiError.forbidden('You do not have permission to update this project');
     }
 
@@ -302,17 +369,32 @@ export const projectService = {
       throw ApiError.notFound('Project not found');
     }
 
-    // Check workspace permission
-    const membership = await prisma.workspaceMember.findFirst({
-      where: {
-        workspaceId: project.workspaceId,
-        userId,
-        role: { in: ['OWNER', 'ADMIN'] }
-      }
-    });
-
-    if (!membership) {
+    const { wsRole, projectRole, customPermissions } = await getProjectPermissionContext(projectId, userId);
+    if (!hasPermission(wsRole, projectRole, customPermissions, 'project.delete')) {
       throw ApiError.forbidden('You do not have permission to delete this project');
+    }
+
+    // Clean up ALL Cloudinary files for every task in this project before cascade delete.
+    // Project → Board → Lists → Tasks → Attachments. One bulk query + one bulk CDN call.
+    const attachments = await prisma.attachment.findMany({
+      where: { task: { list: { board: { project: { id: projectId } } } } },
+      select: { publicId: true, url: true },
+    });
+    if (attachments.length > 0) {
+      const extractPublicId = (url) => {
+        try { const m = url?.match(/\/upload\/(?:v\d+\/)?(.*?)(?:\.[a-zA-Z0-9]+)?$/); return m?.[1] || null; } catch { return null; }
+      };
+      const publicIds = attachments
+        .map(a => a.publicId || extractPublicId(a.url))
+        .filter(Boolean);
+      if (publicIds.length > 0) {
+        // Cloudinary bulk delete supports up to 100 at a time
+        for (let i = 0; i < publicIds.length; i += 100) {
+          const batch = publicIds.slice(i, i + 100);
+          cloudinary.api.delete_resources(batch, { resource_type: 'image' })
+            .catch(err => console.warn('[delete project] Cloudinary cleanup failed (non-fatal):', err.message));
+        }
+      }
     }
 
     await prisma.project.delete({
@@ -337,15 +419,8 @@ export const projectService = {
     }
 
     // Check permission
-    const membership = await prisma.workspaceMember.findFirst({
-      where: {
-        workspaceId: project.workspaceId,
-        userId,
-        role: { in: ['OWNER', 'ADMIN'] }
-      }
-    });
-
-    if (!membership) {
+    const { wsRole, projectRole: callerProjRole, customPermissions } = await getProjectPermissionContext(projectId, userId);
+    if (!hasPermission(wsRole, callerProjRole, customPermissions, 'project.invite')) {
       throw ApiError.forbidden('You do not have permission to add members');
     }
 
@@ -363,12 +438,25 @@ export const projectService = {
       throw ApiError.conflict('User is already a member of this project');
     }
 
+    // Resolve the projectRoleId from the workspace's role pool.
+    // Accepts either `roleId` (new) or `projectRole` string (legacy compat).
+    let projectRoleId = memberData.roleId || null;
+    if (!projectRoleId && projectRole) {
+      const nameMap = { EDITOR: 'Manager', COMMENTER: 'Commenter', VIEWER: 'Guest' };
+      const roleName = nameMap[projectRole] || 'Manager';
+      const systemRole = await prisma.customProjectRole.findFirst({
+        where: { workspaceId: project.workspaceId, isSystem: true, name: roleName },
+      });
+      if (systemRole) projectRoleId = systemRole.id;
+    }
+
     const member = await prisma.projectMember.create({
       data: {
         userId: newMemberId,
         projectId,
         role,
-        projectRole
+        projectRole,
+        ...(projectRoleId && { projectRoleId }),
       },
       include: {
         user: {
@@ -378,11 +466,30 @@ export const projectService = {
             email: true,
             avatar: true
           }
-        }
+        },
+        customRole: true
       }
     });
 
     emitToProject(projectId, 'member_added', { member, projectId }, excludeSocketId);
+
+    // Also emit to the WORKSPACE room so the newly-invited user (who isn't in
+    // the project room yet) gets notified. Their sidebar can then add the project
+    // to their project list without a full reload. This is critical for private
+    // projects which aren't visible until the user is a member.
+    emitToWorkspace(project.workspaceId, 'project_member_added', {
+      projectId,
+      userId: newMemberId,
+      project: {
+        id: project.id,
+        name: project.name,
+        color: project.color,
+        visibility: project.visibility,
+        description: project.description,
+        workspaceId: project.workspaceId,
+      },
+    });
+
     return member;
   },
 
@@ -397,16 +504,33 @@ export const projectService = {
     }
 
     // Check permission
-    const membership = await prisma.workspaceMember.findFirst({
-      where: {
-        workspaceId: project.workspaceId,
-        userId,
-        role: { in: ['OWNER', 'ADMIN'] }
-      }
-    });
-
-    if (!membership) {
+    const { wsRole, projectRole: callerProjRole, customPermissions } = await getProjectPermissionContext(projectId, userId);
+    if (!hasPermission(wsRole, callerProjRole, customPermissions, 'project.invite')) {
       throw ApiError.forbidden('You do not have permission to remove members');
+    }
+
+    // Cannot remove yourself
+    if (memberIdToRemove === userId) {
+      throw ApiError.forbidden('You cannot remove yourself from the project');
+    }
+
+    // Only workspace OWNER/ADMIN can remove the project creator
+    if (project.createdById && memberIdToRemove === project.createdById && !isWorkspaceAdmin(wsRole)) {
+      throw ApiError.forbidden('Cannot remove the project creator');
+    }
+
+    // Protect workspace OWNER/ADMIN — only the OWNER can remove another OWNER or an ADMIN
+    const targetWsMembership = await prisma.workspaceMember.findFirst({
+      where: { workspaceId: project.workspaceId, userId: memberIdToRemove },
+      select: { role: true },
+    });
+    if (targetWsMembership) {
+      if (targetWsMembership.role === 'OWNER' && wsRole !== 'OWNER') {
+        throw ApiError.forbidden('You cannot remove the workspace owner');
+      }
+      if (targetWsMembership.role === 'ADMIN' && wsRole !== 'OWNER') {
+        throw ApiError.forbidden('Only the workspace owner can remove an admin');
+      }
     }
 
     await prisma.projectMember.delete({
@@ -419,26 +543,87 @@ export const projectService = {
     });
 
     emitToProject(projectId, 'member_removed', { userId: memberIdToRemove, projectId }, excludeSocketId);
+
+    // Also emit to workspace room so the removed user's sidebar updates
+    // (they lose access to a private project → it should disappear).
+    emitToWorkspace(project.workspaceId, 'project_member_removed', {
+      projectId,
+      userId: memberIdToRemove,
+    });
+
     return true;
   },
 
-  // Update a project member's role (Editor / Commenter / Viewer)
+  // Update a project member's role — accepts a roleId pointing to a CustomProjectRole.
+  // Also supports legacy `projectRole` string for backward compat (maps to system role).
   async updateMemberRole(projectId, userId, memberData, excludeSocketId) {
-    const { userId: targetUserId, projectRole } = memberData;
+    const { userId: targetUserId, projectRole, roleId, customPermissions } = memberData;
 
     const project = await prisma.project.findUnique({ where: { id: projectId } });
     if (!project) throw ApiError.notFound('Project not found');
 
-    // Only workspace Admin/Owner can change project roles
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { workspaceId: project.workspaceId, userId, role: { in: ['OWNER', 'ADMIN'] } }
+    const { wsRole, projectRole: callerProjRole, customPermissions: callerPerms } = await getProjectPermissionContext(projectId, userId);
+
+    // Permission gate: needs the dedicated `project.changeRole` permission.
+    // Workspace OWNER/ADMIN bypass via hasPermission().
+    if (!hasPermission(wsRole, callerProjRole, callerPerms, 'project.changeRole')) {
+      throw ApiError.forbidden('You do not have permission to change project roles');
+    }
+
+    // Cannot change your own role — except workspace OWNER/ADMIN can change their own project role
+    if (targetUserId === userId && !isWorkspaceAdmin(wsRole)) {
+      throw ApiError.forbidden('You cannot change your own role');
+    }
+
+    // Protect workspace OWNER and ADMIN — only the OWNER can change another OWNER/ADMIN's role.
+    // (In practice "change OWNER" is impossible because OWNER bypasses everything anyway,
+    // but we still block lower-privilege users from changing ADMIN roles.)
+    const targetWsMembership = await prisma.workspaceMember.findFirst({
+      where: { workspaceId: project.workspaceId, userId: targetUserId },
+      select: { role: true },
     });
-    if (!membership) throw ApiError.forbidden('You do not have permission to change project roles');
+    if (targetWsMembership) {
+      const targetIsOwner = targetWsMembership.role === 'OWNER';
+      const targetIsAdmin = targetWsMembership.role === 'ADMIN';
+      if (targetIsOwner && wsRole !== 'OWNER') {
+        throw ApiError.forbidden("You cannot change the workspace owner's role");
+      }
+      if (targetIsAdmin && wsRole !== 'OWNER') {
+        throw ApiError.forbidden("Only the workspace owner can change an admin's role");
+      }
+    }
+
+    let targetRoleId = roleId;
+
+    // If caller sent `projectRole` string instead of `roleId`, resolve it to the system role.
+    if (!targetRoleId && projectRole) {
+      const nameMap = { EDITOR: 'Manager', COMMENTER: 'Commenter', VIEWER: 'Guest' };
+      const roleName = nameMap[projectRole];
+      if (roleName) {
+        const systemRole = await prisma.customProjectRole.findFirst({
+          where: { workspaceId: project.workspaceId, isSystem: true, name: roleName },
+        });
+        if (systemRole) targetRoleId = systemRole.id;
+      }
+    }
+
+    if (!targetRoleId) throw ApiError.badRequest('Invalid role');
+
+    // If updating permissions for the target role itself (custom role editor)
+    if (customPermissions) {
+      await prisma.customProjectRole.update({
+        where: { id: targetRoleId },
+        data: { permissions: customPermissions },
+      });
+    }
 
     const updated = await prisma.projectMember.update({
       where: { userId_projectId: { userId: targetUserId, projectId } },
-      data: { projectRole },
-      include: { user: { select: { id: true, name: true, email: true, avatar: true } } }
+      data: { projectRoleId: targetRoleId },
+      include: {
+        user: { select: { id: true, name: true, email: true, avatar: true } },
+        customRole: true,
+      },
     });
 
     emitToProject(projectId, 'member_role_changed', { member: updated, projectId }, excludeSocketId);

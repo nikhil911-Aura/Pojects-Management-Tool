@@ -52,9 +52,12 @@ export const updateWorkspace = createAsyncThunk(
 
 export const inviteUser = createAsyncThunk(
   'workspace/inviteUser',
-  async ({ workspaceId, email, role }, { rejectWithValue }) => {
+  async ({ workspaceId, email, role, customRoleId, projectIds }, { rejectWithValue }) => {
     try {
-      const response = await api.post(`/api/v1/workspaces/${workspaceId}/invite`, { email, role });
+      const body = { email, role };
+      if (customRoleId) body.customRoleId = customRoleId;
+      if (Array.isArray(projectIds) && projectIds.length) body.projectIds = projectIds;
+      const response = await api.post(`/api/v1/workspaces/${workspaceId}/invite`, body);
       return response.data.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to invite user');
@@ -98,6 +101,18 @@ export const cancelInvite = createAsyncThunk(
   }
 );
 
+export const deleteWorkspace = createAsyncThunk(
+  'workspace/deleteWorkspace',
+  async (workspaceId, { rejectWithValue }) => {
+    try {
+      await api.delete(`/api/v1/workspaces/${workspaceId}`);
+      return workspaceId;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to delete workspace');
+    }
+  }
+);
+
 export const acceptInvite = createAsyncThunk(
   'workspace/acceptInvite',
   async (token, { rejectWithValue }) => {
@@ -123,14 +138,55 @@ const workspaceSlice = createSlice({
   initialState,
   reducers: {
     setCurrentWorkspace: (state, action) => {
-      state.currentWorkspace = action.payload;
+      const payload = action.payload;
+      // role lives on the WorkspaceMember join row and is only present when the
+      // workspace was fetched via getAll/getById. Fall back to the cached entry
+      // in workspaces[] so we never lose it (e.g. after workspace creation).
+      const cached = state.workspaces.find(w => w.id === payload?.id);
+      const role = payload?.role ?? cached?.role ?? null;
+      const customRole = payload?.customRole ?? cached?.customRole ?? null;
+      state.currentWorkspace = { ...payload, role, customRole };
+      try { localStorage.setItem('lastWorkspaceId', payload?.id || ''); } catch {}
     },
     clearError: (state) => {
       state.error = null;
-    }
+    },
+    // Fired when a workspace member is assigned a new role/customRole.
+    // Patches currentWorkspace.members so canWorkspace() updates live.
+    socketWorkspaceMemberRoleChanged: (state, action) => {
+      const { member } = action.payload;
+      if (!member?.userId) return;
+      const patch = (members) => {
+        if (!members) return;
+        const idx = members.findIndex(m => m.userId === member.userId);
+        if (idx !== -1) members[idx] = { ...members[idx], ...member };
+      };
+      patch(state.currentWorkspace?.members);
+      state.workspaces.forEach(w => patch(w.members));
+    },
+    // Fired when a role's permissions are edited.
+    // Patches the customRole.permissions on every workspace member using that role.
+    socketWorkspaceRoleUpdated: (state, action) => {
+      const { roleId, permissions, name, color } = action.payload;
+      if (!roleId) return;
+      const patch = (members) => {
+        if (!members) return;
+        members.forEach(m => {
+          if (m.customRole?.id === roleId) {
+            m.customRole.permissions = permissions;
+            if (name) m.customRole.name = name;
+            if (color) m.customRole.color = color;
+          }
+        });
+      };
+      patch(state.currentWorkspace?.members);
+      state.workspaces.forEach(w => patch(w.members));
+    },
   },
   extraReducers: (builder) => {
     builder
+      // Clear all workspace data on logout
+      .addCase(logout.fulfilled, () => initialState)
       .addCase(fetchWorkspaces.pending, (state) => {
         state.loading = true;
       })
@@ -143,14 +199,29 @@ const workspaceSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(createWorkspace.fulfilled, (state, action) => {
-        state.workspaces.unshift(action.payload);
+        // The create endpoint returns the raw workspace object without a `role`
+        // field (role lives on the WorkspaceMember join row, only spread in by
+        // getAll). The user who just created the workspace is always its OWNER,
+        // so inject that here — otherwise the sidebar splits this workspace
+        // into "Joined Workspaces" until the next page reload re-fetches via getAll.
+        state.workspaces.unshift({ ...action.payload, role: 'OWNER' });
       })
       .addCase(fetchWorkspace.pending, (state) => {
         state.loading = true;
       })
       .addCase(fetchWorkspace.fulfilled, (state, action) => {
         state.loading = false;
-        state.currentWorkspace = action.payload;
+        // Update the cached entry in workspaces[] so the sidebar list stays fresh.
+        const idx = state.workspaces.findIndex(w => w.id === action.payload.id);
+        if (idx !== -1) {
+          state.workspaces[idx] = { ...state.workspaces[idx], ...action.payload };
+        }
+        // Only replace currentWorkspace if the fetched one IS the active one.
+        // This prevents accidental workspace switching when something
+        // (e.g. ShareModal's lazy member-list refetch) loads workspace data.
+        if (state.currentWorkspace?.id === action.payload.id) {
+          state.currentWorkspace = action.payload;
+        }
       })
       .addCase(fetchWorkspace.rejected, (state, action) => {
         state.loading = false;
@@ -158,11 +229,22 @@ const workspaceSlice = createSlice({
       })
       .addCase(updateWorkspace.fulfilled, (state, action) => {
         const index = state.workspaces.findIndex(w => w.id === action.payload.id);
+        // Preserve role — the update endpoint returns a raw workspace object
+        // without the role field (role lives on the WorkspaceMember join row).
+        const role = state.workspaces[index]?.role ?? state.currentWorkspace?.role;
+        const updated = { ...action.payload, role };
         if (index !== -1) {
-          state.workspaces[index] = action.payload;
+          state.workspaces[index] = updated;
         }
         if (state.currentWorkspace?.id === action.payload.id) {
-          state.currentWorkspace = action.payload;
+          state.currentWorkspace = updated;
+        }
+      })
+      .addCase(deleteWorkspace.fulfilled, (state, action) => {
+        const deletedId = action.payload;
+        state.workspaces = state.workspaces.filter(w => w.id !== deletedId);
+        if (state.currentWorkspace?.id === deletedId) {
+          state.currentWorkspace = state.workspaces[0] ?? null;
         }
       })
       .addCase(inviteUser.fulfilled, (state) => {
@@ -174,22 +256,22 @@ const workspaceSlice = createSlice({
       .addCase(cancelInvite.fulfilled, (state, action) => {
         state.pendingInvites = state.pendingInvites.filter(i => i.id !== action.payload.inviteId);
       })
-      // Pre-populate workspaces from login response (eliminates separate GET /workspaces call)
+      // Pre-populate workspaces from login response (eliminates separate GET /workspaces call).
+      // NOTE: do NOT auto-select currentWorkspace here. Layout's bootstrap effect
+      // handles workspace selection with a 3-tier priority (URL param → localStorage
+      // lastWorkspaceId → workspaces[0]). If we set it here, Layout sees
+      // currentWorkspace already populated and skips the localStorage restore,
+      // so the user always lands on workspaces[0] after re-login instead of
+      // their last-used workspace.
       .addCase(login.fulfilled, (state, action) => {
         const workspaces = action.payload.workspaces;
         if (workspaces?.length) {
           state.workspaces = workspaces;
           state.loading = false;
-          // Auto-select first workspace if none selected
-          if (!state.currentWorkspace) {
-            state.currentWorkspace = workspaces[0];
-          }
         }
-      })
-      // Reset all workspace state on logout
-      .addCase(logout.fulfilled, () => initialState);
+      });
   }
 });
 
-export const { setCurrentWorkspace, clearError } = workspaceSlice.actions;
+export const { setCurrentWorkspace, clearError, socketWorkspaceMemberRoleChanged, socketWorkspaceRoleUpdated } = workspaceSlice.actions;
 export default workspaceSlice.reducer;

@@ -37,7 +37,9 @@ export const projectController = {
   async updateMemberRole(req, res, next) {
     const member = await projectService.updateMemberRole(req.params.id, req.user.id, {
       userId: req.params.memberId,
-      projectRole: req.body.projectRole
+      projectRole: req.body.projectRole,
+      roleId: req.body.roleId,
+      customPermissions: req.body.customPermissions,
     }, req.socketId);
     return successResponse(res, member, 'Member role updated');
   },
@@ -46,6 +48,36 @@ export const projectController = {
     await projectService.removeMember(req.params.id, req.user.id, req.params.memberId, req.socketId);
     return successResponse(res, null, 'Member removed successfully');
   }
+};
+
+// Separate controller for the static permission-keys endpoint
+export const permissionKeysController = {
+  async getProjectPermissionKeys(req, res) {
+    const { PROJECT_PERMISSION_KEYS } = await import('../../core/utils/projectPermissions.js');
+    return successResponse(res, PROJECT_PERMISSION_KEYS);
+  }
+};
+
+// Controller for project-level named roles CRUD
+import projectRoleService from './projectRoleService.js';
+
+export const projectRoleController = {
+  async getRoles(req, res) {
+    const roles = await projectRoleService.getRoles(req.params.workspaceId);
+    return successResponse(res, roles);
+  },
+  async createRole(req, res) {
+    const role = await projectRoleService.createRole(req.params.workspaceId, req.user.id, req.body);
+    return createdResponse(res, role, 'Role created');
+  },
+  async updateRole(req, res) {
+    const role = await projectRoleService.updateRole(req.params.roleId, req.user.id, req.body);
+    return successResponse(res, role, 'Role updated');
+  },
+  async deleteRole(req, res) {
+    await projectRoleService.deleteRole(req.params.roleId, req.user.id);
+    return successResponse(res, null, 'Role deleted');
+  },
 };
 
 export default projectController;

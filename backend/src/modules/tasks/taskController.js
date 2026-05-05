@@ -20,8 +20,17 @@ export const taskController = {
 
   async addAttachment(req, res, next) {
     if (!req.file) { const err = new Error('No file uploaded'); err.statusCode = 400; return next(err); }
+    // Debug: log all req.file fields to find where Cloudinary puts the public_id
+    console.log('[upload] req.file keys:', Object.keys(req.file));
+    console.log('[upload] req.file.filename:', req.file.filename);
+    console.log('[upload] req.file.path:', req.file.path);
+    console.log('[upload] req.file.public_id:', req.file.public_id);
     const attachment = await taskService.addAttachment(req.params.id, req.user.id, {
-      filename: req.file.originalname, url: req.file.path, mimeType: req.file.mimetype, size: req.file.size
+      filename: req.file.originalname,
+      url: req.file.path,
+      publicId: req.file.filename || req.file.public_id || null,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
     });
     return createdResponse(res, attachment, 'Attachment added successfully');
   },
@@ -47,16 +56,45 @@ export const taskController = {
     return successResponse(res, assignee, 'User assigned successfully');
   },
 
+  async reassignUser(req, res, next) {
+    const { userId } = req.validatedBody || req.body;
+    const assignee = await taskService.reassignUser(req.params.id, req.user.id, userId, req.socketId);
+    return successResponse(res, assignee, 'Task reassigned successfully');
+  },
+
   async removeAssignee(req, res, next) {
     const { assigneeId } = req.params;
     await taskService.removeAssignee(req.params.id, req.user.id, assigneeId, req.socketId);
     return successResponse(res, null, 'Assignee removed successfully');
   },
 
+  async getMilestoneProjects(req, res) {
+    const projects = await taskService.getMilestoneProjects(req.params.id, req.user.id);
+    return successResponse(res, projects);
+  },
+
+  async addMilestoneToProject(req, res) {
+    const { projectId } = req.body;
+    if (!projectId) return res.status(400).json({ success: false, message: 'projectId is required' });
+    const result = await taskService.addMilestoneToProject(req.params.id, req.user.id, projectId);
+    return createdResponse(res, result, 'Milestone added to project');
+  },
+
+  async removeMilestoneFromProject(req, res) {
+    await taskService.removeMilestoneFromProject(req.params.id, req.user.id, req.params.projectId);
+    return successResponse(res, null, 'Milestone removed from project');
+  },
+
   async search(req, res, next) {
     const { workspaceId } = req.params;
     const { q } = req.query;
     const tasks = await taskService.search(workspaceId, req.user.id, q);
+    return successResponse(res, tasks);
+  },
+
+  async getMyTasks(req, res, next) {
+    const { workspaceId } = req.params;
+    const tasks = await taskService.getMyTasks(workspaceId, req.user.id);
     return successResponse(res, tasks);
   }
 };

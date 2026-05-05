@@ -1,5 +1,6 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
+import { stripHtml } from '../../core/utils/sanitize.js';
 
 function isWorkspaceAdmin(workspaceRole) {
   return workspaceRole === 'OWNER' || workspaceRole === 'ADMIN';
@@ -7,14 +8,18 @@ function isWorkspaceAdmin(workspaceRole) {
 
 function canAccessProject(workspaceRole, projectVisibility, projectRole) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
-  if (workspaceRole === 'MEMBER' && projectVisibility === 'PUBLIC') return true;
+  // Public projects: any workspace member (MEMBER or GUEST) can view
+  if (projectVisibility === 'PUBLIC') return true;
+  // Private projects: must be an explicit project member
   return projectRole !== null;
 }
 
-// Commenters and Editors can post comments; Viewers cannot
-function canCommentProject(workspaceRole, projectRole) {
+function hasPermission(workspaceRole, projectRole, customPermissions, key) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
-  return projectRole === 'EDITOR' || projectRole === 'COMMENTER';
+  if (customPermissions && typeof customPermissions === 'object') return !!customPermissions[key];
+  if (projectRole === 'EDITOR') return true;
+  if (projectRole === 'COMMENTER' && (key === 'comment.create' || key === 'comment.delete' || key === 'time.track')) return true;
+  return false;
 }
 
 async function getContextFromTask(taskId, userId) {
@@ -28,7 +33,7 @@ async function getContextFromTask(taskId, userId) {
               project: {
                 include: {
                   workspace: { include: { members: { where: { userId } } } },
-                  members: { where: { userId } }
+                  members: { where: { userId }, include: { customRole: true } }
                 }
               }
             }
@@ -46,25 +51,29 @@ async function getContextFromTask(taskId, userId) {
 
   const projectMember = project.members[0] || null;
   const projectRole = projectMember?.projectRole ?? null;
+  const customPermissions = projectMember?.customRole?.permissions ?? null;
 
   if (!canAccessProject(workspaceMember.role, project.visibility, projectRole)) {
     throw ApiError.forbidden('You do not have access to this task');
   }
 
-  return { task, workspaceMember, projectRole };
+  return { task, workspaceMember, projectRole, customPermissions };
 }
 
 export const commentService = {
-  // Create comment — EDITOR or COMMENTER (not VIEWER)
+  // Create comment
   async create(taskId, userId, content) {
-    const { task, workspaceMember, projectRole } = await getContextFromTask(taskId, userId);
+    const { task, workspaceMember, projectRole, customPermissions } = await getContextFromTask(taskId, userId);
 
-    if (!canCommentProject(workspaceMember.role, projectRole)) {
-      throw ApiError.forbidden('You need at least Commenter access to post comments');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'comment.create')) {
+      throw ApiError.forbidden('You do not have permission to post comments');
     }
 
+    const sanitized = stripHtml(content);
+    if (!sanitized) throw ApiError.badRequest('Comment content cannot be empty');
+
     const comment = await prisma.comment.create({
-      data: { content, userId, taskId },
+      data: { content: sanitized, userId, taskId },
       include: { user: { select: { id: true, name: true, avatar: true } } }
     });
 
@@ -92,10 +101,13 @@ export const commentService = {
     if (!comment) throw ApiError.notFound('Comment not found');
     if (comment.userId !== userId) throw ApiError.forbidden('You can only edit your own comments');
 
-    return prisma.comment.update({ where: { id: commentId }, data: { content } });
+    const sanitized = stripHtml(content);
+    if (!sanitized) throw ApiError.badRequest('Comment content cannot be empty');
+
+    return prisma.comment.update({ where: { id: commentId }, data: { content: sanitized } });
   },
 
-  // Delete comment — own comments only, or workspace Admin
+  // Delete comment — own comments with comment.delete permission, or workspace Admin
   async delete(commentId, userId) {
     const comment = await prisma.comment.findUnique({
       where: { id: commentId },
@@ -108,7 +120,8 @@ export const commentService = {
                   include: {
                     project: {
                       include: {
-                        workspace: { include: { members: { where: { userId } } } }
+                        workspace: { include: { members: { where: { userId } } } },
+                        members: { where: { userId }, include: { customRole: true } }
                       }
                     }
                   }
@@ -122,11 +135,19 @@ export const commentService = {
 
     if (!comment) throw ApiError.notFound('Comment not found');
 
-    const workspaceMember = comment.task.list.board.project.workspace.members[0];
-    const isAdmin = workspaceMember && isWorkspaceAdmin(workspaceMember.role);
+    const project = comment.task.list.board.project;
+    const workspaceMember = project.workspace.members[0];
+    const projectMember = project.members[0] || null;
+    const projectRole = projectMember?.projectRole ?? null;
+    const customPermissions = projectMember?.customRole?.permissions ?? null;
 
-    if (comment.userId !== userId && !isAdmin) {
-      throw ApiError.forbidden('You can only delete your own comments');
+    const canDelete = hasPermission(workspaceMember?.role, projectRole, customPermissions, 'comment.delete');
+
+    // Own comments: need comment.delete permission. Others' comments: workspace admin only.
+    if (comment.userId === userId) {
+      if (!canDelete) throw ApiError.forbidden('You do not have permission to delete comments');
+    } else {
+      if (!isWorkspaceAdmin(workspaceMember?.role)) throw ApiError.forbidden('You can only delete your own comments');
     }
 
     await prisma.comment.delete({ where: { id: commentId } });

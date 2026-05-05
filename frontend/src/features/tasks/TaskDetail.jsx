@@ -3,12 +3,157 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchTask, updateTask, createSubtask, deleteTask, assignUser, addAttachment, removeAttachment } from '../../store/slices/taskSlice';
 import { optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticAddSubtask } from '../../store/slices/boardSlice';
+import { fetchProject } from '../../store/slices/projectSlice';
 import api from '../../services/api';
 import { useRole } from '../../hooks/useRole';
+import { useConfirm } from '../../hooks/useConfirm';
 import { useCelebration } from '../../components/Celebration';
 import { useAutoSave, SaveIndicator } from '../../hooks/useAutoSave';
 
 const STATUS_OPTIONS = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'];
+
+/**
+ * Milestone Projects section — shows all projects this milestone is linked to
+ * with a + button to add it to another project.
+ */
+function MilestoneProjects({ taskId }) {
+  const { projects } = useAppSelector((state) => state.project);
+  const currentTask = useAppSelector((state) => state.task.currentTask);
+  const { can } = useRole();
+  const [linkedProjects, setLinkedProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showPicker, setShowPicker] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [search, setSearch] = useState('');
+  const pickerRef = useRef(null);
+
+  // Fetch linked projects — re-runs when taskId changes or when socket signals an update
+  const milestoneSignal = currentTask?._milestoneProjectsUpdated;
+  useEffect(() => {
+    if (!taskId) return;
+    api.get(`/api/v1/tasks/${taskId}/milestone-projects`)
+      .then(res => setLinkedProjects(res.data.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [taskId, milestoneSignal]);
+
+  // Close picker on outside click
+  useEffect(() => {
+    if (!showPicker) return;
+    const handler = (e) => { if (pickerRef.current && !pickerRef.current.contains(e.target)) setShowPicker(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showPicker]);
+
+  const linkedProjectIds = new Set(linkedProjects.map(p => p.projectId));
+  const availableProjects = (projects || []).filter(
+    p => !linkedProjectIds.has(p.id) && search ? p.name.toLowerCase().includes(search.toLowerCase()) : !linkedProjectIds.has(p.id)
+  );
+
+  const handleAdd = async (projectId) => {
+    setAdding(true);
+    try {
+      const res = await api.post(`/api/v1/tasks/${taskId}/milestone-projects`, { projectId });
+      setLinkedProjects(prev => [...prev, res.data.data]);
+      setShowPicker(false);
+      setSearch('');
+    } catch (err) {
+      console.error('Failed to add milestone to project:', err);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  if (loading) return null;
+
+  return (
+    <div className="pt-4 border-t border-[var(--asana-border)]">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-2">
+          <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Projects</h3>
+          <span className="text-[10px] font-bold text-asana-blue bg-asana-blue/10 px-1.5 py-0.5 rounded-full">
+            {linkedProjects.length}
+          </span>
+        </div>
+        {can('milestone.multiproject') && (
+        <div className="relative" ref={pickerRef}>
+          <button
+            onClick={() => setShowPicker(!showPicker)}
+            className="text-xs font-medium text-asana-blue hover:underline flex items-center"
+          >
+            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add to project
+          </button>
+
+          {showPicker && (
+            <div className="absolute right-0 top-full mt-1 z-[100] w-64 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl overflow-hidden animate-fade-in">
+              <div className="p-2 border-b border-[var(--asana-border)]">
+                <input
+                  type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search projects..." autoFocus
+                  className="w-full px-2.5 py-1.5 text-xs bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-md text-[var(--asana-text-primary)] outline-none focus:border-asana-blue placeholder-[var(--asana-text-muted)]"
+                />
+              </div>
+              <div className="max-h-48 overflow-y-auto py-1">
+                {availableProjects.length === 0 ? (
+                  <p className="text-xs text-[var(--asana-text-muted)] text-center py-3">
+                    {search ? 'No matching projects' : 'Already in all projects'}
+                  </p>
+                ) : (
+                  availableProjects.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => handleAdd(p.id)}
+                      disabled={adding}
+                      className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors disabled:opacity-50"
+                    >
+                      <div className="w-5 h-5 rounded flex items-center justify-center text-white text-[9px] font-bold mr-2.5 flex-shrink-0"
+                        style={{ backgroundColor: p.color || '#4573D2' }}>
+                        {p.name?.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-sm text-[var(--asana-text-primary)] truncate">{p.name}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        )}
+      </div>
+
+      {/* Linked projects list */}
+      <div className="space-y-1">
+        {linkedProjects.map(lp => (
+          <div key={lp.projectId} className="flex items-center space-x-2.5 px-2 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors group/mp">
+            <div className="w-4 h-4 rounded flex-shrink-0" style={{ backgroundColor: lp.projectColor || '#4573D2' }} />
+            <span className="text-sm text-[var(--asana-text-primary)] truncate flex-1">{lp.projectName}</span>
+            {lp.isHome ? (
+              <span className="text-[9px] text-[var(--asana-text-muted)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex-shrink-0">Home</span>
+            ) : can('milestone.remove') && (
+              <button
+                onClick={async () => {
+                  try {
+                    await api.delete(`/api/v1/tasks/${taskId}/milestone-projects/${lp.projectId}`);
+                    setLinkedProjects(prev => prev.filter(p => p.projectId !== lp.projectId));
+                  } catch (err) { console.error('Failed to remove:', err); }
+                }}
+                className="opacity-0 group-hover/mp:opacity-100 p-0.5 rounded text-[var(--asana-text-secondary)] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0"
+                title="Remove from this project"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 const STATUS_LABELS = { TODO: 'To do', IN_PROGRESS: 'In progress', REVIEW: 'Review', DONE: 'Completed' };
 const STATUS_COLORS = {
   TODO: 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200',
@@ -34,12 +179,18 @@ function formatTime(minutes) {
 function parseTime(input) {
   if (!input || !input.trim()) return null;
   const str = input.trim().toLowerCase();
+  // "1h 30m" / "1h 30"
   const hm = str.match(/^(\d+)\s*h\s*(\d+)\s*m?$/);
   if (hm) return parseInt(hm[1]) * 60 + parseInt(hm[2]);
-  const hOnly = str.match(/^(\d+)\s*h$/);
-  if (hOnly) return parseInt(hOnly[1]) * 60;
-  const mOnly = str.match(/^(\d+)\s*m$/);
-  if (mOnly) return parseInt(mOnly[1]);
+  // "1.5h" / "2.25h" (decimal hours)
+  const decH = str.match(/^(\d+(?:\.\d+)?)\s*h$/);
+  if (decH) return Math.round(parseFloat(decH[1]) * 60);
+  // "90m"
+  const mOnly = str.match(/^(\d+(?:\.\d+)?)\s*m$/);
+  if (mOnly) return Math.round(parseFloat(mOnly[1]));
+  // Bare decimal "1.5" → hours
+  const dec = str.match(/^(\d+\.\d+)$/);
+  if (dec) return Math.round(parseFloat(dec[1]) * 60);
   const num = parseInt(str);
   if (!isNaN(num)) return num;
   return null;
@@ -92,7 +243,7 @@ function DetailAssigneePicker({ taskId, members, onClose, onDone, onOptimisticAs
             <button key={u.id} onClick={() => handleAssign(u.id)}
               className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold mr-2.5"
-                style={{ backgroundColor: `hsl(${u.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                style={{ backgroundColor: `hsl($((u.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                 {u.name?.charAt(0).toUpperCase()}
               </div>
               <span className="text-xs text-[var(--asana-text-primary)] truncate">{u.name}</span>
@@ -105,27 +256,130 @@ function DetailAssigneePicker({ taskId, members, onClose, onDone, onOptimisticAs
 }
 
 /* ── Editable Time Field ── */
+const DEFAULT_TIME_SUGGESTIONS = [
+  { label: '15m', mins: 15 },
+  { label: '30m', mins: 30 },
+  { label: '45m', mins: 45 },
+  { label: '1h', mins: 60 },
+  { label: '1h 30m', mins: 90 },
+  { label: '2h', mins: 120 },
+  { label: '3h', mins: 180 },
+  { label: '4h', mins: 240 },
+  { label: '6h', mins: 360 },
+  { label: '8h', mins: 480 },
+];
+
+// Dynamic suggestions based on user input.
+// - "1" → [1 min, 1 hour, 1h 15m, 1h 30m, 1h 45m]
+// - "1h" → [1 hour, 1h 15m, 1h 30m, 1h 45m]
+// - "1.5" or "1.5h" → [1h 30m]
+// - "" → default list
+function buildTimeSuggestions(input) {
+  const s = String(input || '').trim().toLowerCase();
+  if (!s) return DEFAULT_TIME_SUGGESTIONS;
+
+  const fmt = (m) => {
+    const h = Math.floor(m / 60);
+    const min = m % 60;
+    if (h > 0 && min > 0) return `${h}h ${String(min).padStart(2, '0')}m`;
+    if (h > 0) return `${h}h`;
+    return `${min}m`;
+  };
+
+  // Pure integer → offer minute and hour interpretations + 15-min steps
+  const num = s.match(/^(\d+)$/);
+  if (num) {
+    const n = parseInt(num[1], 10);
+    if (n <= 0) return [];
+    const out = [
+      { label: `${n}m`, mins: n },
+      { label: `${n}h`, mins: n * 60 },
+    ];
+    [15, 30, 45].forEach((m) => out.push({ label: `${n}h ${m}m`, mins: n * 60 + m }));
+    return out;
+  }
+  // Decimal "1.5" or "1.5h" → convert to h + m
+  const decMatch = s.match(/^(\d+\.\d+)\s*h?$/);
+  if (decMatch) {
+    const totalMins = Math.round(parseFloat(decMatch[1]) * 60);
+    return totalMins > 0 ? [{ label: fmt(totalMins), mins: totalMins }] : [];
+  }
+  // "Nh" → +15 increments
+  const hOnly = s.match(/^(\d+)\s*h$/);
+  if (hOnly) {
+    const n = parseInt(hOnly[1], 10);
+    return [
+      { label: `${n}h`, mins: n * 60 },
+      { label: `${n}h 15m`, mins: n * 60 + 15 },
+      { label: `${n}h 30m`, mins: n * 60 + 30 },
+      { label: `${n}h 45m`, mins: n * 60 + 45 },
+    ];
+  }
+  // Try full parse and confirm
+  const parsed = parseTime(s);
+  if (parsed != null && parsed > 0) return [{ label: fmt(parsed), mins: parsed }];
+  return [];
+}
+
 function TimeField({ label, taskId, field, value, canEdit, onUpdate, onOptimistic }) {
   const dispatch = useAppDispatch();
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const startEdit = () => { if (!canEdit) return; setInput(value != null ? formatTime(value) : ''); setEditing(true); };
-  const save = () => {
-    const mins = parseTime(input);
+  const startEdit = () => {
+    if (!canEdit) return;
+    setInput(value != null ? formatTime(value) : '');
+    setEditing(true);
+    setShowSuggestions(true);
+  };
+
+  const commit = (mins) => {
     onOptimistic?.(field, mins);
     dispatch(optimisticUpdateTask({ taskId, data: { [field]: mins } }));
     setEditing(false);
+    setShowSuggestions(false);
     dispatch(updateTask({ taskId, data: { [field]: mins } })).then(() => onUpdate());
   };
 
+  const save = () => commit(parseTime(input));
+
+  // Dynamic suggestions based on what the user is typing
+  const filtered = buildTimeSuggestions(input);
+
   return (
-    <div className="flex items-center">
+    <div className="flex items-center relative">
       <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">{label}</span>
       {editing ? (
-        <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="e.g. 1h 30m" autoFocus
-          className="bg-transparent border-b border-asana-blue/40 py-1 px-1.5 text-sm text-[var(--asana-text-primary)] outline-none flex-1"
-          onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }} />
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => { setInput(e.target.value); setShowSuggestions(true); }}
+            placeholder="e.g. 1h 30m"
+            autoFocus
+            className="w-full bg-transparent border-b border-asana-blue/40 py-1 px-1.5 text-sm text-[var(--asana-text-primary)] outline-none"
+            onBlur={() => setTimeout(save, 150)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') save();
+              if (e.key === 'Escape') { setEditing(false); setShowSuggestions(false); }
+            }}
+          />
+          {showSuggestions && filtered.length > 0 && (
+            <div className="absolute left-0 top-full mt-1 w-40 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl z-50 py-1 max-h-56 overflow-y-auto">
+              {filtered.map(s => (
+                <button
+                  key={s.label}
+                  onMouseDown={(e) => { e.preventDefault(); commit(s.mins); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 flex items-center justify-between"
+                >
+                  <span className="font-medium">{s.label}</span>
+                  <span className="text-[10px] text-[var(--asana-text-secondary)]">{s.mins} min</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       ) : (
         <span onClick={startEdit}
           className={`text-sm p-1.5 rounded transition-colors flex-1 ${canEdit ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : ''} ${value != null ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-secondary)]'}`}>
@@ -148,7 +402,15 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
   const { currentProject } = useAppSelector((state) => state.project);
   const { lists } = useAppSelector((state) => state.board);
   const { user } = useAppSelector((state) => state.auth);
-  const { canEdit, canComment } = useRole();
+  const { canEdit, canComment, can } = useRole();
+  const canDeleteTask = can('task.delete');
+  const canCreateSubtask = can('subtask.create');
+  const canDeleteSubtask = can('subtask.delete');
+  const canAddAttachment = can('attachment.add');
+  const canDeleteAttachment = can('attachment.delete');
+  const canAssign = can('task.assign');
+  const canComplete = can('task.complete');
+  const { confirm, ConfirmDialog } = useConfirm();
   const members = currentProject?.members || [];
 
   // Find task from board lists (has optimistic updates from list view)
@@ -164,9 +426,26 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
     return null;
   })();
 
-  // Priority: boardTask (has optimistic updates) > currentTask (API data) > previewTask (initial)
-  const baseTask = boardTask || (currentTask?.id === taskId ? currentTask : null) || previewTask;
-  const isFullyLoaded = currentTask?.id === taskId;
+  // Merge: boardTask has optimistic field updates (status, title, etc.) from the list view,
+  // while currentTask has rich data (attachments, comments, activity) from fetchTask.
+  // Merge both so the detail panel shows everything.
+  const fullCurrentTask = currentTask?.id === taskId ? currentTask : null;
+  const baseTask = (() => {
+    if (boardTask && fullCurrentTask) {
+      // Board task wins for core fields (has optimistic updates), but inherit
+      // rich fields that only exist on the full fetch.
+      return {
+        ...fullCurrentTask,
+        ...boardTask,
+        attachments: fullCurrentTask.attachments || boardTask.attachments,
+        comments: fullCurrentTask.comments || boardTask.comments,
+        activityLogs: fullCurrentTask.activityLogs || boardTask.activityLogs,
+        subtasks: boardTask.subtasks?.length > 0 ? boardTask.subtasks : fullCurrentTask.subtasks,
+      };
+    }
+    return boardTask || fullCurrentTask || previewTask;
+  })();
+  const isFullyLoaded = !!fullCurrentTask;
 
   // Local optimistic overlay — merges over fetched data for instant UI
   const [optimistic, setOptimistic] = useState({});
@@ -194,6 +473,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
   const [newSubtask, setNewSubtask] = useState('');
   const [newComment, setNewComment] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState(null);
   const [showAssigneePicker, setShowAssigneePicker] = useState(false);
   const [activeTab, setActiveTab] = useState('comments');
   const [justCompleted, setJustCompleted] = useState(false);
@@ -207,6 +487,16 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
     setLocalComments(null);
     setLocalSubtasks(null);
   }, [taskId, dispatch]);
+
+  // If the task's project doesn't match the currently loaded project,
+  // fetch it so useRole() can resolve permissions correctly.
+  // This happens when opening from My Tasks or search (no project context).
+  useEffect(() => {
+    const taskProjectId = fullCurrentTask?.list?.board?.project?.id;
+    if (taskProjectId && currentProject?.id !== taskProjectId) {
+      dispatch(fetchProject(taskProjectId));
+    }
+  }, [fullCurrentTask?.list?.board?.project?.id, currentProject?.id, dispatch]);
 
   useEffect(() => {
     if (currentTask?.id === taskId) {
@@ -228,7 +518,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
 
   const handleAddSubtask = (e) => {
     e.preventDefault();
-    if (!newSubtask.trim()) return;
+    if (!canCreateSubtask || !newSubtask.trim()) return;
     const title = newSubtask.trim();
     const listId = task.listId || task.list?.id;
     const tempSubtask = { id: `temp-${Date.now()}`, title, status: 'TODO', priority: 'LOW', taskType: 'DEFAULT_TASK', assignees: [], subtasks: [] };
@@ -265,15 +555,16 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
-    if (!file) return;
+    if (!canAddAttachment || !file) return;
     setIsUploading(true);
-    try { await dispatch(addAttachment({ taskId, file })).unwrap(); refetchTask(); }
+    try { await dispatch(addAttachment({ taskId, file })).unwrap(); }
     catch (err) { console.error('Upload failed:', err); }
     finally { setIsUploading(false); }
   };
 
-  const handleDeleteTask = () => {
-    if (window.confirm('Delete this task?')) {
+  const handleDeleteTask = async () => {
+    if (!canDeleteTask) return;
+    if (await confirm({ title: 'Delete task?', message: 'This task and all its subtasks will be permanently deleted.', confirmText: 'Delete', variant: 'danger' })) {
       dispatch(optimisticDeleteTask(taskId));
       emitInstant?.('task_deleted', { taskId });
       if (isEmbedded) onClose();
@@ -305,22 +596,22 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
         <div className="flex items-center space-x-1">
           <button
             onClick={() => {
-              if (!canEdit) return;
+              if (!canComplete) return;
               const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
               if (newStatus === 'DONE') { setJustCompleted(true); setTimeout(() => setJustCompleted(false), 600); celebrate(); }
               handleUpdate('status', newStatus);
             }}
-            disabled={!canEdit}
+            disabled={!canComplete}
             className={`flex items-center px-3 py-1.5 rounded-md border text-xs font-semibold transition-all duration-300 ${
               task.status === 'DONE' ? 'bg-green-500 text-white border-green-500' : 'text-[var(--asana-text-secondary)] border-[var(--asana-border)] hover:border-green-400 hover:text-green-500'
-            } ${justCompleted ? 'check-pop' : ''} ${!canEdit ? 'cursor-default opacity-70' : ''}`}
+            } ${justCompleted ? 'check-pop' : ''} ${!canComplete ? 'cursor-default opacity-70' : ''}`}
           >
             <svg className={`w-3.5 h-3.5 mr-1 ${justCompleted ? 'check-draw' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
             </svg>
             {task.status === 'DONE' ? 'Completed' : 'Mark complete'}
           </button>
-          {canEdit && (
+          {canDeleteTask && (
             <button onClick={handleDeleteTask} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-[var(--asana-text-secondary)] hover:text-red-500 transition-colors" title="Delete">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -361,12 +652,12 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             {/* Assignee */}
             <div className="flex items-center relative">
               <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Assignee</span>
-              <button onClick={() => canEdit && setShowAssigneePicker(true)}
-                className={`flex items-center space-x-2 p-1.5 rounded transition-colors flex-1 min-w-0 ${canEdit ? 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer' : ''}`}>
+              <button onClick={() => canAssign && setShowAssigneePicker(true)}
+                className={`flex items-center space-x-2 p-1.5 rounded transition-colors flex-1 min-w-0 ${canAssign ? 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer' : ''}`}>
                 {task.assignees?.length > 0 ? (
                   <>
                     <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                      style={{ backgroundColor: `hsl(${task.assignees[0].user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                      style={{ backgroundColor: `hsl(${(task.assignees[0].user?.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
                       {task.assignees[0].user?.name?.charAt(0).toUpperCase()}
                     </div>
                     <span className="text-sm text-[var(--asana-text-primary)] truncate">{task.assignees[0].user?.name}</span>
@@ -405,10 +696,10 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             <div className="flex items-center">
               <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Priority</span>
               <select value={task.priority || 'LOW'} onChange={(e) => handleUpdate('priority', e.target.value)} disabled={!canEdit}
-                className={`bg-transparent border-none p-1.5 rounded text-xs font-semibold focus:ring-0 ${PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.LOW} ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
-                <option value="HIGH">High</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="LOW">Low</option>
+                className={`border border-[var(--asana-border)] p-1.5 px-2.5 rounded-md text-xs font-semibold focus:ring-1 focus:ring-asana-blue/30 focus:border-asana-blue/30 outline-none bg-[var(--asana-bg)] text-[var(--asana-text-primary)] ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
+                <option value="HIGH" className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">🔴 High</option>
+                <option value="MEDIUM" className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">🟡 Medium</option>
+                <option value="LOW" className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">🔵 Low</option>
               </select>
             </div>
 
@@ -416,8 +707,10 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             <div className="flex items-center">
               <span className="w-28 text-[var(--asana-text-secondary)] text-xs font-medium flex-shrink-0">Status</span>
               <select value={task.status || 'TODO'} onChange={(e) => handleUpdate('status', e.target.value)} disabled={!canEdit}
-                className={`border-none p-1.5 rounded text-xs font-semibold focus:ring-0 ${STATUS_COLORS[task.status] || STATUS_COLORS.TODO} ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
-                {STATUS_OPTIONS.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+                className={`border border-[var(--asana-border)] p-1.5 px-2.5 rounded-md text-xs font-semibold focus:ring-1 focus:ring-asana-blue/30 focus:border-asana-blue/30 outline-none bg-[var(--asana-bg)] text-[var(--asana-text-primary)] ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
+                {STATUS_OPTIONS.map(s => (
+                  <option key={s} value={s} className="bg-[var(--asana-surface)] text-[var(--asana-text-primary)]">{STATUS_LABELS[s]}</option>
+                ))}
               </select>
             </div>
 
@@ -482,11 +775,11 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                   <span className={`text-sm flex-1 ${sub.status === 'DONE' ? 'line-through text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>{sub.title}</span>
                   {sub.assignees?.length > 0 && (
                     <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0"
-                      style={{ backgroundColor: `hsl(${sub.assignees[0].user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                      style={{ backgroundColor: `hsl(${(sub.assignees[0].user?.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
                       {sub.assignees[0].user?.name?.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  {canEdit && (
+                  {canDeleteSubtask && (
                     <button onClick={() => {
                       setLocalSubtasks(prev => (prev || task.subtasks || []).filter(s => s.id !== sub.id));
                       dispatch(optimisticDeleteTask(sub.id));
@@ -499,7 +792,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                   )}
                 </div>
               ))}
-              {canEdit && (
+              {canCreateSubtask && (
                 <form onSubmit={handleAddSubtask} className="flex items-center space-x-3 py-1.5 px-2">
                   <svg className="w-4 h-4 text-[var(--asana-text-secondary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -511,11 +804,16 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             </div>
           </div>
 
+          {/* ── Milestone Projects — only for MILESTONE type tasks ── */}
+          {task.taskType === 'MILESTONE' && (
+            <MilestoneProjects taskId={taskId} />
+          )}
+
           {/* ── Attachments ── */}
           <div className="pt-4 border-t border-[var(--asana-border)]">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Attachments</h3>
-              {canEdit && (
+              {canAddAttachment && (
                 <label className={`cursor-pointer text-xs font-medium text-asana-blue hover:underline ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
                   <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
                   {isUploading ? 'Uploading...' : '+ Add file'}
@@ -533,11 +831,22 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                       <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[var(--asana-text-primary)] truncate block hover:text-asana-blue">{att.filename}</a>
                       <span className="text-[10px] text-[var(--asana-text-secondary)]">{(att.size / 1024).toFixed(1)} KB</span>
                     </div>
-                    {canEdit && (
-                      <button onClick={() => dispatch(removeAttachment({ taskId, attachmentId: att.id }))}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
+                    {canDeleteAttachment && (
+                      deletingAttachmentId === att.id ? (
+                        <svg className="w-3.5 h-3.5 animate-spin text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                          <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                        </svg>
+                      ) : (
+                        <button onClick={async () => {
+                          setDeletingAttachmentId(att.id);
+                          try { await dispatch(removeAttachment({ taskId, attachmentId: att.id })).unwrap(); }
+                          catch {} finally { setDeletingAttachmentId(null); }
+                        }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      )
                     )}
                   </div>
                 ))}
@@ -563,7 +872,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             {canComment && activeTab === 'comments' && (
               <div className="flex space-x-3 mb-4">
                 <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
-                  style={{ backgroundColor: `hsl(${user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                  style={{ backgroundColor: `hsl($((user?.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                   {user?.name?.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 border border-[var(--asana-border)] rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-asana-blue/30 focus-within:border-asana-blue/30 transition-all bg-[var(--asana-bg)]">
@@ -584,7 +893,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                 {(localComments || task.comments || []).map((comment) => (
                   <div key={comment.id} className="flex space-x-3 group">
                     <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
-                      style={{ backgroundColor: `hsl(${comment.user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}>
+                      style={{ backgroundColor: `hsl($((comment.user?.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
                       {comment.user?.name?.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -639,6 +948,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
         </div>
       </div>
       <CelebrationComponent />
+      {ConfirmDialog}
     </div>
   );
 }

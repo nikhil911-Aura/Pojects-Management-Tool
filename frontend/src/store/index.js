@@ -4,6 +4,7 @@ import workspaceReducer from './slices/workspaceSlice.js';
 import projectReducer from './slices/projectSlice.js';
 import boardReducer from './slices/boardSlice.js';
 import taskReducer from './slices/taskSlice.js';
+import reportReducer from './slices/reportSlice.js';
 
 export const store = configureStore({
   reducer: {
@@ -11,7 +12,8 @@ export const store = configureStore({
     workspace: workspaceReducer,
     project: projectReducer,
     board: boardReducer,
-    task: taskReducer
+    task: taskReducer,
+    report: reportReducer
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

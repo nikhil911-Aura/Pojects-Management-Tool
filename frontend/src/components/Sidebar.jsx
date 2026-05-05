@@ -1,22 +1,146 @@
-import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { useAppSelector } from '../store/hooks';
+import { useState, useEffect, useCallback } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { useRole } from '../hooks/useRole';
+import { createWorkspace, setCurrentWorkspace } from '../store/slices/workspaceSlice';
 import CreateProjectWizard from '../features/projects/CreateProjectWizard';
 import InviteModal from '../features/workspace/InviteModal';
+import api from '../services/api';
+import io from 'socket.io-client';
+
+const PROJECTS_VISIBLE_LIMIT = 8;
+const WORKSPACES_VISIBLE_LIMIT = 5;
 
 function Sidebar({ isOpen }) {
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
-  const { currentWorkspace } = useAppSelector((state) => state.workspace);
+  const { currentWorkspace, workspaces } = useAppSelector((state) => state.workspace);
   const { projects, projectsLoading, projectsLoaded } = useAppSelector((state) => state.project);
 
   const { canCreateProject, canManageWorkspace } = useRole();
 
   const [showProjects, setShowProjects] = useState(true);
-  const [showTeams, setShowTeams] = useState(true);
+  const [showOwned, setShowOwned] = useState(true);
+  const [showJoined, setShowJoined] = useState(true);
+  const [showAllProjects, setShowAllProjects] = useState(false);
+  const [showAllOwned, setShowAllOwned] = useState(false);
+  const [showAllJoined, setShowAllJoined] = useState(false);
   const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
+  const [newWorkspaceName, setNewWorkspaceName] = useState('');
+  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
+  const [inboxUnread, setInboxUnread] = useState(0);
+  const location = useLocation();
+
+  // Fetch inbox unread count
+  const fetchUnreadCount = useCallback(async () => {
+    if (!currentWorkspace?.id) return;
+    try {
+      const res = await api.get(`/api/v1/activities/workspace/${currentWorkspace.id}/inbox/unread-count`);
+      setInboxUnread(res.data.data?.count || 0);
+    } catch {}
+  }, [currentWorkspace?.id]);
+
+  useEffect(() => { fetchUnreadCount(); }, [fetchUnreadCount]);
+
+  // Mark as seen when user navigates to /inbox, then refresh count
+  useEffect(() => {
+    if (location.pathname === '/inbox' && currentWorkspace?.id && inboxUnread > 0) {
+      api.post(`/api/v1/activities/workspace/${currentWorkspace.id}/inbox/mark-seen`)
+        .then(() => setInboxUnread(0))
+        .catch(() => {});
+    }
+  }, [location.pathname, currentWorkspace?.id, inboxUnread]);
+
+  // Real-time: refresh count when tasks are assigned
+  useEffect(() => {
+    if (!currentWorkspace?.id || !user?.id) return;
+    const socketUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    const token = localStorage.getItem('accessToken');
+    const socket = io(socketUrl, { auth: { token }, transports: ['websocket'] });
+    socket.on('connect', () => socket.emit('join_workspace', currentWorkspace.id));
+    socket.on('my_tasks_changed', (data) => {
+      if (data?.affectedUserIds?.includes(user.id)) fetchUnreadCount();
+    });
+    return () => socket.disconnect();
+  }, [currentWorkspace?.id, user?.id, fetchUnreadCount]);
+
+  const handleCreateWorkspace = (e) => {
+    e.preventDefault();
+    if (!newWorkspaceName.trim() || creatingWorkspace) return;
+    setCreatingWorkspace(true);
+    dispatch(createWorkspace({ name: newWorkspaceName.trim() })).then((result) => {
+      setCreatingWorkspace(false);
+      if (result.payload && !result.error) {
+        dispatch(setCurrentWorkspace(result.payload));
+        setNewWorkspaceName('');
+        setShowCreateWorkspace(false);
+        navigate('/');
+      }
+    });
+  };
+
+  // Split into owned (role === OWNER) and joined (everything else).
+  // The role lives on the workspace object itself because workspaceService.getAll
+  // spreads `m.workspace` with `role: m.role` from the membership row.
+  const ownedWorkspaces  = (workspaces || []).filter(w => w.role === 'OWNER');
+  const joinedWorkspaces = (workspaces || []).filter(w => w.role !== 'OWNER');
+
+  const visibleProjects = showAllProjects ? projects : projects.slice(0, PROJECTS_VISIBLE_LIMIT);
+  const visibleOwned    = showAllOwned    ? ownedWorkspaces  : ownedWorkspaces.slice(0, WORKSPACES_VISIBLE_LIMIT);
+  const visibleJoined   = showAllJoined   ? joinedWorkspaces : joinedWorkspaces.slice(0, WORKSPACES_VISIBLE_LIMIT);
+  const hiddenProjectCount = Math.max(0, (projects?.length || 0) - PROJECTS_VISIBLE_LIMIT);
+  const hiddenOwnedCount   = Math.max(0, ownedWorkspaces.length  - WORKSPACES_VISIBLE_LIMIT);
+  const hiddenJoinedCount  = Math.max(0, joinedWorkspaces.length - WORKSPACES_VISIBLE_LIMIT);
+
+  // Render a single workspace row — active = in-app NavLink, others open in a new tab.
+  const renderWorkspaceRow = (ws) => {
+    const isActive = ws.id === currentWorkspace?.id;
+    const peopleIcon = (
+      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    );
+    if (isActive) {
+      return (
+        <NavLink
+          key={ws.id}
+          to={`/workspace/${ws.id}`}
+          className={({ isActive: routeActive }) =>
+            `flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+              routeActive
+                ? 'bg-white/10 text-white font-medium'
+                : 'text-white font-medium hover:bg-white/5'
+            }`
+          }
+        >
+          {peopleIcon}
+          <span className="truncate">{ws.name}</span>
+          <svg className="w-3 h-3 text-[var(--asana-sidebar-text-muted)] ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </NavLink>
+      );
+    }
+    return (
+      <a
+        key={ws.id}
+        href={`/?workspace=${ws.id}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={`Open ${ws.name} in a new tab`}
+        className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors text-[var(--asana-sidebar-text)] hover:bg-white/5 hover:text-white"
+      >
+        {peopleIcon}
+        <span className="truncate">{ws.name}</span>
+        <svg className="w-3 h-3 text-[var(--asana-sidebar-text-muted)] ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+      </a>
+    );
+  };
 
   const navItems = [
     {
@@ -43,6 +167,14 @@ function Sidebar({ isOpen }) {
         </svg>
       ),
     },
+    {
+      name: 'Reports', path: '/reports',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -51,8 +183,8 @@ function Sidebar({ isOpen }) {
         className={`${isOpen ? 'w-64' : 'w-0 overflow-hidden'} flex-shrink-0 flex flex-col h-full transition-all duration-300 ease-in-out z-40`}
         style={{ backgroundColor: 'var(--asana-sidebar-bg)', borderRight: '1px solid rgba(255,255,255,0.05)' }}
       >
-        {/* ── Logo / Workspace ── */}
-        <div className="px-4 py-3 flex items-center space-x-3 border-b border-white/5">
+        {/* ── Logo / Workspace ── (h-14 to match the main header height exactly) */}
+        <div className="h-14 px-4 flex items-center space-x-3 border-b border-white/5 flex-shrink-0">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-asana-coral to-[#e04030] flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-lg">
             A
           </div>
@@ -82,7 +214,12 @@ function Sidebar({ isOpen }) {
               }
             >
               {item.icon}
-              <span>{item.name}</span>
+              <span className="flex-1">{item.name}</span>
+              {item.name === 'Inbox' && inboxUnread > 0 && (
+                <span className="min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[9px] font-bold rounded-full px-1">
+                  {inboxUnread > 99 ? '99+' : inboxUnread}
+                </span>
+              )}
             </NavLink>
           ))}
 
@@ -105,8 +242,10 @@ function Sidebar({ isOpen }) {
 
             {showProjects && (
               <div className="mt-1 space-y-0.5 animate-fade-in">
-                {/* Skeleton while loading */}
-                {(projectsLoading || !projectsLoaded) ? (
+                {/* Skeleton while loading — only show when we have a workspace
+                    and are actively fetching. Without a workspace, no fetch
+                    ever fires, so the skeleton would loop forever. */}
+                {currentWorkspace && (projectsLoading || !projectsLoaded) ? (
                   <div className="space-y-1 px-3 animate-pulse">
                     {[...Array(5)].map((_, i) => (
                       <div key={i} className="flex items-center space-x-2.5 py-1.5">
@@ -115,26 +254,43 @@ function Sidebar({ isOpen }) {
                       </div>
                     ))}
                   </div>
+                ) : projects.length === 0 ? (
+                  <p className="px-3 py-2 text-[11px] text-[var(--asana-sidebar-text-muted)] italic">
+                    {currentWorkspace ? 'No projects yet. Create one to get started.' : 'Create a workspace first to add projects.'}
+                  </p>
                 ) : (
-                  projects.map((project) => (
-                    <NavLink
-                      key={project.id}
-                      to={`/project/${project.id}`}
-                      className={({ isActive }) =>
-                        `flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                          isActive
-                            ? 'bg-white/10 text-white font-medium'
-                            : 'text-[var(--asana-sidebar-text)] hover:bg-white/5 hover:text-white'
-                        }`
-                      }
-                    >
-                      <div
-                        className="w-2 h-2 rounded-sm flex-shrink-0"
-                        style={{ backgroundColor: project.color || '#4573D2' }}
-                      />
-                      <span className="truncate">{project.name}</span>
-                    </NavLink>
-                  ))
+                  <>
+                    {visibleProjects.map((project) => (
+                      <NavLink
+                        key={project.id}
+                        to={`/project/${project.id}`}
+                        className={({ isActive }) =>
+                          `flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                            isActive
+                              ? 'bg-white/10 text-white font-medium'
+                              : 'text-[var(--asana-sidebar-text)] hover:bg-white/5 hover:text-white'
+                          }`
+                        }
+                      >
+                        <div
+                          className="w-2 h-2 rounded-sm flex-shrink-0"
+                          style={{ backgroundColor: project.color || '#4573D2' }}
+                        />
+                        <span className="truncate">{project.name}</span>
+                      </NavLink>
+                    ))}
+                    {hiddenProjectCount > 0 && (
+                      <button
+                        onClick={() => setShowAllProjects((v) => !v)}
+                        className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-xs w-full text-left text-[var(--asana-sidebar-text-muted)] hover:bg-white/5 hover:text-white transition-colors"
+                      >
+                        <svg className={`w-3 h-3 transition-transform ${showAllProjects ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                        <span>{showAllProjects ? 'Show less' : `View all (${projects.length})`}</span>
+                      </button>
+                    )}
+                  </>
                 )}
 
                 {/* Create project button */}
@@ -151,46 +307,125 @@ function Sidebar({ isOpen }) {
                 )}
               </div>
             )}
-          {/* ── Teams section ── */}
+          {/* ── My Workspaces (role: OWNER) ── */}
           <div className="pt-5">
             <button
               className="w-full flex items-center justify-between px-3 py-1 group"
-              onClick={() => setShowTeams(!showTeams)}
+              onClick={() => setShowOwned(!showOwned)}
             >
               <span className="text-xs font-medium tracking-wide uppercase text-[var(--asana-sidebar-text-muted)]">
-                Teams
+                My Workspaces
               </span>
               <svg
-                className={`w-3 h-3 text-[var(--asana-sidebar-text-muted)] transition-transform duration-150 ${showTeams ? '' : '-rotate-90'}`}
+                className={`w-3 h-3 text-[var(--asana-sidebar-text-muted)] transition-transform duration-150 ${showOwned ? '' : '-rotate-90'}`}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
 
-            {showTeams && currentWorkspace && (
+            {showOwned && (
               <div className="mt-1 space-y-0.5 animate-fade-in">
-                <NavLink
-                  to={`/workspace/${currentWorkspace.id}`}
-                  className={({ isActive }) =>
-                    `flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                      isActive
-                        ? 'bg-white/10 text-white font-medium'
-                        : 'text-[var(--asana-sidebar-text)] hover:bg-white/5 hover:text-white'
-                    }`
-                  }
-                >
-                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <span className="truncate">{currentWorkspace.name}</span>
-                  <svg className="w-3 h-3 text-[var(--asana-sidebar-text-muted)] ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </NavLink>
+                {ownedWorkspaces.length === 0 && !showCreateWorkspace && (
+                  <p className="px-3 py-1 text-[11px] text-[var(--asana-sidebar-text-muted)] italic">
+                    You haven't created any workspaces yet.
+                  </p>
+                )}
+
+                {visibleOwned.map(renderWorkspaceRow)}
+
+                {hiddenOwnedCount > 0 && (
+                  <button
+                    onClick={() => setShowAllOwned((v) => !v)}
+                    className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-xs w-full text-left text-[var(--asana-sidebar-text-muted)] hover:bg-white/5 hover:text-white transition-colors"
+                  >
+                    <svg className={`w-3 h-3 transition-transform ${showAllOwned ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    <span>{showAllOwned ? 'Show less' : `View all (${ownedWorkspaces.length})`}</span>
+                  </button>
+                )}
+
+                {/* Create workspace — inline form with inline Create button + spinner */}
+                {showCreateWorkspace ? (
+                  <form onSubmit={handleCreateWorkspace} className="px-3 py-1.5">
+                    <div className="flex items-stretch space-x-1.5">
+                      <input
+                        type="text"
+                        value={newWorkspaceName}
+                        onChange={(e) => setNewWorkspaceName(e.target.value)}
+                        placeholder="Workspace name"
+                        autoFocus
+                        onKeyDown={(e) => { if (e.key === 'Escape') { setShowCreateWorkspace(false); setNewWorkspaceName(''); } }}
+                        className="flex-1 min-w-0 text-xs bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-white placeholder-[var(--asana-sidebar-text-muted)] outline-none focus:border-asana-blue disabled:opacity-50"
+                        disabled={creatingWorkspace}
+                      />
+                      <button
+                        type="submit"
+                        disabled={!newWorkspaceName.trim() || creatingWorkspace}
+                        className="flex-shrink-0 flex items-center justify-center px-2.5 rounded-md bg-asana-blue text-white text-xs font-medium hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all min-w-[58px]"
+                      >
+                        {creatingWorkspace ? (
+                          <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                            <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                          </svg>
+                        ) : 'Create'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <button
+                    onClick={() => setShowCreateWorkspace(true)}
+                    className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-sm transition-colors w-full text-left text-[var(--asana-sidebar-text-muted)] hover:bg-white/5 hover:text-white"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>Create workspace</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
+
+          {/* ── Joined Workspaces (role: ADMIN / MEMBER / etc.) ── */}
+          {joinedWorkspaces.length > 0 && (
+            <div className="pt-5">
+              <button
+                className="w-full flex items-center justify-between px-3 py-1 group"
+                onClick={() => setShowJoined(!showJoined)}
+              >
+                <span className="text-xs font-medium tracking-wide uppercase text-[var(--asana-sidebar-text-muted)]">
+                  Joined Workspaces
+                </span>
+                <svg
+                  className={`w-3 h-3 text-[var(--asana-sidebar-text-muted)] transition-transform duration-150 ${showJoined ? '' : '-rotate-90'}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showJoined && (
+                <div className="mt-1 space-y-0.5 animate-fade-in">
+                  {visibleJoined.map(renderWorkspaceRow)}
+
+                  {hiddenJoinedCount > 0 && (
+                    <button
+                      onClick={() => setShowAllJoined((v) => !v)}
+                      className="flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-xs w-full text-left text-[var(--asana-sidebar-text-muted)] hover:bg-white/5 hover:text-white transition-colors"
+                    >
+                      <svg className={`w-3 h-3 transition-transform ${showAllJoined ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      <span>{showAllJoined ? 'Show less' : `View all (${joinedWorkspaces.length})`}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           </div>
         </nav>
 

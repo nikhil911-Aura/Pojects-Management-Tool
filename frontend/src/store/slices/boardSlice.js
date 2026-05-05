@@ -65,7 +65,13 @@ export const reorderLists = createAsyncThunk(
 const initialState = {
   lists: [],
   loading: false,
-  error: null
+  error: null,
+  // Tracks which board the current committed `lists` array belongs to.
+  listsForBoardId: null,
+  // Tracks the LATEST board the user has requested. Updated in pending,
+  // checked in fulfilled to drop stale out-of-order responses (cross-board
+  // task leakage when switching workspaces fast).
+  pendingBoardId: null,
 };
 
 const boardSlice = createSlice({
@@ -74,16 +80,87 @@ const boardSlice = createSlice({
   reducers: {
     moveTask: (state, action) => {
       const { taskId, sourceListId, destinationListId, sourceIndex, destinationIndex } = action.payload;
-      
+
       const sourceList = state.lists.find(l => l.id === sourceListId);
       const destList = state.lists.find(l => l.id === destinationListId);
-      
+
       if (sourceList && destList) {
         const taskIndex = sourceList.tasks.findIndex(t => t.id === taskId);
         if (taskIndex !== -1) {
           const [task] = sourceList.tasks.splice(taskIndex, 1);
           destList.tasks.splice(destinationIndex, 0, task);
         }
+      }
+    },
+    /**
+     * Comprehensive optimistic move that handles ALL drag-and-drop cases:
+     *   1. Top-level task → another section
+     *   2. Top-level task → another task's subtasks (becomes subtask)
+     *   3. Subtask → a section (gets promoted to top-level)
+     *   4. Subtask → another parent's subtasks (reparented)
+     *   5. Reorder within same container (section or parent)
+     *
+     * Payload:
+     *   { taskId, destListId, destParentId | null, destinationIndex }
+     *
+     * The reducer recursively walks all lists/subtasks to find and detach
+     * the task, then inserts it at the destination position. It mutates the
+     * task's listId/parentId so subsequent renders stay consistent.
+     */
+    optimisticMoveTaskAnywhere: (state, action) => {
+      const { taskId, destListId, destParentId, destinationIndex } = action.payload;
+
+      // Step 1: locate and detach the task from wherever it lives.
+      let detached = null;
+      const detachFromArray = (arr) => {
+        if (!arr) return false;
+        const idx = arr.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+          detached = arr.splice(idx, 1)[0];
+          return true;
+        }
+        for (const t of arr) {
+          if (detachFromArray(t.subtasks)) return true;
+        }
+        return false;
+      };
+      for (const list of state.lists) {
+        if (detachFromArray(list.tasks)) break;
+      }
+      if (!detached) return; // task not found — bail (state stays consistent)
+
+      // Step 2: locate the destination container and insert at the right index.
+      const destList = state.lists.find(l => l.id === destListId);
+      if (!destList) return;
+
+      // Update the task's own listId so future renders/refetches stay aligned.
+      detached.listId = destListId;
+      detached.parentId = destParentId || null;
+
+      if (destParentId) {
+        // Inserting under a parent task — find it (anywhere in the tree) and push into its subtasks.
+        const findParent = (arr) => {
+          if (!arr) return null;
+          for (const t of arr) {
+            if (t.id === destParentId) return t;
+            const found = findParent(t.subtasks);
+            if (found) return found;
+          }
+          return null;
+        };
+        const parent = findParent(destList.tasks) || (() => {
+          for (const l of state.lists) { const f = findParent(l.tasks); if (f) return f; }
+          return null;
+        })();
+        if (!parent) return;
+        if (!parent.subtasks) parent.subtasks = [];
+        const insertAt = Math.max(0, Math.min(destinationIndex, parent.subtasks.length));
+        parent.subtasks.splice(insertAt, 0, detached);
+      } else {
+        // Inserting as a top-level task in a section.
+        if (!destList.tasks) destList.tasks = [];
+        const insertAt = Math.max(0, Math.min(destinationIndex, destList.tasks.length));
+        destList.tasks.splice(insertAt, 0, detached);
       }
     },
     clearLists: (state) => {
@@ -228,12 +305,31 @@ const boardSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchLists.pending, (state) => {
+      .addCase(fetchLists.pending, (state, action) => {
         state.loading = true;
+        const requestedBoardId = action.meta.arg;
+        // Always record the latest requested board so we can recognize stale
+        // responses in fulfilled/rejected.
+        state.pendingBoardId = requestedBoardId;
+        // If we're switching to a different board, wipe the previous board's
+        // tasks immediately so they don't flash on screen during the load.
+        if (requestedBoardId !== state.listsForBoardId) {
+          state.lists = [];
+          state.listsForBoardId = null;
+        }
       })
       .addCase(fetchLists.fulfilled, (state, action) => {
+        const requestedBoardId = action.meta.arg;
+        // Race-condition guard: drop the response if the user has already
+        // moved on to a different board. Prevents cross-workspace task leakage
+        // when switching projects fast (slow A response would otherwise
+        // overwrite the freshly-loaded B data).
+        if (state.pendingBoardId && state.pendingBoardId !== requestedBoardId) {
+          return;
+        }
         state.loading = false;
         state.lists = action.payload;
+        state.listsForBoardId = requestedBoardId;
       })
       .addCase(fetchLists.rejected, (state, action) => {
         state.loading = false;
@@ -324,5 +420,5 @@ const boardSlice = createSlice({
   }
 });
 
-export const { moveTask, clearLists, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticRenameSection, optimisticReplaceItem } = boardSlice.actions;
+export const { moveTask, optimisticMoveTaskAnywhere, clearLists, optimisticAddTask, optimisticAddSubtask, optimisticAddSection, optimisticUpdateTask, optimisticDeleteTask, optimisticAssignUser, optimisticRenameSection, optimisticReplaceItem } = boardSlice.actions;
 export default boardSlice.reducer;

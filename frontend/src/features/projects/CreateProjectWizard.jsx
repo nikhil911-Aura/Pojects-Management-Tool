@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { createProject } from '../../store/slices/projectSlice';
@@ -55,12 +55,27 @@ const PRIVACY_OPTIONS = [
 function CreateProjectWizard({ isOpen, onClose }) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { currentWorkspace } = useAppSelector((state) => state.workspace);
+  const { currentWorkspace, workspaces } = useAppSelector((state) => state.workspace);
   const { isGuest } = useRole();
 
   const [step, setStep] = useState(1); // 1 = details, 2 = views
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState(null);
   const [showPrivacyDropdown, setShowPrivacyDropdown] = useState(false);
+  const [showWorkspaceDropdown, setShowWorkspaceDropdown] = useState(false);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(currentWorkspace?.id || '');
+  const privacyBtnRef = useRef(null);
+  const workspaceBtnRef = useRef(null);
+  const [privacyPos, setPrivacyPos] = useState({ top: 0, left: 0 });
+  const [workspacePos, setWorkspacePos] = useState({ top: 0, left: 0 });
+
+  // Sync selectedWorkspaceId every time the wizard opens so it always reflects
+  // the current workspace even if currentWorkspace wasn't set on first mount.
+  useEffect(() => {
+    if (isOpen) setSelectedWorkspaceId(currentWorkspace?.id || '');
+  }, [isOpen, currentWorkspace?.id]);
+
+  const selectedWorkspace = workspaces?.find(w => w.id === selectedWorkspaceId) || currentWorkspace;
 
   // Guests can only create Private projects
   const [projectData, setProjectData] = useState({
@@ -85,15 +100,16 @@ function CreateProjectWizard({ isOpen, onClose }) {
   };
 
   const handleCreate = async () => {
-    if (!currentWorkspace?.id || !projectData.name.trim() || creating) return;
+    if (!selectedWorkspaceId || !projectData.name.trim() || creating) return;
     setCreating(true);
+    setCreateError(null);
 
     const backendVisibility = projectData.visibility === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC';
     const isPrivate = projectData.visibility === 'PRIVATE';
 
     try {
       const result = await dispatch(createProject({
-        workspaceId: currentWorkspace.id,
+        workspaceId: selectedWorkspaceId,
         projectData: {
           name: projectData.name.trim(),
           description: projectData.description?.trim() || undefined,
@@ -108,7 +124,7 @@ function CreateProjectWizard({ isOpen, onClose }) {
       const dest = `/project/${result.id}`;
       navigate(isPrivate ? `${dest}?share=1` : dest);
     } catch (err) {
-      console.error('Failed to create project:', err);
+      setCreateError(err?.message || 'Failed to create project. Please try again.');
     } finally {
       setCreating(false);
     }
@@ -116,6 +132,7 @@ function CreateProjectWizard({ isOpen, onClose }) {
 
   const resetForm = () => {
     setStep(1);
+    setCreateError(null);
     setProjectData({ name: '', description: '', color: PROJECT_COLORS[0], visibility: 'PUBLIC' });
     setSelectedViews(() => {
       const initial = {};
@@ -165,27 +182,79 @@ function CreateProjectWizard({ isOpen, onClose }) {
                 />
               </div>
 
-              {/* Team + Privacy row */}
+              {/* Workspace + Privacy row */}
               <div className="flex space-x-3">
-                {/* Select a team (static for now) */}
+                {/* Workspace selector — dynamic dropdown of all workspaces the user belongs to */}
                 <div className="flex-1">
-                  <label className="block text-xs font-medium text-[var(--asana-text-secondary)] mb-1.5">Select a team</label>
-                  <div className="relative">
-                    <div className="flex items-center px-3 py-2.5 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg text-sm text-[var(--asana-text-primary)] cursor-default">
-                      <span className="truncate">{currentWorkspace?.name || 'Workspace'}</span>
-                      <svg className="w-4 h-4 ml-auto text-[var(--asana-text-secondary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
+                  <label className="block text-xs font-medium text-[var(--asana-text-secondary)] mb-1.5">Workspace</label>
+                  <button
+                    ref={workspaceBtnRef}
+                    type="button"
+                    onClick={() => {
+                      if (workspaceBtnRef.current) {
+                        const r = workspaceBtnRef.current.getBoundingClientRect();
+                        setWorkspacePos({ top: r.bottom + 4, left: r.left, width: r.width });
+                      }
+                      setShowWorkspaceDropdown(!showWorkspaceDropdown);
+                      setShowPrivacyDropdown(false);
+                    }}
+                    className="w-full flex items-center px-3 py-2.5 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg text-sm text-[var(--asana-text-primary)] hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+                  >
+                    <span className="truncate">{selectedWorkspace?.name || 'Select workspace'}</span>
+                    <svg className="w-4 h-4 ml-auto text-[var(--asana-text-secondary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {showWorkspaceDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-[300]" onClick={() => setShowWorkspaceDropdown(false)} />
+                      <div className="fixed z-[301] bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1 animate-fade-in max-h-60 overflow-y-auto"
+                        style={{ top: workspacePos.top, left: workspacePos.left, width: workspacePos.width }}>
+                        {(workspaces || []).map((ws) => (
+                          <button
+                            key={ws.id}
+                            onClick={() => { setSelectedWorkspaceId(ws.id); setShowWorkspaceDropdown(false); }}
+                            className={`w-full flex items-center px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
+                              ws.id === selectedWorkspaceId ? 'bg-asana-blue/5 dark:bg-asana-blue/10' : ''
+                            }`}
+                          >
+                            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-asana-coral to-[#e04030] flex items-center justify-center text-white text-[10px] font-bold mr-2.5 flex-shrink-0">
+                              {ws.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-sm text-[var(--asana-text-primary)] truncate">{ws.name}</span>
+                            {ws.id === selectedWorkspaceId && (
+                              <svg className="w-4 h-4 text-asana-blue ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                {/* Privacy dropdown */}
-                <div className="flex-1 relative">
+                {/* Privacy dropdown — uses fixed positioning so it doesn't overflow the modal */}
+                <div className="flex-1">
                   <label className="block text-xs font-medium text-[var(--asana-text-secondary)] mb-1.5">Privacy</label>
                   <button
+                    ref={privacyBtnRef}
                     type="button"
-                    onClick={() => !isGuest && setShowPrivacyDropdown(!showPrivacyDropdown)}
+                    onClick={() => {
+                      if (isGuest) return;
+                      if (privacyBtnRef.current) {
+                        const r = privacyBtnRef.current.getBoundingClientRect();
+                        const spaceBelow = window.innerHeight - r.bottom;
+                        setPrivacyPos({
+                          top: spaceBelow < 250 ? null : r.bottom + 4,
+                          bottom: spaceBelow < 250 ? (window.innerHeight - r.top + 4) : null,
+                          left: r.left,
+                          width: Math.max(r.width, 288),
+                        });
+                      }
+                      setShowPrivacyDropdown(!showPrivacyDropdown);
+                      setShowWorkspaceDropdown(false);
+                    }}
                     className={`w-full flex items-center px-3 py-2.5 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg text-sm text-[var(--asana-text-primary)] transition-colors ${
                       isGuest ? 'opacity-70 cursor-not-allowed' : 'hover:border-gray-400 dark:hover:border-gray-500'
                     }`}
@@ -204,8 +273,9 @@ function CreateProjectWizard({ isOpen, onClose }) {
 
                   {showPrivacyDropdown && !isGuest && (
                     <>
-                      <div className="fixed inset-0 z-10" onClick={() => setShowPrivacyDropdown(false)} />
-                      <div className="absolute top-full left-0 mt-1 w-72 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-xl z-20 py-1 animate-fade-in">
+                      <div className="fixed inset-0 z-[300]" onClick={() => setShowPrivacyDropdown(false)} />
+                      <div className="fixed z-[301] bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1 animate-fade-in"
+                        style={{ top: privacyPos.top ?? 'auto', bottom: privacyPos.bottom ?? 'auto', left: privacyPos.left, width: privacyPos.width }}>
                         {PRIVACY_OPTIONS.map((opt) => (
                           <button
                             key={opt.value}
@@ -314,8 +384,13 @@ function CreateProjectWizard({ isOpen, onClose }) {
 
             <p className="text-xs text-asana-blue cursor-pointer hover:underline mt-4 mb-5">Show more views</p>
 
+            {/* Error message */}
+            {createError && (
+              <p className="text-xs text-red-500 mt-3">{createError}</p>
+            )}
+
             {/* Navigation buttons */}
-            <div className="flex space-x-3">
+            <div className="flex space-x-3 mt-3">
               <button
                 onClick={() => setStep(1)}
                 className="flex-1 py-3 text-sm font-semibold border border-[var(--asana-border)] rounded-lg text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"

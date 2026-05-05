@@ -1,67 +1,106 @@
 import { useAppSelector } from '../store/hooks';
 
 /**
- * Asana-style two-level role system.
+ * Two-level role system with named reusable project roles.
  *
- * ── Workspace level ──────────────────────────────────────────────────────────
- *   ADMIN / OWNER  →  full control; bypasses all project-level restrictions
- *   MEMBER         →  governed by their ProjectRole within each project
- *   GUEST          →  external user; can ONLY see projects they're added to
+ * Each project has CustomProjectRole rows (3 system + any custom ones).
+ * Each ProjectMember has a `customRole` FK pointing to one of these roles.
+ * The role's `permissions` JSON object determines what the member can do.
  *
- * ── Project level ────────────────────────────────────────────────────────────
- *   EDITOR         →  full read / write / manage within the project
- *   COMMENTER      →  view + comment; cannot edit tasks or sections
- *   VIEWER         →  read-only; cannot comment or edit
- *
- * ── Returned values ──────────────────────────────────────────────────────────
- *   workspaceRole       — 'ADMIN' | 'MEMBER' | 'GUEST' | 'OWNER' | null
- *   projectRole         — 'EDITOR' | 'COMMENTER' | 'VIEWER' | null
- *   isWorkspaceAdmin    — OWNER or ADMIN (bypasses all project checks)
- *   isGuest             — workspace GUEST
- *   canEdit             — can create/edit/delete tasks and sections
- *   canComment          — can post comments (EDITOR or COMMENTER)
- *   canView             — can view the project at all
- *   canManageWorkspace  — can manage workspace members / settings
- *   canCreateProject    — can create new projects (all workspace members including guests)
+ * Workspace ADMIN/OWNER always bypass all project-level checks.
  */
+
 export function useRole() {
   const { currentWorkspace } = useAppSelector((state) => state.workspace);
   const { currentProject }   = useAppSelector((state) => state.project);
   const { user }             = useAppSelector((state) => state.auth);
 
-  // workspaceService.getById() attaches `role` at the top level of the workspace object
   const workspaceRole = currentWorkspace?.role ?? null;
   const isWorkspaceAdmin = workspaceRole === 'OWNER' || workspaceRole === 'ADMIN';
   const isGuest = workspaceRole === 'GUEST';
 
+  // Workspace-level custom role permissions (set by OWNER/ADMIN on workspace members)
+  const workspaceMember = currentWorkspace?.members?.find((m) => m.userId === user?.id);
+  const workspaceCustomRolePerms =
+    workspaceMember?.customRole?.permissions &&
+    typeof workspaceMember.customRole.permissions === 'object'
+      ? workspaceMember.customRole.permissions
+      : {};
+  const canWorkspace = (key) => isWorkspaceAdmin || !!workspaceCustomRolePerms[key];
+
   // Find the current user's project membership
   const projectMember = currentProject?.members?.find((m) => m.userId === user?.id);
+  const isProjectMember = !!projectMember;
 
-  // Workspace admins are always effectively Editors within any project
-  const projectRole = isWorkspaceAdmin
-    ? 'EDITOR'
-    : (projectMember?.projectRole ?? null);
+  // Read the named role from the new customRole FK (preferred),
+  // falling back to the legacy projectRole enum for un-migrated data.
+  const customRole = projectMember?.customRole ?? null;      // { id, name, permissions, isSystem, color, ... }
+  const legacyRole = projectMember?.projectRole ?? null;     // 'EDITOR' | 'COMMENTER' | 'VIEWER' | 'CUSTOM' | null
 
-  // Project visibility affects whether a non-member MEMBER can view the project
+  // Resolve the effective permission map.
+  // Priority: workspace admin → customRole.permissions → legacy enum fallback.
+  let perms = {};
+  if (isWorkspaceAdmin) {
+    // Admin gets everything — no need to resolve
+    perms = new Proxy({}, { get: () => true });
+  } else if (customRole?.permissions && typeof customRole.permissions === 'object') {
+    perms = customRole.permissions;
+  } else {
+    // Legacy fallback for un-migrated members
+    switch (legacyRole) {
+      case 'EDITOR':
+        perms = new Proxy({}, { get: () => true });
+        break;
+      case 'COMMENTER':
+        perms = { 'comment.create': true, 'comment.delete': true, 'time.track': true };
+        break;
+      default:
+        perms = {};
+    }
+  }
+
+  // Granular permission checker — project-level perms first, workspace custom role as fallback
+  const can = (key) => {
+    if (isWorkspaceAdmin) return true;
+    if (!!perms[key]) return true;
+    return !!workspaceCustomRolePerms[key];
+  };
+
+  // The role name to display in the UI (badge text)
+  const roleName = isWorkspaceAdmin
+    ? 'Editor'
+    : (customRole?.name || legacyRole || null);
+
+  const roleColor = customRole?.color || null;
+
   const projectVisibility = currentProject?.visibility ?? null;
   const canView = isWorkspaceAdmin
-    || projectRole !== null
+    || customRole !== null
+    || legacyRole !== null
     || (workspaceRole === 'MEMBER' && projectVisibility === 'PUBLIC');
 
   return {
     workspaceRole,
-    projectRole,
+    projectRole: legacyRole,       // backward compat
+    customRole,                    // full role object for display
+    roleName,                      // "Editor", "QA Tester", etc.
+    roleColor,                     // badge color
     isWorkspaceAdmin,
+    isProjectMember,
     isGuest,
 
-    // Project-scoped permissions
-    canEdit:    isWorkspaceAdmin || projectRole === 'EDITOR',
-    canComment: isWorkspaceAdmin || projectRole === 'EDITOR' || projectRole === 'COMMENTER',
+    // Granular: can('task.delete'), can('project.invite'), etc.
+    can,
+
+    // Convenience aliases (backward compatible)
+    canEdit:    can('task.edit'),
+    canComment: can('comment.create'),
     canView,
 
-    // Workspace-scoped permissions
+    // Workspace-scoped
     canManageWorkspace: isWorkspaceAdmin,
-    canCreateProject:   workspaceRole !== null, // all workspace members including guests (guests can only create Private)
+    canCreateProject:   workspaceRole !== null,
+    canWorkspace,       // canWorkspace('report.viewTeam'), canWorkspace('project.viewPrivate'), etc.
   };
 }
 

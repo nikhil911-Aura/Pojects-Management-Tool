@@ -3,7 +3,7 @@ import { successResponse, createdResponse } from '../../core/utils/apiResponse.j
 
 const timeTrackingController = {
   async getEntries(req, res) {
-    const entries = await timeTrackingService.getEntries(req.params.taskId);
+    const entries = await timeTrackingService.getEntries(req.params.taskId, req.user.id);
     return successResponse(res, entries);
   },
 
@@ -33,7 +33,7 @@ const timeTrackingController = {
   },
 
   async getTimerStatus(req, res) {
-    const result = await timeTrackingService.getTimerStatus(req.params.taskId);
+    const result = await timeTrackingService.getTimerStatus(req.params.taskId, req.user.id);
     return successResponse(res, result);
   }
 };

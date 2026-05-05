@@ -1,6 +1,7 @@
 import prisma from '../../core/database/prisma.js';
 import { ApiError } from '../../core/utils/apiResponse.js';
 import { emitToProject } from '../../core/socket.js';
+import { cloudinary } from '../../core/cloudinary.js';
 
 function isWorkspaceAdmin(workspaceRole) {
   return workspaceRole === 'OWNER' || workspaceRole === 'ADMIN';
@@ -8,13 +9,16 @@ function isWorkspaceAdmin(workspaceRole) {
 
 function canAccessProject(workspaceRole, projectVisibility, projectRole) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
-  if (workspaceRole === 'MEMBER' && projectVisibility === 'PUBLIC') return true;
+  if (projectVisibility === 'PUBLIC') return true;
   return projectRole !== null;
 }
 
-function canEditProject(workspaceRole, projectRole) {
+function hasPermission(workspaceRole, projectRole, customPermissions, key) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
-  return projectRole === 'EDITOR';
+  if (customPermissions && typeof customPermissions === 'object') return !!customPermissions[key];
+  if (projectRole === 'EDITOR') return true;
+  if (projectRole === 'COMMENTER' && (key === 'comment.create' || key === 'comment.delete' || key === 'time.track')) return true;
+  return false;
 }
 
 async function getContextFromBoard(boardId, userId) {
@@ -23,8 +27,8 @@ async function getContextFromBoard(boardId, userId) {
     include: {
       project: {
         include: {
-          workspace: { include: { members: { where: { userId } } } },
-          members: { where: { userId } }
+          workspace: { include: { members: { where: { userId }, select: { role: true, customRoleId: true } } } },
+          members: { where: { userId }, include: { customRole: true } }
         }
       }
     }
@@ -38,12 +42,26 @@ async function getContextFromBoard(boardId, userId) {
 
   const projectMember = project.members[0] || null;
   const projectRole = projectMember?.projectRole ?? null;
+  const customPermissions = projectMember?.customRole?.permissions ?? null;
 
   if (!canAccessProject(workspaceMember.role, project.visibility, projectRole)) {
-    throw ApiError.forbidden('You do not have access to this board');
+    // Only a workspace-level custom role with `project.viewPrivate` grants access
+    // to private projects the user isn't a member of. Project-level roles must not
+    // leak cross-project visibility.
+    const wsPerms = workspaceMember.customRoleId
+      ? (await prisma.customProjectRole.findUnique({
+          where: { id: workspaceMember.customRoleId },
+          select: { permissions: true },
+        }))?.permissions
+      : null;
+    const canViewAllPrivate = !!(wsPerms && typeof wsPerms === 'object' && wsPerms['project.viewPrivate']);
+
+    if (!canViewAllPrivate) {
+      throw ApiError.forbidden('You do not have access to this board');
+    }
   }
 
-  return { board, workspaceMember, projectRole };
+  return { board, workspaceMember, projectRole, customPermissions };
 }
 
 async function getContextFromList(listId, userId) {
@@ -54,8 +72,8 @@ async function getContextFromList(listId, userId) {
         include: {
           project: {
             include: {
-              workspace: { include: { members: { where: { userId } } } },
-              members: { where: { userId } }
+              workspace: { include: { members: { where: { userId }, select: { role: true, customRoleId: true } } } },
+              members: { where: { userId }, include: { customRole: true } }
             }
           }
         }
@@ -71,22 +89,33 @@ async function getContextFromList(listId, userId) {
 
   const projectMember = project.members[0] || null;
   const projectRole = projectMember?.projectRole ?? null;
+  const customPermissions = projectMember?.customRole?.permissions ?? null;
 
   if (!canAccessProject(workspaceMember.role, project.visibility, projectRole)) {
-    throw ApiError.forbidden('You do not have access to this list');
+    const wsPerms = workspaceMember.customRoleId
+      ? (await prisma.customProjectRole.findUnique({
+          where: { id: workspaceMember.customRoleId },
+          select: { permissions: true },
+        }))?.permissions
+      : null;
+    const canViewAllPrivate = !!(wsPerms && typeof wsPerms === 'object' && wsPerms['project.viewPrivate']);
+
+    if (!canViewAllPrivate) {
+      throw ApiError.forbidden('You do not have access to this list');
+    }
   }
 
-  return { list, workspaceMember, projectRole };
+  return { list, workspaceMember, projectRole, customPermissions };
 }
 
 export const listService = {
   // Create list — EDITOR or workspace Admin
   async create(boardId, userId, listData, excludeSocketId) {
     const { name } = listData;
-    const { board, workspaceMember, projectRole } = await getContextFromBoard(boardId, userId);
+    const { board, workspaceMember, projectRole, customPermissions } = await getContextFromBoard(boardId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
-      throw ApiError.forbidden('You need Editor access to add sections');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'section.create')) {
+      throw ApiError.forbidden('You do not have permission to create sections');
     }
 
     const lastList = await prisma.list.findFirst({
@@ -105,7 +134,7 @@ export const listService = {
 
   // Get all lists — any project-accessible member
   async getAll(boardId, userId) {
-    const { workspaceMember, projectRole } = await getContextFromBoard(boardId, userId);
+    const { workspaceMember, projectRole, customPermissions } = await getContextFromBoard(boardId, userId);
     // Access already verified in getContextFromBoard
 
     return prisma.list.findMany({
@@ -149,10 +178,10 @@ export const listService = {
 
   // Update list — EDITOR or workspace Admin
   async update(listId, userId, updateData, excludeSocketId) {
-    const { list, workspaceMember, projectRole } = await getContextFromList(listId, userId);
+    const { list, workspaceMember, projectRole, customPermissions } = await getContextFromList(listId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
-      throw ApiError.forbidden('You need Editor access to update sections');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'section.edit')) {
+      throw ApiError.forbidden('You do not have permission to edit sections');
     }
 
     const { name, position } = updateData;
@@ -169,10 +198,24 @@ export const listService = {
 
   // Delete list — EDITOR or workspace Admin
   async delete(listId, userId, excludeSocketId) {
-    const { list: listCtx, workspaceMember, projectRole } = await getContextFromList(listId, userId);
+    const { list: listCtx, workspaceMember, projectRole, customPermissions } = await getContextFromList(listId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
-      throw ApiError.forbidden('You need Editor access to delete sections');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'section.delete')) {
+      throw ApiError.forbidden('You do not have permission to delete sections');
+    }
+
+    // Clean up Cloudinary files for all tasks in this section before cascade delete.
+    const attachments = await prisma.attachment.findMany({
+      where: { task: { listId } },
+      select: { publicId: true, url: true },
+    });
+    if (attachments.length > 0) {
+      const extractId = (url) => { try { const m = url?.match(/\/upload\/(?:v\d+\/)?(.*?)(?:\.[a-zA-Z0-9]+)?$/); return m?.[1] || null; } catch { return null; } };
+      const ids = attachments.map(a => a.publicId || extractId(a.url)).filter(Boolean);
+      for (let i = 0; i < ids.length; i += 100) {
+        cloudinary.api.delete_resources(ids.slice(i, i + 100), { resource_type: 'image' })
+          .catch(err => console.warn('[delete section] Cloudinary cleanup failed (non-fatal):', err.message));
+      }
     }
 
     await prisma.list.delete({ where: { id: listId } });
@@ -182,10 +225,10 @@ export const listService = {
 
   // Reorder lists — EDITOR or workspace Admin
   async reorder(boardId, userId, listIds) {
-    const { workspaceMember, projectRole } = await getContextFromBoard(boardId, userId);
+    const { workspaceMember, projectRole, customPermissions } = await getContextFromBoard(boardId, userId);
 
-    if (!canEditProject(workspaceMember.role, projectRole)) {
-      throw ApiError.forbidden('You need Editor access to reorder sections');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'section.edit')) {
+      throw ApiError.forbidden('You do not have permission to reorder sections');
     }
 
     const updates = listIds.map((id, index) =>

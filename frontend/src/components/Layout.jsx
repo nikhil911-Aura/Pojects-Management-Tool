@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logout } from '../store/slices/authSlice';
@@ -8,7 +8,9 @@ import { searchTasks, clearSearchResults } from '../store/slices/taskSlice';
 import { useTheme } from '../context/ThemeContext';
 import Sidebar from './Sidebar';
 import InviteModal from '../features/workspace/InviteModal';
+import CreateProjectWizard from '../features/projects/CreateProjectWizard';
 import { useWorkspaceSocket } from '../hooks/useWorkspaceSocket';
+import { useRole } from '../hooks/useRole';
 
 function Layout() {
   const dispatch = useAppDispatch();
@@ -18,13 +20,49 @@ function Layout() {
   const { user } = useAppSelector((state) => state.auth);
   const { workspaces, currentWorkspace } = useAppSelector((state) => state.workspace);
   const { searchResults } = useAppSelector((state) => state.task);
+  const projectsForWorkspaceId = useAppSelector((state) => state.project.projectsForWorkspaceId);
+  const { isWorkspaceAdmin, canCreateProject } = useRole();
 
-  // Workspace-level socket for live sidebar updates
-  useWorkspaceSocket();
+  const [toasts, setToasts] = useState([]);
+
+  const dismissToast = useCallback((id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  const handleMyTasksChanged = useCallback((data) => {
+    if (data?.assignedUserId !== user?.id) return;
+    if (data?.action !== 'assigned' && data?.action !== 'reassigned') return;
+
+    const id = Date.now();
+    const toast = { id, taskTitle: data.taskTitle || 'A task', taskId: data.taskId };
+    setToasts(prev => [...prev, toast]);
+    setTimeout(() => dismissToast(id), 6000);
+
+    // Browser notification when tab is not visible
+    if (document.hidden && Notification.permission === 'granted') {
+      const n = new Notification('New task assigned to you', {
+        body: data.taskTitle || 'You have a new task in your inbox',
+        icon: '/favicon.ico',
+        tag: `task-${data.taskId}`,
+      });
+      n.onclick = () => { window.focus(); navigate('/inbox'); n.close(); };
+    }
+  }, [user?.id, navigate, dismissToast]);
+
+  // Request browser notification permission once after login
+  useEffect(() => {
+    if (user && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, [user]);
+
+  // Workspace-level socket for live sidebar updates + inbox notifications
+  useWorkspaceSocket({ onMyTasksChanged: handleMyTasksChanged });
 
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -39,18 +77,61 @@ function Layout() {
     }
   }, [dispatch]);
 
+  // Workspace bootstrap priority:
+  //   1. ?workspace={id} in URL (new-tab / reload with explicit workspace)
+  //   2. localStorage.lastWorkspaceId (persisted before logout — restore session)
+  //   3. workspaces[0] (first workspace as ultimate fallback)
   useEffect(() => {
-    if (workspaces.length > 0 && !currentWorkspace) {
+    if (!workspaces.length) return;
+
+    // Priority 1: URL param
+    const params = new URLSearchParams(window.location.search);
+    const urlWsId = params.get('workspace');
+    if (urlWsId) {
+      const requested = workspaces.find(w => w.id === urlWsId);
+      if (requested && currentWorkspace?.id !== requested.id) {
+        dispatch(setCurrentWorkspace(requested));
+        localStorage.setItem('lastWorkspaceId', requested.id);
+        return;
+      }
+      if (!requested) {
+        params.delete('workspace');
+        const qs = params.toString();
+        window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+      }
+    }
+
+    // Priority 2: last workspace from previous session
+    if (!currentWorkspace) {
+      const lastWsId = localStorage.getItem('lastWorkspaceId');
+      if (lastWsId) {
+        const last = workspaces.find(w => w.id === lastWsId);
+        if (last) {
+          dispatch(setCurrentWorkspace(last));
+          return;
+        }
+        // Stale — workspace no longer accessible. Clean up.
+        localStorage.removeItem('lastWorkspaceId');
+      }
+    }
+
+    // Priority 3: first workspace
+    if (!currentWorkspace) {
       dispatch(setCurrentWorkspace(workspaces[0]));
     }
   }, [workspaces, currentWorkspace, dispatch]);
 
-  // Single source: fetch projects whenever workspace changes
+  // Single source: fetch projects whenever the workspace ID changes.
+  // IMPORTANT: depend on the ID, not the whole object — otherwise lazy enrichment
+  // (e.g. ShareModal's fetchWorkspace) produces a new object reference and
+  // re-fetches projects unnecessarily, causing the sidebar to flash.
+  // Also skip the fetch if the projects array already belongs to this workspace
+  // (e.g. user navigated away and back, or component remounted).
   useEffect(() => {
-    if (currentWorkspace?.id) {
-      dispatch(fetchProjects(currentWorkspace.id));
-    }
-  }, [currentWorkspace, dispatch]);
+    if (!currentWorkspace?.id) return;
+    if (projectsForWorkspaceId === currentWorkspace.id) return;
+    dispatch(fetchProjects(currentWorkspace.id));
+  }, [currentWorkspace?.id, projectsForWorkspaceId, dispatch]);
 
   // Close menus on outside click
   useEffect(() => {
@@ -77,6 +158,10 @@ function Layout() {
   }, [searchQuery, currentWorkspace, dispatch]);
 
   const handleLogout = () => {
+    // Persist the active workspace so we can restore it after re-login.
+    if (currentWorkspace?.id) {
+      localStorage.setItem('lastWorkspaceId', currentWorkspace.id);
+    }
     dispatch(logout());
     navigate('/login');
   };
@@ -110,7 +195,7 @@ function Layout() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* ── Header ── */}
-        <header className="h-14 bg-[var(--asana-surface)] border-b border-[var(--asana-border)] px-2 sm:px-4 flex items-center justify-between sticky top-0 z-30">
+        <header className="h-14 bg-[var(--asana-surface)] border-b border-[var(--asana-border)] px-2 sm:px-4 flex items-center justify-between sticky top-0 z-40">
           <div className="flex items-center space-x-2 sm:space-x-3">
             {/* Sidebar toggle */}
             <button
@@ -190,7 +275,7 @@ function Layout() {
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className={`text-sm font-medium truncate ${task.status === 'DONE' ? 'line-through text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>{task.title}</p>
+                            <p className={`text-sm font-medium truncate ${task.status === 'DONE' ? 'text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>{task.title}</p>
                             <div className="flex items-center space-x-1.5 mt-0.5">
                               <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: projectColor }} />
                               <p className="text-[11px] text-[var(--asana-text-secondary)] truncate">{projectName} &middot; {task.list?.name}</p>
@@ -199,7 +284,7 @@ function Layout() {
                           {task.assignees?.length > 0 && (
                             <div
                               className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0"
-                              style={{ backgroundColor: `hsl(${task.assignees[0].user?.name?.charCodeAt(0) * 15}, 60%, 50%)` }}
+                              style={{ backgroundColor: `hsl(${(task.assignees[0].user?.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}
                               title={task.assignees[0].user?.name}
                             >
                               {task.assignees[0].user?.name?.charAt(0).toUpperCase()}
@@ -239,45 +324,49 @@ function Layout() {
               )}
             </button>
 
-            {/* Quick Add */}
-            <div className="relative" ref={quickAddRef}>
-              <button
-                onClick={() => setShowQuickAdd(!showQuickAdd)}
-                className="bg-asana-coral hover:opacity-90 text-white rounded-full w-7 h-7 flex items-center justify-center shadow transition-all"
-                aria-label="Quick add"
-              >
-                <svg
-                  className="w-4 h-4 transition-transform duration-200"
-                  style={{ transform: showQuickAdd ? 'rotate(45deg)' : 'none' }}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            {/* Quick Add — only visible when user can do at least one action */}
+            {(isWorkspaceAdmin || canCreateProject) && (
+              <div className="relative" ref={quickAddRef}>
+                <button
+                  onClick={() => isWorkspaceAdmin ? setShowQuickAdd(!showQuickAdd) : setShowCreateWizard(true)}
+                  className="bg-asana-coral hover:opacity-90 text-white rounded-full w-7 h-7 flex items-center justify-center shadow transition-all"
+                  aria-label="Quick add"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
+                  <svg
+                    className="w-4 h-4 transition-transform duration-200"
+                    style={{ transform: showQuickAdd ? 'rotate(45deg)' : 'none' }}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
 
-              {showQuickAdd && (
-                <div className="absolute top-full right-0 mt-2 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-asana shadow-xl z-50 min-w-[200px] py-1 animate-fade-in">
-                  <button
-                    onClick={() => { setShowQuickAdd(false); setShowInviteModal(true); }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center transition-colors"
-                  >
-                    <svg className="w-4 h-4 mr-3 text-asana-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                    </svg>
-                    Invite Member
-                  </button>
-                  <button
-                    onClick={() => { setShowQuickAdd(false); navigate(`/workspace/${currentWorkspace?.id}`); }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center transition-colors border-t border-gray-50 dark:border-gray-700"
-                  >
-                    <svg className="w-4 h-4 mr-3 text-asana-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Create Project
-                  </button>
-                </div>
-              )}
-            </div>
+                {showQuickAdd && (
+                  <div className="absolute top-full right-0 mt-2 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-asana shadow-xl z-50 min-w-[200px] py-1 animate-fade-in">
+                    {isWorkspaceAdmin && (
+                      <button
+                        onClick={() => { setShowQuickAdd(false); setShowInviteModal(true); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-3 text-asana-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                        </svg>
+                        Invite Member
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setShowQuickAdd(false); setShowCreateWizard(true); }}
+                      className={`w-full text-left px-4 py-2.5 text-sm text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center transition-colors ${isWorkspaceAdmin ? 'border-t border-gray-50 dark:border-gray-700' : ''}`}
+                    >
+                      <svg className="w-4 h-4 mr-3 text-asana-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Create Project
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* User Menu */}
             <div className="relative" ref={userMenuRef}>
@@ -346,6 +435,45 @@ function Layout() {
       {showInviteModal && (
         <InviteModal workspaceId={currentWorkspace?.id} onClose={() => setShowInviteModal(false)} />
       )}
+
+      <CreateProjectWizard
+        isOpen={showCreateWizard}
+        onClose={() => setShowCreateWizard(false)}
+      />
+
+      {/* Inbox toast notifications */}
+      <div className="fixed bottom-5 right-5 z-[200] flex flex-col gap-2 pointer-events-none">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className="pointer-events-auto flex items-start gap-3 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-xl px-4 py-3 w-80 animate-slide-in-right"
+          >
+            <div className="w-8 h-8 rounded-full bg-asana-blue/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg className="w-4 h-4 text-asana-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-asana-blue">Task assigned to you</p>
+              <p className="text-sm font-medium text-[var(--asana-text-primary)] truncate mt-0.5">{toast.taskTitle}</p>
+              <button
+                onClick={() => { dismissToast(toast.id); navigate('/inbox'); }}
+                className="mt-1.5 text-xs text-asana-blue hover:underline font-medium"
+              >
+                View Inbox →
+              </button>
+            </div>
+            <button
+              onClick={() => dismissToast(toast.id)}
+              className="text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] transition-colors flex-shrink-0 mt-0.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

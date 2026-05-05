@@ -176,6 +176,7 @@ function OptionsPanel({ columns, onChange, onClose }) {
     { key: 'estimatedTime', label: 'Estimated time' },
     { key: 'actualTime', label: 'Actual time' },
     { key: 'priority', label: 'Priority' },
+    { key: 'billable', label: 'Billable' },
   ];
 
   return (
@@ -197,9 +198,52 @@ function OptionsPanel({ columns, onChange, onClose }) {
 }
 
 /* ═════════════════════════════════════════════
+   Save View Button
+   ═════════════════════════════════════════════ */
+function SaveViewButton({ onSave, hasSaved }) {
+  const [flash, setFlash] = useState(false);
+
+  const handleClick = () => {
+    onSave();
+    setFlash(true);
+    setTimeout(() => setFlash(false), 1800);
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      title="Save current section layout as your default view"
+      className={`flex items-center text-[11px] px-2.5 py-1.5 rounded-md border transition-all ${
+        flash
+          ? 'border-green-400 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400'
+          : hasSaved
+            ? 'border-asana-blue/40 bg-asana-blue/5 text-asana-blue'
+            : 'border-[var(--asana-border)] text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-[var(--asana-text-primary)]'
+      }`}
+    >
+      {flash ? (
+        <>
+          <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+          </svg>
+          Saved
+        </>
+      ) : (
+        <>
+          <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3h11l5 5v13a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1zm7 0v5H6V3m6 14a3 3 0 100-6 3 3 0 000 6z" />
+          </svg>
+          Save view
+        </>
+      )}
+    </button>
+  );
+}
+
+/* ═════════════════════════════════════════════
    Main Toolbar
    ═════════════════════════════════════════════ */
-function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, groupBy, onGroupChange, columns, onColumnsChange, members, canEdit, hasActiveFilters, searchQuery, onSearchChange }) {
+function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, groupBy, onGroupChange, columns, onColumnsChange, members, canEdit, canCreateTask, hasActiveFilters, searchQuery, onSearchChange, onAddTask, onSaveView, hasSavedView }) {
   const [openPanel, setOpenPanel] = useState(null); // 'filter' | 'sort' | 'group' | 'options' | 'search' | null
   const searchInputRef = useRef(null);
 
@@ -235,13 +279,16 @@ function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, 
   return (
     <div className="bg-[var(--asana-surface)] px-6 py-2 border-b border-[var(--asana-border)] flex items-center justify-between">
       <div className="flex items-center space-x-2">
-        {canEdit && (
-          <button className="flex items-center text-xs px-3 py-1.5 rounded-md bg-[var(--asana-surface)] border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 font-medium transition-colors">
-            <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {canCreateTask && onAddTask && (
+          <button
+            onClick={onAddTask}
+            className="flex items-center text-sm font-semibold text-[var(--asana-text-primary)] hover:text-asana-blue transition-colors group/add"
+          >
+            <svg className="w-4 h-4 mr-1.5 text-[var(--asana-text-secondary)] group-hover/add:text-asana-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Add task
-            <svg className="w-3 h-3 ml-1.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3 h-3 ml-1 text-[var(--asana-text-secondary)] group-hover/add:text-asana-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
@@ -282,6 +329,11 @@ function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, 
             )}
           </div>
         ))}
+
+        {/* Save View */}
+        {onSaveView && (
+          <SaveViewButton onSave={onSaveView} hasSaved={hasSavedView} />
+        )}
 
         {/* Search toggle / inline input */}
         {openPanel === 'search' ? (
