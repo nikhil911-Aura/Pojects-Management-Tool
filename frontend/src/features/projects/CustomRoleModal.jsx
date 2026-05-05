@@ -83,7 +83,7 @@ export default function CustomRoleModal({ currentPermissions, memberName, showNa
   // Live socket updates for custom columns
   useEffect(() => {
     if (!activeProjectId) return;
-    const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const SOCKET_URL = import.meta.env.VITE_API_URL || window.location.origin;
     const socket = io(SOCKET_URL, {
       withCredentials: true, transports: ['websocket'], reconnection: false,
     });
