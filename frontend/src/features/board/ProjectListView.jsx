@@ -151,6 +151,7 @@ function useClickOutside(ref, handler) {
    ═══════════════════════════════════════════ */
 function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, emitInstant, resolveId = (id) => id, queueOrRun = (_id, fn) => fn(_id), anchorRef }) {
   const dispatch = useAppDispatch();
+  const currentUser = useAppSelector((state) => state.auth.user);
   const ref = useRef(null);
   const [search, setSearch] = useState('');
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -168,12 +169,18 @@ function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, em
   }, [anchorRef]);
 
   const q = search.toLowerCase();
-  const filtered = (members || []).filter(m => {
-    const user = m.user || m;
-    if (!q) return true;
-    return (user.name || '').toLowerCase().includes(q)
-      || (user.email || '').toLowerCase().includes(q);
-  });
+  const filtered = (members || [])
+    .filter(m => {
+      const user = m.user || m;
+      if (!q) return true;
+      return (user.name || '').toLowerCase().includes(q)
+        || (user.email || '').toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      const aIsMe = (a.user?.id || a.id) === currentUser?.id ? -1 : 0;
+      const bIsMe = (b.user?.id || b.id) === currentUser?.id ? -1 : 0;
+      return aIsMe - bIsMe;
+    });
 
   const handleAssign = async (userId) => {
     const user = (members || []).map(m => m.user || m).find(u => u.id === userId);
@@ -202,7 +209,7 @@ function AssigneePicker({ taskId, currentAssignees, members, onClose, onDone, em
             <button key={user.id} onClick={() => handleAssign(user.id)}
               className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold mr-2.5 flex-shrink-0"
-                style={{ backgroundColor: `hsl($((user.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
+                style={{ backgroundColor: `hsl(${(user.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
                 {user.name?.charAt(0).toUpperCase()}
               </div>
               <span className="text-xs text-[var(--karya-text-primary)] truncate">{user.name}</span>
@@ -1513,7 +1520,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
           {selectedName ? (
             <>
               <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold mr-1.5 flex-shrink-0"
-                style={{ backgroundColor: `hsl($((selectedName?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
+                style={{ backgroundColor: `hsl(${(selectedName?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
                 {selectedName.charAt(0).toUpperCase()}
               </div>
               <span className="text-[12px] text-[var(--karya-text-primary)] truncate">{selectedName}</span>
@@ -1533,7 +1540,7 @@ function CustomFieldCell({ field, taskId, value, canEdit, onChange }) {
                 <button key={name} onClick={() => { onChange(name); setShowDropdown(false); }}
                   className={`w-full flex items-center px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 ${value === name ? 'bg-karya-blue/5' : ''}`}>
                   <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold mr-2"
-                    style={{ backgroundColor: `hsl($((name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
+                    style={{ backgroundColor: `hsl(${(name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
                     {name.charAt(0).toUpperCase()}
                   </div>
                   <span className="text-[12px] text-[var(--karya-text-primary)]">{name}</span>

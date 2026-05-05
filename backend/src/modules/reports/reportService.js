@@ -163,11 +163,12 @@ export const reportService = {
       taskWhere.billable = filters.billable;
     }
 
-    // Date filter — uses the task's updatedAt as a proxy for completion date
+    // Date filter — filter tasks that have at least one time entry in the selected period
+    const entryDateFilter = {};
     if (startDate || endDate) {
-      taskWhere.updatedAt = {};
-      if (startDate) taskWhere.updatedAt.gte = startDate;
-      if (endDate) taskWhere.updatedAt.lte = endDate;
+      if (startDate) entryDateFilter.gte = startDate;
+      if (endDate) entryDateFilter.lte = endDate;
+      taskWhere.timeEntries = { some: { date: entryDateFilter } };
     }
 
     const tasks = await prisma.task.findMany({
@@ -188,6 +189,7 @@ export const reportService = {
           orderBy: { createdAt: 'asc' },
         },
         timeEntries: {
+          where: Object.keys(entryDateFilter).length ? { date: entryDateFilter } : undefined,
           include: { user: { select: { id: true, name: true, avatar: true } } },
           orderBy: { date: 'desc' },
         },
@@ -931,7 +933,8 @@ function groupTasksByProject(tasks) {
 
   for (const t of tasks) {
     const project = t.list.board.project;
-    const taskMinutes = t.actualTime || 0;
+    const entrySum = (t.timeEntries || []).reduce((s, e) => s + (e.minutes || 0), 0);
+    const taskMinutes = entrySum || t.actualTime || 0;
     grandTotalMinutes += taskMinutes;
 
     if (!projects[project.id]) {

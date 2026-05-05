@@ -199,6 +199,7 @@ function parseTime(input) {
 /* ── Assignee Picker for task detail ── */
 function DetailAssigneePicker({ taskId, members, onClose, onDone, onOptimisticAssign, emitInstant }) {
   const dispatch = useAppDispatch();
+  const currentUser = useAppSelector((state) => state.auth.user);
   const ref = useRef(null);
   const [search, setSearch] = useState('');
 
@@ -208,9 +209,13 @@ function DetailAssigneePicker({ taskId, members, onClose, onDone, onOptimisticAs
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose]);
 
-  const filtered = (members || []).filter(m =>
-    (m.user?.name || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = (members || [])
+    .filter(m => (m.user?.name || '').toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      const aIsMe = (a.user?.id || a.id) === currentUser?.id ? -1 : 0;
+      const bIsMe = (b.user?.id || b.id) === currentUser?.id ? -1 : 0;
+      return aIsMe - bIsMe;
+    });
 
   const handleAssign = (userId) => {
     const user = (members || []).map(m => m.user || m).find(u => u.id === userId);
@@ -243,7 +248,7 @@ function DetailAssigneePicker({ taskId, members, onClose, onDone, onOptimisticAs
             <button key={u.id} onClick={() => handleAssign(u.id)}
               className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold mr-2.5"
-                style={{ backgroundColor: `hsl($((u.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
+                style={{ backgroundColor: `hsl(${(u.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
                 {u.name?.charAt(0).toUpperCase()}
               </div>
               <span className="text-xs text-[var(--karya-text-primary)] truncate">{u.name}</span>
@@ -872,7 +877,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             {canComment && activeTab === 'comments' && (
               <div className="flex space-x-3 mb-4">
                 <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
-                  style={{ backgroundColor: `hsl($((user?.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
+                  style={{ backgroundColor: `hsl(${(user?.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
                   {user?.name?.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 border border-[var(--karya-border)] rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-karya-blue/30 focus-within:border-karya-blue/30 transition-all bg-[var(--karya-bg)]">
@@ -893,7 +898,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
                 {(localComments || task.comments || []).map((comment) => (
                   <div key={comment.id} className="flex space-x-3 group">
                     <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
-                      style={{ backgroundColor: `hsl($((comment.user?.name?.charCodeAt(0) ?? 65) * 15), 60%, 50%)` }}>
+                      style={{ backgroundColor: `hsl(${(comment.user?.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>
                       {comment.user?.name?.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
