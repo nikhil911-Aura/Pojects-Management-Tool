@@ -1,3 +1,4 @@
+// Report controller
 import reportService from './reportService.js';
 import prisma from '../../core/database/prisma.js';
 import { successResponse, ApiError } from '../../core/utils/apiResponse.js';
