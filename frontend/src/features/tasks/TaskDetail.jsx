@@ -10,7 +10,7 @@ import { useConfirm } from '../../hooks/useConfirm';
 import { useCelebration } from '../../components/Celebration';
 import { useAutoSave, SaveIndicator } from '../../hooks/useAutoSave';
 
-const STATUS_OPTIONS = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'];
+const STATUS_OPTIONS = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'VERIFIED'];
 
 /**
  * Milestone Projects section — shows all projects this milestone is linked to
@@ -154,12 +154,13 @@ function MilestoneProjects({ taskId }) {
     </div>
   );
 }
-const STATUS_LABELS = { TODO: 'To do', IN_PROGRESS: 'In progress', REVIEW: 'Review', DONE: 'Completed' };
+const STATUS_LABELS = { TODO: 'To do', IN_PROGRESS: 'In progress', REVIEW: 'Review', DONE: 'Completed', VERIFIED: 'Verified' };
 const STATUS_COLORS = {
   TODO: 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200',
   IN_PROGRESS: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
   REVIEW: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
   DONE: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+  VERIFIED: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
 };
 const PRIORITY_COLORS = {
   HIGH: 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400',
@@ -602,19 +603,19 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
           <button
             onClick={() => {
               if (!canComplete) return;
-              const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
-              if (newStatus === 'DONE') { setJustCompleted(true); setTimeout(() => setJustCompleted(false), 600); celebrate(); }
+              const newStatus = task.status === 'VERIFIED' ? 'TODO' : 'VERIFIED';
+              if (newStatus === 'VERIFIED') { setJustCompleted(true); setTimeout(() => setJustCompleted(false), 600); celebrate(); }
               handleUpdate('status', newStatus);
             }}
             disabled={!canComplete}
             className={`flex items-center px-3 py-1.5 rounded-md border text-xs font-semibold transition-all duration-300 ${
-              task.status === 'DONE' ? 'bg-green-500 text-white border-green-500' : 'text-[var(--karya-text-secondary)] border-[var(--karya-border)] hover:border-green-400 hover:text-green-500'
+              task.status === 'VERIFIED' ? 'bg-green-500 text-white border-green-500' : 'text-[var(--karya-text-secondary)] border-[var(--karya-border)] hover:border-green-400 hover:text-green-500'
             } ${justCompleted ? 'check-pop' : ''} ${!canComplete ? 'cursor-default opacity-70' : ''}`}
           >
             <svg className={`w-3.5 h-3.5 mr-1 ${justCompleted ? 'check-draw' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
             </svg>
-            {task.status === 'DONE' ? 'Completed' : 'Mark complete'}
+            {task.status === 'VERIFIED' ? 'Verified' : 'Mark verified'}
           </button>
           {canDeleteTask && (
             <button onClick={handleDeleteTask} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-[var(--karya-text-secondary)] hover:text-red-500 transition-colors" title="Delete">
@@ -711,7 +712,7 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
             {/* Status */}
             <div className="flex items-center">
               <span className="w-28 text-[var(--karya-text-secondary)] text-xs font-medium flex-shrink-0">Status</span>
-              <select value={task.status || 'TODO'} onChange={(e) => handleUpdate('status', e.target.value)} disabled={!canEdit}
+              <select value={task.status || 'TODO'} onChange={(e) => { if (e.target.value === 'VERIFIED') { setJustCompleted(true); setTimeout(() => setJustCompleted(false), 600); celebrate(); } handleUpdate('status', e.target.value); }} disabled={!canEdit}
                 className={`border border-[var(--karya-border)] p-1.5 px-2.5 rounded-md text-xs font-semibold focus:ring-1 focus:ring-karya-blue/30 focus:border-karya-blue/30 outline-none bg-[var(--karya-bg)] text-[var(--karya-text-primary)] ${canEdit ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
                 {STATUS_OPTIONS.map(s => (
                   <option key={s} value={s} className="bg-[var(--karya-surface)] text-[var(--karya-text-primary)]">{STATUS_LABELS[s]}</option>
@@ -759,25 +760,26 @@ function TaskDetail({ taskId: propTaskId, isEmbedded = false, onClose, previewTa
           <div className="pt-4 border-t border-[var(--karya-border)]">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider">
-                Subtasks {(localSubtasks || task.subtasks)?.length > 0 && <span className="ml-1 font-normal">{(localSubtasks || task.subtasks).filter(s => s.status === 'DONE').length}/{(localSubtasks || task.subtasks).length}</span>}
+                Subtasks {(localSubtasks || task.subtasks)?.length > 0 && <span className="ml-1 font-normal">{(localSubtasks || task.subtasks).filter(s => s.status === 'DONE' || s.status === 'VERIFIED').length}/{(localSubtasks || task.subtasks).length}</span>}
               </h3>
             </div>
             <div className="space-y-1">
               {(localSubtasks || task.subtasks)?.map((sub) => (
                 <div key={sub.id} className="flex items-center space-x-3 py-1.5 px-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/30 group transition-colors">
                   <button onClick={() => {
-                    const newStatus = sub.status === 'DONE' ? 'TODO' : 'DONE';
+                    const newStatus = sub.status === 'VERIFIED' ? 'TODO' : 'VERIFIED';
+                    if (newStatus === 'VERIFIED') celebrate();
                     setLocalSubtasks(prev => (prev || task.subtasks || []).map(s => s.id === sub.id ? { ...s, status: newStatus } : s));
                     dispatch(optimisticUpdateTask({ taskId: sub.id, data: { status: newStatus } }));
                     emitInstant?.('task_completed', { taskId: sub.id, status: newStatus });
                     dispatch(updateTask({ taskId: sub.id, data: { status: newStatus } }));
                   }}
                     className={`w-[16px] h-[16px] rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                      sub.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
+                      sub.status === 'VERIFIED' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
                     }`}>
-                    {sub.status === 'DONE' && <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                    {sub.status === 'VERIFIED' && <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                   </button>
-                  <span className={`text-sm flex-1 ${sub.status === 'DONE' ? 'line-through text-[var(--karya-text-secondary)]' : 'text-[var(--karya-text-primary)]'}`}>{sub.title}</span>
+                  <span className={`text-sm flex-1 ${sub.status === 'VERIFIED' ? 'line-through text-[var(--karya-text-secondary)]' : 'text-[var(--karya-text-primary)]'}`}>{sub.title}</span>
                   {sub.assignees?.length > 0 && (
                     <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0"
                       style={{ backgroundColor: `hsl(${(sub.assignees[0].user?.name?.charCodeAt(0) ?? 65) * 15}, 60%, 50%)` }}>

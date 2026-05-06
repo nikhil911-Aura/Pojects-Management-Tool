@@ -17,6 +17,7 @@ const STATUS_CONFIG = {
   REVIEW:      { label: 'Review',      dot: '#F59E0B', cls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300 ring-1 ring-inset ring-yellow-300/40 dark:ring-yellow-700/40' },
   NEXT_SPRINT: { label: 'Next sprint', dot: '#8B5CF6', cls: 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 ring-1 ring-inset ring-purple-300/40 dark:ring-purple-700/40' },
   DONE:        { label: 'Completed',   dot: '#22C55E', cls: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 ring-1 ring-inset ring-green-300/40 dark:ring-green-700/40' },
+  VERIFIED:    { label: 'Verified',    dot: '#0891B2', cls: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300 ring-1 ring-inset ring-cyan-300/40 dark:ring-cyan-700/40' },
 };
 
 const PRIORITY_CONFIG = {
@@ -33,7 +34,7 @@ function getDueMeta(dueDate, status) {
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startDue   = new Date(due.getFullYear(),  due.getMonth(),  due.getDate());
   const diffDays = Math.round((startDue - startToday) / 86400000);
-  const done = status === 'DONE';
+  const done = status === 'DONE' || status === 'VERIFIED';
   let tone = 'neutral';
   if (!done) {
     if (diffDays < 0) tone = 'overdue';
@@ -244,7 +245,7 @@ function StatusPicker({ taskId, currentStatus, onClose, onDone, onCelebrate, emi
   const handleChange = async (status) => {
     dispatch(optimisticUpdateTask({ taskId, data: { status } }));
     emitInstant?.('task_completed', { taskId: resolveId(taskId), status });
-    if (status === 'DONE') onCelebrate?.();
+    if (status === 'VERIFIED') onCelebrate?.();
     onClose();
     queueOrRun(taskId, (realId) => dispatch(updateTask({ taskId: realId, data: { status } })));
   };
@@ -476,8 +477,8 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
   const toggleComplete = (e) => {
     e.stopPropagation();
     if (!perm.taskComplete || busy) return;
-    const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
-    if (newStatus === 'DONE') { setJustCompleted(true); setTimeout(() => setJustCompleted(false), 600); onCelebrate?.(); }
+    const newStatus = task.status === 'VERIFIED' ? 'TODO' : 'VERIFIED';
+    if (newStatus === 'VERIFIED') { setJustCompleted(true); setTimeout(() => setJustCompleted(false), 600); onCelebrate?.(); }
     dispatch(optimisticUpdateTask({ taskId: task.id, data: { status: newStatus } }));
     emitInstant?.('task_completed', { taskId: resolveId(task.id), status: newStatus });
     queueOrRun(task.id, (realId) => dispatch(updateTask({ taskId: realId, data: { status: newStatus } })));
@@ -565,7 +566,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
             <button onClick={(e) => { e.stopPropagation(); toggleComplete(e); setContextMenu(null); }}
               className="w-full flex items-center px-3 py-2 text-xs text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
               <Check className="w-4 h-4 mr-2.5 text-[var(--karya-text-secondary)]" strokeWidth={2} />
-              {task.status === 'DONE' ? 'Mark incomplete' : 'Mark complete'}
+              {(task.status === 'DONE' || task.status === 'VERIFIED') ? 'Mark incomplete' : 'Mark complete'}
             </button>
             <button onClick={(e) => { e.stopPropagation(); setContextMenu(null); setEditingTitle(true); }}
               className="w-full flex items-center px-3 py-2 text-xs text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50">
@@ -639,8 +640,8 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
         {isMilestone ? (
           <button onClick={toggleComplete}
             className={`w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center mr-3 relative transition-all duration-300 ${justCompleted ? 'celebrate-burst' : ''}`}>
-            <div className={`w-[14px] h-[14px] rotate-45 rounded-[2px] border-2 flex items-center justify-center transition-all duration-300 ${justCompleted ? 'check-pop' : ''} ${task.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-400 dark:border-gray-500 group-hover:border-green-400'}`}>
-              {task.status === 'DONE' && (
+            <div className={`w-[14px] h-[14px] rotate-45 rounded-[2px] border-2 flex items-center justify-center transition-all duration-300 ${justCompleted ? 'check-pop' : ''} ${task.status === 'VERIFIED' ? 'border-green-500 bg-green-500' : 'border-gray-400 dark:border-gray-500 group-hover:border-green-400'}`}>
+              {task.status === 'VERIFIED' && (
                 <Check className={`w-[8px] h-[8px] text-white -rotate-45 ${justCompleted ? 'check-draw' : ''}`} strokeWidth={4} />
               )}
             </div>
@@ -648,18 +649,18 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
         ) : isApproval ? (
           <button onClick={toggleComplete}
             className={`w-[18px] h-[18px] rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-3 transition-all duration-300 relative ${
-              task.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-purple-400 dark:border-purple-500 group-hover:border-green-400'
+              task.status === 'VERIFIED' ? 'border-green-500 bg-green-500' : 'border-purple-400 dark:border-purple-500 group-hover:border-green-400'
             } ${justCompleted ? 'check-pop celebrate-burst' : ''}`}>
             {justCompleted && <span className="ripple-ring" />}
-            <Check className={`w-2.5 h-2.5 ${task.status === 'DONE' ? 'text-white' : 'text-purple-400 dark:text-purple-500'} ${justCompleted ? 'check-draw' : ''}`} strokeWidth={2.5} />
+            <Check className={`w-2.5 h-2.5 ${task.status === 'VERIFIED' ? 'text-white' : 'text-purple-400 dark:text-purple-500'} ${justCompleted ? 'check-draw' : ''}`} strokeWidth={2.5} />
           </button>
         ) : (
           <button onClick={toggleComplete}
             className={`w-[18px] h-[18px] rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-3 transition-all duration-300 relative ${
-              task.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
+              task.status === 'VERIFIED' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
             } ${justCompleted ? 'check-pop celebrate-burst' : ''}`}>
             {justCompleted && <span className="ripple-ring" />}
-            {task.status === 'DONE' && (
+            {task.status === 'VERIFIED' && (
               <Check className={`w-2.5 h-2.5 text-white ${justCompleted ? 'check-draw' : ''}`} strokeWidth={3} />
             )}
           </button>
@@ -680,7 +681,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
         ) : (
           <span
             className={`text-[13px] truncate transition-all duration-150 rounded px-2 py-0.5 ${isMilestone ? 'font-bold' : ''} ${perm.taskEdit ? 'cursor-text hover:ring-1 hover:ring-gray-400 dark:hover:ring-gray-500' : ''} ${
-              task.status === 'DONE'
+              task.status === 'VERIFIED'
                 ? `text-[var(--karya-text-secondary)]`
                 : 'text-[var(--karya-text-primary)]'
             }`}
@@ -690,7 +691,7 @@ function TaskRow({ task, indent, members, canEdit, perm = {}, onTaskClick, onRef
         )}
         {!indent && hasSubtasks && (
           <span className="ml-2 text-[12px] text-[var(--karya-text-secondary)] flex-shrink-0">
-            {task.subtasks.filter(s => s.status === 'DONE').length}/{task.subtasks.length}
+            {task.subtasks.filter(s => s.status === 'DONE' || s.status === 'VERIFIED').length}/{task.subtasks.length}
           </span>
         )}
 

@@ -1,0 +1,2 @@
+-- Add VERIFIED to TaskStatus enum
+ALTER TYPE "TaskStatus" ADD VALUE IF NOT EXISTS 'VERIFIED';
