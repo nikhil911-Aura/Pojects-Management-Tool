@@ -84,7 +84,7 @@ export const useWorkspaceSocket = ({ onMyTasksChanged } = {}) => {
     // Workspace member's role/customRole was changed — patch their entry so
     // canWorkspace() (e.g. report.viewTeam) reflects the new role immediately.
     socket.on('workspace_member_role_changed', (data) => {
-      if (data?.member) dispatch(socketWorkspaceMemberRoleChanged(data));
+      if (data?.member) dispatch(socketWorkspaceMemberRoleChanged({ ...data, currentUserId: currentUser?.id }));
     });
 
     // Role deleted — affected members reassigned to Viewer.

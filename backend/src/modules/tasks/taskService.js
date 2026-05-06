@@ -41,6 +41,8 @@ function hasPermission(workspaceRole, projectRole, customPermissions, key) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
   // New role system: customPermissions comes from customRole.permissions (always check first)
   if (customPermissions && typeof customPermissions === 'object') return !!customPermissions[key];
+  // Workspace MEMBER with no custom role = "Manager" = full edit access
+  if (workspaceRole === 'MEMBER') return true;
   // Legacy fallback: check the old projectRole enum
   if (projectRole === 'EDITOR') return true;
   if (projectRole === 'COMMENTER' && (key === 'comment.create' || key === 'comment.delete' || key === 'time.track')) return true;
@@ -57,7 +59,7 @@ async function getContextFromList(listId, userId) {
         include: {
           project: {
             include: {
-              workspace: { include: { members: { where: { userId } } } },
+              workspace: { include: { members: { where: { userId }, include: { customRole: { select: { permissions: true } } } } } },
               members: { where: { userId }, include: { customRole: true } }
             }
           }
@@ -74,10 +76,11 @@ async function getContextFromList(listId, userId) {
 
   const projectMember = project.members[0] || null;
   const projectRole = projectMember?.projectRole ?? null;
-  const customPermissions = projectMember?.customRole?.permissions ?? null;
+  const customPermissions = projectMember?.customRole?.permissions ?? workspaceMember.customRole?.permissions ?? null;
 
   if (!canAccessProject(workspaceMember.role, project.visibility, projectRole)) {
-    throw ApiError.forbidden('You do not have access to this project');
+    const canViewPrivate = !!(customPermissions?.['project.viewPrivate']);
+    if (!canViewPrivate) throw ApiError.forbidden('You do not have access to this project');
   }
 
   return { list, workspaceMember, projectRole, customPermissions, projectId: project.id };
@@ -93,7 +96,7 @@ async function getContextFromTask(taskId, userId) {
             include: {
               project: {
                 include: {
-                  workspace: { include: { members: { where: { userId } } } },
+                  workspace: { include: { members: { where: { userId }, include: { customRole: { select: { permissions: true } } } } } },
                   members: { where: { userId }, include: { customRole: true } }
                 }
               }
@@ -112,10 +115,11 @@ async function getContextFromTask(taskId, userId) {
 
   const projectMember = project.members[0] || null;
   const projectRole = projectMember?.projectRole ?? null;
-  const customPermissions = projectMember?.customRole?.permissions ?? null;
+  const customPermissions = projectMember?.customRole?.permissions ?? workspaceMember.customRole?.permissions ?? null;
 
   if (!canAccessProject(workspaceMember.role, project.visibility, projectRole)) {
-    throw ApiError.forbidden('You do not have access to this project');
+    const canViewPrivate = !!(customPermissions?.['project.viewPrivate']);
+    if (!canViewPrivate) throw ApiError.forbidden('You do not have access to this project');
   }
 
   return { task, workspaceMember, projectRole, customPermissions, projectId: project.id, workspaceId: project.workspaceId };

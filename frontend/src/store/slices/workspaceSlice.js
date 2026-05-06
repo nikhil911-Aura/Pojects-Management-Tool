@@ -154,7 +154,7 @@ const workspaceSlice = createSlice({
     // Fired when a workspace member is assigned a new role/customRole.
     // Patches currentWorkspace.members so canWorkspace() updates live.
     socketWorkspaceMemberRoleChanged: (state, action) => {
-      const { member } = action.payload;
+      const { member, workspaceId, currentUserId } = action.payload;
       if (!member?.userId) return;
       const patch = (members) => {
         if (!members) return;
@@ -163,6 +163,19 @@ const workspaceSlice = createSlice({
       };
       patch(state.currentWorkspace?.members);
       state.workspaces.forEach(w => patch(w.members));
+      // Also update the flat role/customRole fields on the workspace object itself
+      // (used by Profile page and sidebar role badge) when it's the current user's role
+      if (currentUserId && member.userId === currentUserId) {
+        if (state.currentWorkspace?.id === workspaceId) {
+          state.currentWorkspace.role = member.role;
+          state.currentWorkspace.customRole = member.customRole || null;
+        }
+        const ws = state.workspaces.find(w => w.id === workspaceId);
+        if (ws) {
+          ws.role = member.role;
+          ws.customRole = member.customRole || null;
+        }
+      }
     },
     // Fired when a role's permissions are edited.
     // Patches the customRole.permissions on every workspace member using that role.
@@ -181,6 +194,19 @@ const workspaceSlice = createSlice({
       };
       patch(state.currentWorkspace?.members);
       state.workspaces.forEach(w => patch(w.members));
+      // Also patch flat customRole on workspace objects (used by Profile page)
+      if (state.currentWorkspace?.customRole?.id === roleId) {
+        state.currentWorkspace.customRole.permissions = permissions;
+        if (name) state.currentWorkspace.customRole.name = name;
+        if (color) state.currentWorkspace.customRole.color = color;
+      }
+      state.workspaces.forEach(w => {
+        if (w.customRole?.id === roleId) {
+          w.customRole.permissions = permissions;
+          if (name) w.customRole.name = name;
+          if (color) w.customRole.color = color;
+        }
+      });
     },
   },
   extraReducers: (builder) => {

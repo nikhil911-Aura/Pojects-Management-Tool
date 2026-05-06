@@ -294,7 +294,7 @@ export const useSocket = (projectId, boardId) => {
           dispatch({ type: 'project/removeProjectMember/fulfilled', payload: { projectId, memberId: data.userId } });
         }
         if (event === 'member_role_changed_instant' && data.userId) {
-          dispatch({ type: 'project/updateProjectMemberRole/fulfilled', payload: { projectId, member: { userId: data.userId, projectRole: data.projectRole } } });
+          dispatch(fetchProject(projectId));
         }
 
         // Timer / Time tracking

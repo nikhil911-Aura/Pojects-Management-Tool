@@ -256,9 +256,10 @@ export const reportService = {
       taskWhere.assignees = { some: { userId: { in: filters.userIds } } };
     }
     if (startDate || endDate) {
-      taskWhere.updatedAt = {};
-      if (startDate) taskWhere.updatedAt.gte = startDate;
-      if (endDate) taskWhere.updatedAt.lte = endDate;
+      const entryDateFilter = {};
+      if (startDate) entryDateFilter.gte = startDate;
+      if (endDate) entryDateFilter.lte = endDate;
+      taskWhere.timeEntries = { some: { date: entryDateFilter } };
     }
 
     const tasks = await prisma.task.findMany({
@@ -400,6 +401,48 @@ export const reportService = {
     return csvLines.join('\n');
   },
 
+  // Task-based admin report for email — same date logic as getMyTimesheet (uses TimeEntry.date),
+  // grouped by primary assignee + project so team breakdown is consistent with summary.
+  async getAdminEmailReport(workspaceId, filters = {}) {
+    const { startDate, endDate } = parseDateFilter(filters);
+
+    const entryDateFilter = {};
+    if (startDate) entryDateFilter.gte = startDate;
+    if (endDate) entryDateFilter.lte = endDate;
+    const hasDateFilter = Object.keys(entryDateFilter).length > 0;
+
+    const taskWhere = {
+      list: { board: { project: { workspaceId } } },
+      timeEntries: hasDateFilter ? { some: { date: entryDateFilter } } : { some: {} },
+    };
+
+    if (filters.projectIds?.length) {
+      taskWhere.list = { board: { project: { workspaceId, id: { in: filters.projectIds } } } };
+    }
+    if (filters.userIds?.length) {
+      taskWhere.assignees = { some: { userId: { in: filters.userIds } } };
+    }
+
+    const tasks = await prisma.task.findMany({
+      where: taskWhere,
+      include: {
+        list: { select: { name: true, board: { select: { project: { select: { id: true, name: true, color: true } } } } } },
+        assignees: {
+          include: { user: { select: { id: true, name: true, avatar: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+        timeEntries: {
+          where: hasDateFilter ? { date: entryDateFilter } : undefined,
+          include: { user: { select: { id: true, name: true, avatar: true } } },
+          orderBy: { date: 'desc' },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    return groupTasksByPersonProject(tasks);
+  },
+
   // Send report via email — supports workspace members AND custom email addresses.
   // Sender must be a workspace member; max 20 recipients per send to prevent spam.
   async emailReport(workspaceId, userId, filters = {}, recipients = [], options = {}) {
@@ -431,9 +474,11 @@ export const reportService = {
 
     const isAdmin = isWorkspaceAdmin(membership.role);
 
-    // Build report data — admins email team report, others email their own
-    const reportData = isAdmin
-      ? await this.getTeamReport(workspaceId, userId, { ...filters, groupBy: filters.groupBy || 'person_project' })
+    // Build report data — respect the tab the user was on when they clicked Email Report.
+    // Admins on "My Timesheet" tab get their personal report; "Team Reports" tab gets team data.
+    const isTeamScope = isAdmin && filters.scope === 'team';
+    const reportData = isTeamScope
+      ? await this.getAdminEmailReport(workspaceId, filters)
       : await this.getMyTimesheet(userId, workspaceId, filters);
 
     const summary = await this.getReportSummary(workspaceId, userId, filters);
@@ -474,7 +519,7 @@ export const reportService = {
     const personalMessage = (options.message || '').trim().slice(0, 1000);
 
     const html = renderReportEmailHtml({
-      isAdmin,
+      isAdmin: isTeamScope,
       filters,
       taskTotals,
       summary,
@@ -490,7 +535,7 @@ export const reportService = {
       select: { name: true },
     });
 
-    const subject = `${isAdmin && (filters.scope === 'team' || filters.userIds?.length) ? 'Team' : 'Work'} Report — ${formatDateRange(filters)}`;
+    const subject = `${isTeamScope ? 'Team' : 'Work'} Report — ${formatDateRange(filters)}`;
 
     // Send each email — mark non-workspace recipients in logs for auditing
     const sendPromises = cleaned.map(to => {
@@ -925,6 +970,46 @@ async function calculateCompletionRate(workspaceId, filters, scopedUserId) {
 }
 
 // ── Grouping helpers ────────────────────────────────────────────────────────
+
+// Admin Email (task-based): person+project → tasks, mirrors groupByPersonProject but from tasks
+function groupTasksByPersonProject(tasks) {
+  const groups = {};
+  let grandTotalMinutes = 0;
+
+  for (const t of tasks) {
+    const primaryAssignee = t.assignees?.[0]?.user;
+    if (!primaryAssignee) continue;
+
+    const project = t.list.board.project;
+    const key = `${primaryAssignee.id}::${project.id}`;
+    const entrySum = (t.timeEntries || []).reduce((s, e) => s + (e.minutes || 0), 0);
+    const taskMinutes = entrySum || t.actualTime || 0;
+    grandTotalMinutes += taskMinutes;
+
+    if (!groups[key]) {
+      groups[key] = { key, user: primaryAssignee, project, totalMinutes: 0, tasks: [] };
+    }
+    groups[key].totalMinutes += taskMinutes;
+    groups[key].tasks.push({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      priority: t.priority,
+      dueDate: t.dueDate,
+      billable: t.billable ?? false,
+      section: t.list.name,
+      totalMinutes: taskMinutes,
+      entries: (t.timeEntries || []).map(e => ({ id: e.id, minutes: e.minutes, note: e.note, date: e.date })),
+    });
+  }
+
+  return {
+    grandTotalMinutes,
+    groups: Object.values(groups)
+      .map(g => ({ ...g, tasks: g.tasks.sort((a, b) => b.totalMinutes - a.totalMinutes) }))
+      .sort((a, b) => b.totalMinutes - a.totalMinutes),
+  };
+}
 
 // My Timesheet (task-based): project → tasks (using Task.actualTime as source of truth)
 function groupTasksByProject(tasks) {

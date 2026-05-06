@@ -302,7 +302,7 @@ function Reports() {
           loading={emailLoading}
           onClose={() => setShowEmailModal(false)}
           onSend={async ({ recipients, message }) => {
-            const result = await dispatch(emailReport({ workspaceId, filters, recipients, message }));
+            const result = await dispatch(emailReport({ workspaceId, filters: { ...filters, scope: activeTab }, recipients, message }));
             if (!result.error) {
               const sent = result.payload?.sent || recipients.length;
               setShowEmailModal(false);
