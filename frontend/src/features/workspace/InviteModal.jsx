@@ -3,41 +3,33 @@ import { useAppDispatch } from '../../store/hooks';
 import { inviteUser, fetchInvites } from '../../store/slices/workspaceSlice';
 import api from '../../services/api';
 
-const ROLES = [
-  {
-    value: 'MEMBER',
-    label: 'Manager',
-    desc: 'Can view and edit projects they have access to',
-    color: '#3B82F6',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-      </svg>
-    ),
-  },
-  {
-    value: 'ADMIN',
-    label: 'Admin',
-    desc: 'Can manage members, invites, and workspace settings',
-    color: '#8B5CF6',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-      </svg>
-    ),
-  },
-  {
-    value: 'GUEST',
-    label: 'Guest',
-    desc: 'Can only view projects they are explicitly added to',
-    color: '#F59E0B',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-      </svg>
-    ),
-  },
+const ICON_PERSON = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+  </svg>
+);
+const ICON_EYE = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+  </svg>
+);
+const ICON_COMMENT = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+  </svg>
+);
+const ICON_ADMIN = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+  </svg>
+);
+
+// Static roles that don't need a customRoleId
+const STATIC_ROLES = [
+  { value: 'MEMBER', label: 'Manager',   desc: 'Can view and edit projects they have access to',      color: '#3B82F6', icon: ICON_PERSON  },
+  { value: 'ADMIN',  label: 'Admin',     desc: 'Can manage members, invites, and workspace settings',  color: '#8B5CF6', icon: ICON_ADMIN   },
+  { value: 'GUEST',  label: 'Guest',     desc: 'Can only view projects they are explicitly added to',  color: '#F59E0B', icon: ICON_EYE     },
 ];
 
 function InviteModal({ workspaceId, onClose }) {
@@ -59,7 +51,21 @@ function InviteModal({ workspaceId, onClose }) {
   useEffect(() => {
     if (!workspaceId) return;
     api.get(`/api/v1/projects/roles/workspace/${workspaceId}`)
-      .then((res) => setCustomRoles((res.data.data || []).filter(r => !r.isSystem)))
+      .then((res) => {
+        const all = res.data.data || [];
+        // Commenter is a system role that needs a customRoleId when inviting
+        const commenter = all.find(r => r.isSystem && r.name === 'Commenter');
+        const extras = commenter ? [{
+          value: 'MEMBER',
+          label: 'Commenter',
+          desc: 'Can view and comment on tasks',
+          color: '#F59E0B',
+          isSystemCommenter: true,
+          customRoleId: commenter.id,
+          icon: ICON_COMMENT,
+        }] : [];
+        setCustomRoles([...extras, ...all.filter(r => !r.isSystem)]);
+      })
       .catch(() => {});
     api.get(`/api/v1/projects/workspace/${workspaceId}`)
       .then((res) => setWsProjects(res.data.data || []))
@@ -87,22 +93,30 @@ function InviteModal({ workspaceId, onClose }) {
     setSelectedProjectIds(prev => allIn ? prev.filter(id => !allIds.includes(id)) : Array.from(new Set([...prev, ...allIds])));
   };
 
-  // Merge static + custom into one list for the dropdown
+  const ICON_CUSTOM = (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+
+  // Order: Manager, Commenter, Guest, Admin, then custom roles
+  const [commenterEntry, ...pureCustom] = customRoles.filter(r => r.isSystemCommenter).length
+    ? [customRoles.find(r => r.isSystemCommenter), ...customRoles.filter(r => !r.isSystemCommenter)]
+    : [null, ...customRoles];
+
   const allRoles = [
-    ...ROLES,
-    ...customRoles.map(cr => ({
+    STATIC_ROLES[0], // Manager
+    ...(commenterEntry ? [commenterEntry] : []),
+    STATIC_ROLES[2], // Guest
+    STATIC_ROLES[1], // Admin
+    ...pureCustom.map(cr => ({
       value: 'MEMBER',
       label: cr.name,
       desc: `Custom role · ${Object.values(cr.permissions || {}).filter(Boolean).length} permissions`,
       color: cr.color || '#8B5CF6',
       isCustom: true,
       customRoleId: cr.id,
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      ),
+      icon: ICON_CUSTOM,
     })),
   ];
   const [loading, setLoading] = useState(false);

@@ -22,7 +22,7 @@ const projectRoleService = {
   /**
    * Seed the 3 system roles for a workspace. Called on workspace creation
    * or on first project creation if the workspace has no roles yet.
-   * Returns { Editor: id, Commenter: id, Viewer: id }.
+   * Returns { Manager: id, Commenter: id, Guest: id }.
    */
   async seedSystemRoles(workspaceId) {
     const map = {};

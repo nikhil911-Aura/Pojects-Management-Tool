@@ -17,6 +17,7 @@ function canAccessProject(workspaceRole, projectVisibility, projectRole) {
 function hasPermission(workspaceRole, projectRole, customPermissions, key) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
   if (customPermissions && typeof customPermissions === 'object') return !!customPermissions[key];
+  if (workspaceRole === 'MEMBER') return true;
   if (projectRole === 'EDITOR') return true;
   if (projectRole === 'COMMENTER' && (key === 'comment.create' || key === 'comment.delete' || key === 'time.track')) return true;
   return false;
@@ -32,7 +33,7 @@ async function getContextFromTask(taskId, userId) {
             include: {
               project: {
                 include: {
-                  workspace: { include: { members: { where: { userId } } } },
+                  workspace: { include: { members: { where: { userId }, include: { customRole: { select: { permissions: true } } } } } },
                   members: { where: { userId }, include: { customRole: true } }
                 }
               }
@@ -51,10 +52,11 @@ async function getContextFromTask(taskId, userId) {
 
   const projectMember = project.members[0] || null;
   const projectRole = projectMember?.projectRole ?? null;
-  const customPermissions = projectMember?.customRole?.permissions ?? null;
+  const customPermissions = projectMember?.customRole?.permissions ?? workspaceMember.customRole?.permissions ?? null;
 
   if (!canAccessProject(workspaceMember.role, project.visibility, projectRole)) {
-    throw ApiError.forbidden('You do not have access to this task');
+    const canViewPrivate = !!(customPermissions?.['project.viewPrivate']);
+    if (!canViewPrivate) throw ApiError.forbidden('You do not have access to this task');
   }
 
   return { task, workspaceMember, projectRole, customPermissions };
@@ -125,7 +127,7 @@ export const commentService = {
                   include: {
                     project: {
                       include: {
-                        workspace: { include: { members: { where: { userId } } } },
+                        workspace: { include: { members: { where: { userId }, include: { customRole: { select: { permissions: true } } } } } },
                         members: { where: { userId }, include: { customRole: true } }
                       }
                     }
@@ -144,7 +146,7 @@ export const commentService = {
     const workspaceMember = project.workspace.members[0];
     const projectMember = project.members[0] || null;
     const projectRole = projectMember?.projectRole ?? null;
-    const customPermissions = projectMember?.customRole?.permissions ?? null;
+    const customPermissions = projectMember?.customRole?.permissions ?? workspaceMember.customRole?.permissions ?? null;
 
     const canDelete = hasPermission(workspaceMember?.role, projectRole, customPermissions, 'comment.delete');
 

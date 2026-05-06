@@ -10,6 +10,7 @@ function isWorkspaceAdmin(workspaceRole) {
 function hasPermission(workspaceRole, projectRole, customPermissions, key) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
   if (customPermissions && typeof customPermissions === 'object') return !!customPermissions[key];
+  if (workspaceRole === 'MEMBER') return true;
   if (projectRole === 'EDITOR') return true;
   return false;
 }
@@ -18,7 +19,7 @@ async function getProjectContext(projectId, userId) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
-      workspace: { include: { members: { where: { userId } } } },
+      workspace: { include: { members: { where: { userId }, include: { customRole: { select: { permissions: true } } } } } },
       members: { where: { userId }, include: { customRole: true } }
     }
   });
@@ -29,7 +30,7 @@ async function getProjectContext(projectId, userId) {
 
   const projectMember = project.members[0] || null;
   const projectRole = projectMember?.projectRole ?? null;
-  const customPermissions = projectMember?.customRole?.permissions ?? null;
+  const customPermissions = projectMember?.customRole?.permissions ?? workspaceMember.customRole?.permissions ?? null;
 
   return { project, workspaceMember, projectRole, customPermissions };
 }
@@ -40,7 +41,7 @@ async function getFieldContext(fieldId, userId) {
     include: {
       project: {
         include: {
-          workspace: { include: { members: { where: { userId } } } },
+          workspace: { include: { members: { where: { userId }, include: { customRole: { select: { permissions: true } } } } } },
           members: { where: { userId }, include: { customRole: true } }
         }
       }
@@ -53,7 +54,7 @@ async function getFieldContext(fieldId, userId) {
 
   const projectMember = field.project.members[0] || null;
   const projectRole = projectMember?.projectRole ?? null;
-  const customPermissions = projectMember?.customRole?.permissions ?? null;
+  const customPermissions = projectMember?.customRole?.permissions ?? workspaceMember.customRole?.permissions ?? null;
 
   return { field, workspaceMember, projectRole, customPermissions };
 }

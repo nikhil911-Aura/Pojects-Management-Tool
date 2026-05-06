@@ -66,7 +66,7 @@ function RoleDropdown({ roles, value, onChange, compact = false, canCreateRole =
                     )}
                     {role.isSystem && (
                       <p className="text-[10px] text-[var(--karya-text-secondary)] mt-0.5 ml-0.5">
-                        {role.name === 'Editor' ? 'Full edit access' : role.name === 'Commenter' ? 'View + comment only' : 'Read-only'}
+                        {role.name === 'Manager' ? 'Full edit access' : role.name === 'Commenter' ? 'View + comment only' : 'Read-only'}
                       </p>
                     )}
                   </div>
@@ -103,7 +103,7 @@ function ShareModal({ projectId, onClose, emitInstant }) {
   const { currentWorkspace } = useAppSelector(state => state.workspace);
   const { user: currentUser } = useAppSelector(state => state.auth);
   const { isWorkspaceAdmin, can, workspaceRole, isProjectMember } = useRole();
-  const canInvite = isWorkspaceAdmin || isProjectMember || can('project.invite');
+  const canInvite = isWorkspaceAdmin || can('project.invite');
   const canManageRoles = isWorkspaceAdmin || can('project.invite');
   const canChangeRole = isWorkspaceAdmin || can('project.changeRole');
   const isWorkspaceOwner = workspaceRole === 'OWNER';
@@ -131,8 +131,8 @@ function ShareModal({ projectId, onClose, emitInstant }) {
     api.get(`/api/v1/projects/roles/workspace/${wsId}`).then((res) => {
       const roles = res.data.data || [];
       setProjectRoles(roles);
-      // Default to Editor for new member invites
-      const editor = roles.find(r => r.isSystem && r.name === 'Editor');
+      // Default to Manager for new member invites
+      const editor = roles.find(r => r.isSystem && r.name === 'Manager');
       if (editor && !selectedRoleId) setSelectedRoleId(editor.id);
       setRolesLoaded(true);
     }).catch(() => setRolesLoaded(true));
@@ -194,7 +194,7 @@ function ShareModal({ projectId, onClose, emitInstant }) {
     const user = wsm?.user || { id: selectedUserId, name: 'Member', email: '' };
     const role = projectRoles.find(r => r.id === selectedRoleId);
     // Map to a valid enum value: system roles use their name, custom roles use 'CUSTOM'
-    const enumMap = { Editor: 'EDITOR', Commenter: 'COMMENTER', Viewer: 'VIEWER' };
+    const enumMap = { Manager: 'EDITOR', Commenter: 'COMMENTER', Guest: 'VIEWER' };
     const enumValue = role?.isSystem ? (enumMap[role.name] || 'EDITOR') : 'CUSTOM';
     const tempMember = { userId: selectedUserId, projectRole: enumValue, projectRoleId: selectedRoleId, customRole: role, user };
 
@@ -443,13 +443,10 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                     </span>
                     <span className="text-xs text-[var(--karya-text-secondary)] truncate">
                       {role.isSystem
-                        ? (role.name === 'Editor' ? 'Full edit access' : role.name === 'Commenter' ? 'View + comment' : 'Read-only')
+                        ? (role.name === 'Manager' ? 'Full edit access' : role.name === 'Commenter' ? 'View + comment' : 'Read-only')
                         : `${Object.values(role.permissions || {}).filter(Boolean).length} permissions`
                       }
                     </span>
-                    {role.isSystem && (
-                      <span className="text-[9px] text-[var(--karya-text-muted)] bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">System</span>
-                    )}
                   </div>
 
                   {canInvite && (

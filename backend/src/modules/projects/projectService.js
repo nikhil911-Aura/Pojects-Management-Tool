@@ -13,6 +13,7 @@ function isWorkspaceAdmin(workspaceRole) {
 function hasPermission(workspaceRole, projectRole, customPermissions, key) {
   if (isWorkspaceAdmin(workspaceRole)) return true;
   if (customPermissions && typeof customPermissions === 'object') return !!customPermissions[key];
+  if (workspaceRole === 'MEMBER') return true;
   if (projectRole === 'EDITOR') return true;
   return false;
 }
@@ -109,7 +110,7 @@ export const projectService = {
       }
     });
 
-    // Ensure the workspace has system roles (Editor / Commenter / Viewer).
+    // Ensure the workspace has system roles (Manager / Commenter / Guest).
     // seedSystemRoles is idempotent — only creates if missing.
     const roleMap = await projectRoleService.seedSystemRoles(workspaceId);
     // Assign the project creator to the Manager role (full edit access).

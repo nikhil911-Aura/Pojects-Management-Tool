@@ -158,7 +158,7 @@ function ProjectBoard() {
   // Project-level permissions — used to gate UI elements that were previously
   // restricted to workspace admins only but should now be available to custom
   // roles with the right permissions.
-  const canInvite = isWorkspaceAdmin || isProjectMember || can('project.invite');
+  const canInvite = isWorkspaceAdmin || can('project.invite');
   const canEditProject = isWorkspaceAdmin || can('project.edit');
   const canDeleteProject = isWorkspaceAdmin || can('project.delete');
   const { celebrate, CelebrationComponent } = useCelebration();

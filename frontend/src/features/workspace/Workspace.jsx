@@ -170,6 +170,21 @@ function ProjectRolesCard({ workspaceId, isAdmin }) {
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--karya-text-secondary)] mb-2">Default Roles</p>
               <div className="space-y-1.5">
+                {/* Workspace-level Admin role — static entry */}
+                <div className="flex items-center space-x-2.5 py-1.5 px-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: '#8B5CF620', color: '#8B5CF6' }}>
+                    Admin
+                  </span>
+                  <span className="text-xs text-[var(--karya-text-secondary)] truncate">
+                    Can manage members, invites, and workspace settings
+                  </span>
+                  <div className="ml-auto flex items-center space-x-1 flex-shrink-0">
+                    <span className="text-[9px] text-[var(--karya-text-muted)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                      Default
+                    </span>
+                  </div>
+                </div>
                 {uniqueSystem.map(role => (
                   <div key={role.name} className="flex items-center space-x-2.5 py-1.5 px-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/30 group/sr transition-colors">
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
