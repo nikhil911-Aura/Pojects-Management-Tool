@@ -15,7 +15,7 @@ function parseFilters(input) {
       : undefined,
     groupBy: input.groupBy || undefined,
     scope: input.scope || undefined,
-    billable: input.billable !== undefined && input.billable !== ''
+    billable: input.billable !== undefined && input.billable !== null && input.billable !== ''
       ? input.billable === 'true' || input.billable === true
       : undefined,
   };
