@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+﻿import { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchMyTasks } from '../../store/slices/taskSlice';
@@ -9,8 +9,8 @@ import io from 'socket.io-client';
 const TABS = ['All Tasks', 'Upcoming', 'Overdue', 'Completed'];
 
 const STATUS_STYLE = {
-  TODO: 'text-[var(--asana-text-secondary)]',
-  IN_PROGRESS: 'text-asana-blue',
+  TODO: 'text-[var(--karya-text-secondary)]',
+  IN_PROGRESS: 'text-karya-blue',
   REVIEW: 'text-yellow-600 dark:text-yellow-400',
   DONE: 'text-green-600 dark:text-green-400',
 };
@@ -106,8 +106,8 @@ function MyTasks() {
       {/* ── My Tasks section ── */}
       <div>
         <div className="mb-5">
-          <h1 className="text-2xl font-bold text-[var(--asana-text-primary)]">My Tasks</h1>
-          <p className="text-sm text-[var(--asana-text-secondary)] mt-1">Tasks assigned to you across all projects</p>
+          <h1 className="text-2xl font-bold text-[var(--karya-text-primary)]">My Tasks</h1>
+          <p className="text-sm text-[var(--karya-text-secondary)] mt-1">Tasks assigned to you across all projects</p>
         </div>
 
         <TabBar tabs={TABS} active={activeTab} counts={myCounts} onChange={setActiveTab} />
@@ -126,13 +126,13 @@ function MyTasks() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-lg font-bold text-[var(--asana-text-primary)]">Team Tasks</h2>
-              <p className="text-xs text-[var(--asana-text-secondary)] mt-0.5">
+              <h2 className="text-lg font-bold text-[var(--karya-text-primary)]">Team Tasks</h2>
+              <p className="text-xs text-[var(--karya-text-secondary)] mt-0.5">
                 All tasks assigned to workspace members ({teamTasks.length} total)
               </p>
             </div>
             <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--karya-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
@@ -140,7 +140,7 @@ function MyTasks() {
                 placeholder="Search by task, person, or project..."
                 value={teamSearch}
                 onChange={(e) => setTeamSearch(e.target.value)}
-                className="pl-9 pr-3 py-1.5 border border-[var(--asana-border)] rounded-md text-xs bg-[var(--asana-surface)] text-[var(--asana-text-primary)] focus:outline-none focus:ring-1 focus:ring-asana-blue/30 w-72"
+                className="pl-9 pr-3 py-1.5 border border-[var(--karya-border)] rounded-md text-xs bg-[var(--karya-surface)] text-[var(--karya-text-primary)] focus:outline-none focus:ring-1 focus:ring-karya-blue/30 w-72"
               />
             </div>
           </div>
@@ -161,7 +161,7 @@ function MyTasks() {
       {selectedTaskId && createPortal(
         <div className="fixed inset-0 z-[100] flex justify-end">
           <div className="absolute inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedTaskId(null)} />
-          <div className="w-full max-w-2xl bg-[var(--asana-surface)] shadow-2xl relative animate-slide-in-right h-full overflow-y-auto border-l border-[var(--asana-border)]">
+          <div className="w-full max-w-2xl bg-[var(--karya-surface)] shadow-2xl relative animate-slide-in-right h-full overflow-y-auto border-l border-[var(--karya-border)]">
             <TaskDetail taskId={selectedTaskId} isEmbedded onClose={() => setSelectedTaskId(null)} />
           </div>
         </div>,
@@ -174,26 +174,26 @@ function MyTasks() {
 // ── Tab bar ─────────────────────────────────────────────────────────────────
 function TabBar({ tabs, active, counts, onChange }) {
   return (
-    <div className="flex space-x-1 border-b border-[var(--asana-border)] mb-5">
+    <div className="flex space-x-1 border-b border-[var(--karya-border)] mb-5">
       {tabs.map(tab => (
         <button
           key={tab}
           onClick={() => onChange(tab)}
           className={`px-4 py-2 text-sm font-medium transition-all relative ${
             active === tab
-              ? 'text-asana-blue'
-              : 'text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)]'
+              ? 'text-karya-blue'
+              : 'text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)]'
           }`}
         >
           {tab}
           {counts[tab] > 0 && (
             <span className={`ml-1.5 text-[10px] rounded-full px-1.5 py-0.5 font-bold ${
-              active === tab ? 'bg-asana-blue/10 text-asana-blue' : 'bg-gray-100 dark:bg-gray-700 text-[var(--asana-text-secondary)]'
+              active === tab ? 'bg-karya-blue/10 text-karya-blue' : 'bg-gray-100 dark:bg-gray-700 text-[var(--karya-text-secondary)]'
             }`}>
               {counts[tab]}
             </span>
           )}
-          {active === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-asana-blue rounded-t-full" />}
+          {active === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-karya-blue rounded-t-full" />}
         </button>
       ))}
     </div>
@@ -203,7 +203,7 @@ function TabBar({ tabs, active, counts, onChange }) {
 // ── Task list ───────────────────────────────────────────────────────────────
 function TaskList({ tasks, onTaskClick, showAssignee = false }) {
   return (
-    <div className="bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl divide-y divide-[var(--asana-border)] overflow-hidden">
+    <div className="bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl divide-y divide-[var(--karya-border)] overflow-hidden">
       {tasks.map(task => {
         const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'DONE';
         const projectId = task.list?.board?.projectId || task.list?.board?.project?.id;
@@ -219,7 +219,7 @@ function TaskList({ tasks, onTaskClick, showAssignee = false }) {
           >
             {/* Status circle */}
             <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-3 transition-colors ${
-              task.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 group-hover:border-asana-blue'
+              task.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 group-hover:border-karya-blue'
             }`}>
               {task.status === 'DONE' && (
                 <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -241,12 +241,12 @@ function TaskList({ tasks, onTaskClick, showAssignee = false }) {
 
             {/* Task info */}
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-medium ${task.status === 'DONE' ? 'text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'} group-hover:text-asana-blue transition-colors truncate`}>
+              <p className={`text-sm font-medium ${task.status === 'DONE' ? 'text-[var(--karya-text-secondary)]' : 'text-[var(--karya-text-primary)]'} group-hover:text-karya-blue transition-colors truncate`}>
                 {task.title}
               </p>
               <div className="flex items-center space-x-1.5 mt-0.5">
                 <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: projectColor }} />
-                <p className="text-[11px] text-[var(--asana-text-secondary)] truncate">
+                <p className="text-[11px] text-[var(--karya-text-secondary)] truncate">
                   {projectName}{task.list?.name ? ` · ${task.list.name}` : ''}
                   {showAssignee && assignee && <span className="ml-1.5">· {assignee.name}</span>}
                 </p>
@@ -256,7 +256,7 @@ function TaskList({ tasks, onTaskClick, showAssignee = false }) {
             {/* Right side info */}
             <div className="flex items-center space-x-4 ml-4 flex-shrink-0">
               {task.dueDate && (
-                <span className={`text-xs font-medium ${isOverdue ? 'text-red-500' : 'text-[var(--asana-text-secondary)]'}`}>
+                <span className={`text-xs font-medium ${isOverdue ? 'text-red-500' : 'text-[var(--karya-text-secondary)]'}`}>
                   {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </span>
               )}
@@ -277,14 +277,14 @@ function EmptyState({ tab, message }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3">
-        <svg className="w-7 h-7 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-7 h-7 text-[var(--karya-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
         </svg>
       </div>
-      <p className="text-sm font-semibold text-[var(--asana-text-primary)]">
+      <p className="text-sm font-semibold text-[var(--karya-text-primary)]">
         {tab === 'Completed' ? 'No completed tasks yet' : "You're all caught up!"}
       </p>
-      <p className="text-xs text-[var(--asana-text-secondary)] mt-1">
+      <p className="text-xs text-[var(--karya-text-secondary)] mt-1">
         {message || (tab === 'All Tasks' ? 'Tasks assigned to you will appear here' : `No ${tab.toLowerCase()} tasks`)}
       </p>
     </div>

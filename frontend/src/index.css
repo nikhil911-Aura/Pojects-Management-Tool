@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,33 +6,33 @@
 
 /* ── Light mode variables ── */
 :root {
-  --asana-blue: #4573D2;
-  --asana-bg: #F8F9FA;
-  --asana-surface: #FFFFFF;
-  --asana-border: #E8ECEF;
-  --asana-border-rgb: 232, 236, 239;
-  --asana-text-primary: #1E293B;
-  --asana-text-secondary: #64748B;
-  --asana-sidebar-bg: #1D1B2E;
-  --asana-sidebar-hover: #2D2B3D;
-  --asana-sidebar-active: #3D3B4D;
-  --asana-sidebar-text: #C4C3CF;
-  --asana-sidebar-text-muted: #7C7B8A;
+  --karya-blue: #4573D2;
+  --karya-bg: #F8F9FA;
+  --karya-surface: #FFFFFF;
+  --karya-border: #E8ECEF;
+  --karya-border-rgb: 232, 236, 239;
+  --karya-text-primary: #1E293B;
+  --karya-text-secondary: #64748B;
+  --karya-sidebar-bg: #1D1B2E;
+  --karya-sidebar-hover: #2D2B3D;
+  --karya-sidebar-active: #3D3B4D;
+  --karya-sidebar-text: #C4C3CF;
+  --karya-sidebar-text-muted: #7C7B8A;
 }
 
 /* ── Dark mode variables ── */
 .dark {
-  --asana-bg: #111827;
-  --asana-surface: #1F2124;
-  --asana-border: rgba(255, 255, 255, 0.06);
-  --asana-border-rgb: 45, 55, 72;
-  --asana-text-primary: #F9FAFB;
-  --asana-text-secondary: #9CA3AF;
-  --asana-sidebar-bg: #313338;
-  --asana-sidebar-hover: #1A1A2E;
-  --asana-sidebar-active: #2A2A3E;
-  --asana-sidebar-text: #D1D5DB;
-  --asana-sidebar-text-muted: #6B7280;
+  --karya-bg: #111827;
+  --karya-surface: #1F2124;
+  --karya-border: rgba(255, 255, 255, 0.06);
+  --karya-border-rgb: 45, 55, 72;
+  --karya-text-primary: #F9FAFB;
+  --karya-text-secondary: #9CA3AF;
+  --karya-sidebar-bg: #313338;
+  --karya-sidebar-hover: #1A1A2E;
+  --karya-sidebar-active: #2A2A3E;
+  --karya-sidebar-text: #D1D5DB;
+  --karya-sidebar-text-muted: #6B7280;
 }
 
 body {
@@ -41,8 +41,8 @@ body {
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--asana-bg);
-  color: var(--asana-text-primary);
+  background-color: var(--karya-bg);
+  color: var(--karya-text-primary);
 }
 
 * { box-sizing: border-box; }
@@ -63,24 +63,24 @@ body {
 .dark ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
 
 /* ── Reusable utility classes ── */
-.asana-card {
-  @apply bg-white dark:bg-gray-800 rounded-asana shadow-asana-card border border-asana-border dark:border-gray-700 hover:shadow-asana-hover transition-all duration-200;
+.karya-card {
+  @apply bg-white dark:bg-gray-800 rounded-karya shadow-karya-card border border-karya-border dark:border-gray-700 hover:shadow-karya-hover transition-all duration-200;
 }
 
-.asana-button-primary {
-  @apply bg-asana-blue hover:bg-asana-blue-dark text-white font-medium py-1.5 px-4 rounded-asana transition-all duration-200;
+.karya-button-primary {
+  @apply bg-karya-blue hover:bg-karya-blue-dark text-white font-medium py-1.5 px-4 rounded-karya transition-all duration-200;
 }
 
-.asana-input {
-  @apply border border-asana-border dark:border-gray-600 rounded-asana px-3 py-2 bg-white dark:bg-gray-800 text-asana-text-primary dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-asana-blue/20 focus:border-asana-blue transition-all placeholder-gray-400 dark:placeholder-gray-500;
+.karya-input {
+  @apply border border-karya-border dark:border-gray-600 rounded-karya px-3 py-2 bg-white dark:bg-gray-800 text-karya-text-primary dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-karya-blue/20 focus:border-karya-blue transition-all placeholder-gray-400 dark:placeholder-gray-500;
 }
 
-.asana-modal-overlay {
+.karya-modal-overlay {
   @apply fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4;
 }
 
-.asana-modal {
-  @apply bg-white dark:bg-gray-800 rounded-asana-lg shadow-2xl w-full max-w-md border border-asana-border dark:border-gray-700;
+.karya-modal {
+  @apply bg-white dark:bg-gray-800 rounded-karya-lg shadow-2xl w-full max-w-md border border-karya-border dark:border-gray-700;
 }
 
 /* ═══════════════════════════════════════════
@@ -193,7 +193,7 @@ body {
 }
 
 /* ═══════════════════════════════════════════
-   Celebration overlay (Asana unicorn/pegasus)
+   Celebration overlay
    ═══════════════════════════════════════════ */
 @keyframes flyAcross {
   0%   { transform: translate(-80px, 30px) rotate(-5deg) scale(0.8); opacity: 0; }
@@ -334,8 +334,8 @@ body {
 
 /* Mobile-friendly modals */
 @media (max-width: 640px) {
-  .asana-modal-overlay { padding: 0.5rem; }
-  .asana-modal { max-width: 100%; border-radius: 12px; }
+  .karya-modal-overlay { padding: 0.5rem; }
+  .karya-modal { max-width: 100%; border-radius: 12px; }
 }
 
 /* Responsive table cells on mobile */

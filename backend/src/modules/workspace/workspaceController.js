@@ -41,7 +41,7 @@ export const workspaceController = {
 
   // Get pending invites
   async getInvites(req, res, next) {
-    const invites = await workspaceInviteService.getWorkspaceInvites(req.params.id);
+    const invites = await workspaceInviteService.getWorkspaceInvites(req.params.id, req.user.id);
     return successResponse(res, invites);
   },
 

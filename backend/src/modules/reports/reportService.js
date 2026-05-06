@@ -163,11 +163,12 @@ export const reportService = {
       taskWhere.billable = filters.billable;
     }
 
-    // Date filter — uses the task's updatedAt as a proxy for completion date
+    // Date filter — filter tasks that have at least one time entry in the selected period
+    const entryDateFilter = {};
     if (startDate || endDate) {
-      taskWhere.updatedAt = {};
-      if (startDate) taskWhere.updatedAt.gte = startDate;
-      if (endDate) taskWhere.updatedAt.lte = endDate;
+      if (startDate) entryDateFilter.gte = startDate;
+      if (endDate) entryDateFilter.lte = endDate;
+      taskWhere.timeEntries = { some: { date: entryDateFilter } };
     }
 
     const tasks = await prisma.task.findMany({
@@ -188,6 +189,7 @@ export const reportService = {
           orderBy: { createdAt: 'asc' },
         },
         timeEntries: {
+          where: Object.keys(entryDateFilter).length ? { date: entryDateFilter } : undefined,
           include: { user: { select: { id: true, name: true, avatar: true } } },
           orderBy: { date: 'desc' },
         },
@@ -514,7 +516,7 @@ export const reportService = {
 // ── Excel workbook builder ──────────────────────────────────────────────────
 async function buildExcelWorkbook({ rows, taskTotals = [], filters, summary, isAdmin, includeAllUsers }) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Asana Clone';
+  wb.creator = 'Karya';
   wb.created = new Date();
 
   // ── Sheet 1: Summary ─────────────────────────────────────────────────────
@@ -931,7 +933,8 @@ function groupTasksByProject(tasks) {
 
   for (const t of tasks) {
     const project = t.list.board.project;
-    const taskMinutes = t.actualTime || 0;
+    const entrySum = (t.timeEntries || []).reduce((s, e) => s + (e.minutes || 0), 0);
+    const taskMinutes = entrySum || t.actualTime || 0;
     grandTotalMinutes += taskMinutes;
 
     if (!projects[project.id]) {
@@ -1471,7 +1474,7 @@ function renderReportEmailHtml({ isAdmin, filters, summary, reportData, sender, 
           <tr>
             <td style="padding:20px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center">
               <div style="font-size:11px;color:#6b7280;line-height:1.6">
-                This report was sent by <strong style="color:#374151">${esc(senderName)}</strong> from Asana Clone.<br>
+                This report was sent by <strong style="color:#374151">${esc(senderName)}</strong> from Karya.<br>
                 Showing time logged on assigned tasks.
               </div>
             </td>

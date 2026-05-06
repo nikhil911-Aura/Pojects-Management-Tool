@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchWorkspace, fetchInvites, resendInvite, cancelInvite, updateWorkspace, deleteWorkspace } from '../../store/slices/workspaceSlice';
@@ -59,7 +59,7 @@ function WorkspaceRoleDropdown({ value, onChange, wsCustomRoles = [] }) {
   return (
     <>
       <button ref={btnRef} onClick={handleOpen}
-        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all hover:ring-1 hover:ring-[var(--asana-border)] focus:outline-none"
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all hover:ring-1 hover:ring-[var(--karya-border)] focus:outline-none"
         style={{ backgroundColor: `${displayColor}18`, color: displayColor }}>
         <span className="uppercase tracking-wide">{displayLabel}</span>
         <svg className={`w-3 h-3 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,11 +69,11 @@ function WorkspaceRoleDropdown({ value, onChange, wsCustomRoles = [] }) {
 
       {open && (
         <div ref={dropRef}
-          className="fixed z-[9999] w-56 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1.5 overflow-hidden"
+          className="fixed z-[9999] w-56 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl shadow-2xl py-1.5 overflow-hidden"
           style={{ top: pos.top, left: Math.max(8, pos.left) }}>
 
           {/* System roles */}
-          <p className="px-3 pt-1 pb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--asana-text-secondary)]">System Roles</p>
+          <p className="px-3 pt-1 pb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--karya-text-secondary)]">System Roles</p>
           {SYSTEM_ROLE_OPTIONS.map(opt => {
             const active = value === opt.value;
             return (
@@ -83,7 +83,7 @@ function WorkspaceRoleDropdown({ value, onChange, wsCustomRoles = [] }) {
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: opt.color }} />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold" style={{ color: opt.color }}>{opt.label}</p>
-                  <p className="text-[10px] text-[var(--asana-text-secondary)] truncate">{opt.desc}</p>
+                  <p className="text-[10px] text-[var(--karya-text-secondary)] truncate">{opt.desc}</p>
                 </div>
                 {active && (
                   <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" style={{ color: opt.color }}>
@@ -97,8 +97,8 @@ function WorkspaceRoleDropdown({ value, onChange, wsCustomRoles = [] }) {
           {/* Custom roles */}
           {wsCustomRoles.length > 0 && (
             <>
-              <div className="h-px bg-[var(--asana-border)] mx-2 my-1" />
-              <p className="px-3 pb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--asana-text-secondary)]">Custom Roles</p>
+              <div className="h-px bg-[var(--karya-border)] mx-2 my-1" />
+              <p className="px-3 pb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--karya-text-secondary)]">Custom Roles</p>
               {wsCustomRoles.map(cr => {
                 const crValue = `custom:${cr.id}`;
                 const active = value === crValue;
@@ -155,9 +155,9 @@ function ProjectRolesCard({ workspaceId, isAdmin }) {
 
   return (
     <>
-      <div className="bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] p-5">
+      <div className="bg-[var(--karya-surface)] rounded-xl border border-[var(--karya-border)] p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-[var(--asana-text-primary)]">Roles</h3>
+          <h3 className="text-sm font-bold text-[var(--karya-text-primary)]">Roles</h3>
         </div>
 
         {loading ? (
@@ -168,7 +168,7 @@ function ProjectRolesCard({ workspaceId, isAdmin }) {
           <div className="space-y-4">
             {/* System roles — permissions editable by admin/owner, name locked */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] mb-2">Default Roles</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--karya-text-secondary)] mb-2">Default Roles</p>
               <div className="space-y-1.5">
                 {uniqueSystem.map(role => (
                   <div key={role.name} className="flex items-center space-x-2.5 py-1.5 px-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/30 group/sr transition-colors">
@@ -176,7 +176,7 @@ function ProjectRolesCard({ workspaceId, isAdmin }) {
                       style={{ backgroundColor: `${role.color}20`, color: role.color }}>
                       {role.name}
                     </span>
-                    <span className="text-xs text-[var(--asana-text-secondary)] truncate">
+                    <span className="text-xs text-[var(--karya-text-secondary)] truncate">
                       {role.name === 'Manager'
                         ? 'Can view and edit projects they have access to'
                         : role.name === 'Commenter'
@@ -186,13 +186,13 @@ function ProjectRolesCard({ workspaceId, isAdmin }) {
                             : 'Read-only'}
                     </span>
                     <div className="ml-auto flex items-center space-x-1 flex-shrink-0">
-                      <span className="text-[9px] text-[var(--asana-text-muted)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                      <span className="text-[9px] text-[var(--karya-text-muted)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
                         Default
                       </span>
                       {isAdmin && (
                         <button
                           onClick={() => setCustomModalTarget({ mode: 'edit', roleId: role.id, roleName: role.name, permissions: role.permissions, isSystem: true })}
-                          className="p-1 rounded text-[var(--asana-text-secondary)] hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-[var(--asana-text-primary)] transition-colors opacity-0 group-hover/sr:opacity-100"
+                          className="p-1 rounded text-[var(--karya-text-secondary)] hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-[var(--karya-text-primary)] transition-colors opacity-0 group-hover/sr:opacity-100"
                           title="Edit permissions">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -207,9 +207,9 @@ function ProjectRolesCard({ workspaceId, isAdmin }) {
 
             {/* Custom roles — editable + deletable */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] mb-2">Custom Roles</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--karya-text-secondary)] mb-2">Custom Roles</p>
               {customRoles.length === 0 ? (
-                <p className="text-xs text-[var(--asana-text-muted)] italic py-2">No custom roles yet. Create one below.</p>
+                <p className="text-xs text-[var(--karya-text-muted)] italic py-2">No custom roles yet. Create one below.</p>
               ) : (
                 <div className="space-y-1">
                   {customRoles.map(role => (
@@ -226,7 +226,7 @@ function ProjectRolesCard({ workspaceId, isAdmin }) {
                       <div className="flex items-center space-x-1 opacity-0 group-hover/cr:opacity-100 transition-opacity flex-shrink-0">
                         <button
                           onClick={() => setCustomModalTarget({ mode: 'edit', roleId: role.id, roleName: role.name, permissions: role.permissions, projectId: role.projectId })}
-                          className="p-1 rounded text-[var(--asana-text-secondary)] hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-[var(--asana-text-primary)] transition-colors"
+                          className="p-1 rounded text-[var(--karya-text-secondary)] hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-[var(--karya-text-primary)] transition-colors"
                           title="Edit permissions">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -240,7 +240,7 @@ function ProjectRolesCard({ workspaceId, isAdmin }) {
                               setRoles(prev => prev.filter(r => r.id !== role.id));
                             }).catch(err => console.error(err));
                           }}
-                          className="p-1 rounded text-[var(--asana-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
+                          className="p-1 rounded text-[var(--karya-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
                           title="Delete role">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -254,7 +254,7 @@ function ProjectRolesCard({ workspaceId, isAdmin }) {
             </div>
 
             {/* Create custom role */}
-            <div className="pt-2 border-t border-[var(--asana-border)]">
+            <div className="pt-2 border-t border-[var(--karya-border)]">
               <button
                 onClick={() => setCustomModalTarget({ mode: 'create' })}
                 className="flex items-center text-xs px-3 py-1.5 rounded-md bg-purple-600 text-white font-medium hover:bg-purple-700 transition-colors w-full justify-center"
@@ -309,7 +309,7 @@ function WorkspaceSkeleton() {
   return (
     <div className="h-full flex flex-col overflow-hidden animate-pulse">
       {/* Header strip */}
-      <div className="bg-[var(--asana-surface)] border-b border-[var(--asana-border)]">
+      <div className="bg-[var(--karya-surface)] border-b border-[var(--karya-border)]">
         <div className="max-w-5xl mx-auto px-6">
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center space-x-3">
@@ -331,13 +331,13 @@ function WorkspaceSkeleton() {
       </div>
 
       {/* Content area */}
-      <div className="flex-1 overflow-y-auto bg-[var(--asana-bg)]">
+      <div className="flex-1 overflow-y-auto bg-[var(--karya-bg)]">
         <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
           {/* Hero card */}
-          <div className="bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] overflow-hidden">
+          <div className="bg-[var(--karya-surface)] rounded-xl border border-[var(--karya-border)] overflow-hidden">
             <div className="h-24 bg-gray-200 dark:bg-gray-700" />
             <div className="px-6 pb-6 -mt-8">
-              <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 border-4 border-[var(--asana-surface)]" />
+              <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 border-4 border-[var(--karya-surface)]" />
               <div className="h-5 w-56 bg-gray-200 dark:bg-gray-700 rounded mt-3" />
               <div className="h-3 w-72 bg-gray-200 dark:bg-gray-700 rounded mt-2" />
             </div>
@@ -346,7 +346,7 @@ function WorkspaceSkeleton() {
           {/* Projects + sidebar grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
             {/* Projects card */}
-            <div className="lg:col-span-2 bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] p-5">
+            <div className="lg:col-span-2 bg-[var(--karya-surface)] rounded-xl border border-[var(--karya-border)] p-5">
               <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded mb-4" />
               <div className="space-y-2">
                 {[...Array(4)].map((_, i) => (
@@ -362,7 +362,7 @@ function WorkspaceSkeleton() {
             {/* Right sidebar */}
             <div className="space-y-6">
               {/* Members card */}
-              <div className="bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] p-5">
+              <div className="bg-[var(--karya-surface)] rounded-xl border border-[var(--karya-border)] p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
                   <div className="h-3 w-14 bg-gray-200 dark:bg-gray-700 rounded" />
@@ -375,7 +375,7 @@ function WorkspaceSkeleton() {
               </div>
 
               {/* Stats card */}
-              <div className="bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] p-5">
+              <div className="bg-[var(--karya-surface)] rounded-xl border border-[var(--karya-border)] p-5">
                 <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded mb-3" />
                 <div className="space-y-2.5">
                   {[...Array(3)].map((_, i) => (
@@ -581,7 +581,7 @@ function Workspace() {
   }
 
   if (!currentWorkspace) {
-    return <div className="p-8 text-center text-[var(--asana-text-secondary)]">Workspace not found</div>;
+    return <div className="p-8 text-center text-[var(--karya-text-secondary)]">Workspace not found</div>;
   }
 
   const members = currentWorkspace.members?.map(m => ({
@@ -609,14 +609,14 @@ function Workspace() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="bg-[var(--asana-surface)] border-b border-[var(--asana-border)]">
+      <div className="bg-[var(--karya-surface)] border-b border-[var(--karya-border)]">
         <div className="max-w-5xl mx-auto px-6">
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-asana-coral to-[#e04030] flex items-center justify-center text-white font-bold text-sm">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-karya-coral to-[#e04030] flex items-center justify-center text-white font-bold text-sm">
                 {currentWorkspace.name?.charAt(0).toUpperCase()}
               </div>
-              <h1 className="text-base font-bold text-[var(--asana-text-primary)]">{currentWorkspace.name}</h1>
+              <h1 className="text-base font-bold text-[var(--karya-text-primary)]">{currentWorkspace.name}</h1>
             </div>
             <div className="flex items-center space-x-2">
               {members.slice(0, 3).map((m, i) => (
@@ -627,7 +627,7 @@ function Workspace() {
               ))}
               {isAdmin && (
                 <button onClick={() => setShowInviteModal(true)}
-                  className="asana-button-primary flex items-center text-xs px-3 py-1.5">
+                  className="karya-button-primary flex items-center text-xs px-3 py-1.5">
                   <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
@@ -642,10 +642,10 @@ function Workspace() {
             {tabs.map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab.toLowerCase())}
                 className={`px-4 py-2 text-sm font-medium transition-all relative rounded-t-md ${
-                  activeTab === tab.toLowerCase() ? 'text-asana-blue' : 'text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)]'
+                  activeTab === tab.toLowerCase() ? 'text-karya-blue' : 'text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)]'
                 }`}>
                 {tab}
-                {activeTab === tab.toLowerCase() && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-asana-blue rounded-t-full" />}
+                {activeTab === tab.toLowerCase() && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-karya-blue rounded-t-full" />}
               </button>
             ))}
           </div>
@@ -653,15 +653,15 @@ function Workspace() {
       </div>
 
       {/* ── Content ── */}
-      <div className="flex-1 overflow-y-auto bg-[var(--asana-bg)]">
+      <div className="flex-1 overflow-y-auto bg-[var(--karya-bg)]">
         <div className="max-w-5xl mx-auto px-6 py-8">
           {activeTab === 'overview' ? (
             <div className="space-y-6">
               {/* Team hero */}
-              <div className="bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] overflow-hidden">
+              <div className="bg-[var(--karya-surface)] rounded-xl border border-[var(--karya-border)] overflow-hidden">
                 <div className="h-24 bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-800 dark:to-gray-950" />
                 <div className="px-6 pb-6 -mt-8">
-                  <div className="w-16 h-16 rounded-full bg-gray-400 dark:bg-gray-600 border-4 border-[var(--asana-surface)] flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                  <div className="w-16 h-16 rounded-full bg-gray-400 dark:bg-gray-600 border-4 border-[var(--karya-surface)] flex items-center justify-center text-white text-2xl font-bold shadow-lg">
                     {currentWorkspace.name?.charAt(0).toUpperCase()}
                   </div>
                   {editingName ? (
@@ -675,23 +675,23 @@ function Workspace() {
                           if (e.key === 'Escape') { e.preventDefault(); setEditingName(false); }
                         }}
                         disabled={savingName}
-                        className="text-xl font-bold bg-[var(--asana-bg)] border border-asana-blue rounded-md px-2 py-0.5 text-[var(--asana-text-primary)] outline-none focus:ring-1 focus:ring-asana-blue disabled:opacity-50 w-64"
+                        className="text-xl font-bold bg-[var(--karya-bg)] border border-karya-blue rounded-md px-2 py-0.5 text-[var(--karya-text-primary)] outline-none focus:ring-1 focus:ring-karya-blue disabled:opacity-50 w-64"
                       />
                       <button onClick={saveName} disabled={savingName}
-                        className="asana-button-primary text-xs px-3 py-1.5 disabled:opacity-50">
+                        className="karya-button-primary text-xs px-3 py-1.5 disabled:opacity-50">
                         {savingName ? 'Saving…' : 'Save'}
                       </button>
                       <button onClick={() => setEditingName(false)} disabled={savingName}
-                        className="text-xs px-3 py-1.5 rounded text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        className="text-xs px-3 py-1.5 rounded text-[var(--karya-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                         Cancel
                       </button>
                     </div>
                   ) : (
                     <div className="mt-3 flex items-center gap-2 group/name">
-                      <h2 className="text-xl font-bold text-[var(--asana-text-primary)]">{currentWorkspace.name}</h2>
+                      <h2 className="text-xl font-bold text-[var(--karya-text-primary)]">{currentWorkspace.name}</h2>
                       {isOwner && (
                         <button onClick={startEditingName}
-                          className="opacity-0 group-hover/name:opacity-100 p-1 rounded text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                          className="opacity-0 group-hover/name:opacity-100 p-1 rounded text-[var(--karya-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
                           title="Edit workspace name">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -713,13 +713,13 @@ function Workspace() {
                         rows={2}
                         placeholder="Describe what this team is about..."
                         disabled={savingDescription}
-                        className="w-full text-sm bg-[var(--asana-bg)] border border-[var(--asana-border)] rounded-md px-3 py-2 text-[var(--asana-text-primary)] placeholder-[var(--asana-text-muted)] outline-none focus:border-asana-blue resize-none disabled:opacity-50"
+                        className="w-full text-sm bg-[var(--karya-bg)] border border-[var(--karya-border)] rounded-md px-3 py-2 text-[var(--karya-text-primary)] placeholder-[var(--karya-text-muted)] outline-none focus:border-karya-blue resize-none disabled:opacity-50"
                       />
                       <div className="mt-2 flex items-center space-x-2">
                         <button
                           onClick={saveDescription}
                           disabled={savingDescription}
-                          className="asana-button-primary text-xs px-3 py-1.5 inline-flex items-center disabled:opacity-50"
+                          className="karya-button-primary text-xs px-3 py-1.5 inline-flex items-center disabled:opacity-50"
                         >
                           {savingDescription ? (
                             <svg className="animate-spin w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24">
@@ -732,17 +732,17 @@ function Workspace() {
                         <button
                           onClick={cancelEditingDescription}
                           disabled={savingDescription}
-                          className="text-xs px-3 py-1.5 rounded text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          className="text-xs px-3 py-1.5 rounded text-[var(--karya-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
                           Cancel
                         </button>
-                        <span className="text-[10px] text-[var(--asana-text-muted)]">⌘+Enter to save · Esc to cancel</span>
+                        <span className="text-[10px] text-[var(--karya-text-muted)]">⌘+Enter to save · Esc to cancel</span>
                       </div>
                     </div>
                   ) : (
                     <p
                       onClick={startEditingDescription}
-                      className={`text-sm mt-1 ${currentWorkspace.description ? 'text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-muted)] italic'} ${isAdmin ? 'cursor-pointer hover:text-[var(--asana-text-primary)] transition-colors' : ''}`}
+                      className={`text-sm mt-1 ${currentWorkspace.description ? 'text-[var(--karya-text-secondary)]' : 'text-[var(--karya-text-muted)] italic'} ${isAdmin ? 'cursor-pointer hover:text-[var(--karya-text-primary)] transition-colors' : ''}`}
                       title={isAdmin ? 'Click to edit description' : undefined}
                     >
                       {currentWorkspace.description || (isAdmin ? 'Click to add team description...' : 'No description yet.')}
@@ -753,9 +753,9 @@ function Workspace() {
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
                 {/* Projects */}
-                <div className="lg:col-span-2 bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] p-5">
+                <div className="lg:col-span-2 bg-[var(--karya-surface)] rounded-xl border border-[var(--karya-border)] p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-bold text-[var(--asana-text-primary)]">Projects</h3>
+                    <h3 className="text-sm font-bold text-[var(--karya-text-primary)]">Projects</h3>
                   </div>
                   <div className="space-y-1">
                     {projects.length > 0 ? projects.map(p => (
@@ -766,14 +766,14 @@ function Workspace() {
                           {p.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-[var(--asana-text-primary)] truncate">{p.name}</p>
+                          <p className="text-sm font-medium text-[var(--karya-text-primary)] truncate">{p.name}</p>
                         </div>
-                        <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-[var(--asana-text-secondary)]">
+                        <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-[var(--karya-text-secondary)]">
                           {p.visibility?.toLowerCase()}
                         </span>
                       </Link>
                     )) : (
-                      <p className="text-sm text-[var(--asana-text-secondary)] text-center py-6">No projects yet</p>
+                      <p className="text-sm text-[var(--karya-text-secondary)] text-center py-6">No projects yet</p>
                     )}
                   </div>
                 </div>
@@ -781,10 +781,10 @@ function Workspace() {
                 {/* Right sidebar */}
                 <div className="space-y-6">
                   {/* Members card */}
-                  <div className="bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] p-5">
+                  <div className="bg-[var(--karya-surface)] rounded-xl border border-[var(--karya-border)] p-5">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-bold text-[var(--asana-text-primary)]">Members</h3>
-                      <button onClick={() => setActiveTab('members')} className="text-[10px] text-asana-blue hover:underline">
+                      <h3 className="text-sm font-bold text-[var(--karya-text-primary)]">Members</h3>
+                      <button onClick={() => setActiveTab('members')} className="text-[10px] text-karya-blue hover:underline">
                         View all {members.length}
                       </button>
                     </div>
@@ -798,7 +798,7 @@ function Workspace() {
                       ))}
                       {isAdmin && (
                         <button onClick={() => setShowInviteModal(true)}
-                          className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-[var(--asana-text-secondary)] hover:border-asana-blue hover:text-asana-blue transition-colors">
+                          className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-[var(--karya-text-secondary)] hover:border-karya-blue hover:text-karya-blue transition-colors">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                           </svg>
@@ -808,29 +808,29 @@ function Workspace() {
                   </div>
 
                   {/* Stats card */}
-                  <div className="bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] p-5">
-                    <h3 className="text-sm font-bold text-[var(--asana-text-primary)] mb-3">Workspace stats</h3>
+                  <div className="bg-[var(--karya-surface)] rounded-xl border border-[var(--karya-border)] p-5">
+                    <h3 className="text-sm font-bold text-[var(--karya-text-primary)] mb-3">Workspace stats</h3>
                     <div className="space-y-2.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-[var(--asana-text-secondary)]">Projects</span>
-                        <span className="text-xs font-bold text-[var(--asana-text-primary)]">{projects.length}</span>
+                        <span className="text-xs text-[var(--karya-text-secondary)]">Projects</span>
+                        <span className="text-xs font-bold text-[var(--karya-text-primary)]">{projects.length}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-[var(--asana-text-secondary)]">Members</span>
-                        <span className="text-xs font-bold text-[var(--asana-text-primary)]">{members.length}</span>
+                        <span className="text-xs text-[var(--karya-text-secondary)]">Members</span>
+                        <span className="text-xs font-bold text-[var(--karya-text-primary)]">{members.length}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-[var(--asana-text-secondary)]">Pending invites</span>
-                        <span className="text-xs font-bold text-[var(--asana-text-primary)]">{invites.length}</span>
+                        <span className="text-xs text-[var(--karya-text-secondary)]">Pending invites</span>
+                        <span className="text-xs font-bold text-[var(--karya-text-primary)]">{invites.length}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Pending Invitations card — admin-only, dedicated section like the old layout */}
                   {isAdmin && invites.length > 0 && (
-                    <div className="bg-[var(--asana-surface)] rounded-xl border border-[var(--asana-border)] p-5">
+                    <div className="bg-[var(--karya-surface)] rounded-xl border border-[var(--karya-border)] p-5">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-bold text-[var(--asana-text-primary)]">Pending Invitations</h3>
+                        <h3 className="text-sm font-bold text-[var(--karya-text-primary)]">Pending Invitations</h3>
                         <span className="text-[10px] font-bold text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-0.5 rounded-full">
                           {invites.length}
                         </span>
@@ -845,8 +845,8 @@ function Workspace() {
                                 </svg>
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="text-xs font-medium text-[var(--asana-text-primary)] truncate">{inv.email}</p>
-                                <p className="text-[10px] text-[var(--asana-text-secondary)]">
+                                <p className="text-xs font-medium text-[var(--karya-text-primary)] truncate">{inv.email}</p>
+                                <p className="text-[10px] text-[var(--karya-text-secondary)]">
                                   {inv.role} · invited{inv.invitedBy ? ` by ${inv.invitedBy}` : ''}
                                 </p>
                               </div>
@@ -854,7 +854,7 @@ function Workspace() {
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <button
                                 onClick={() => dispatch(resendInvite(inv.id))}
-                                className="p-1.5 rounded text-[var(--asana-text-secondary)] hover:bg-asana-blue/10 hover:text-asana-blue opacity-0 group-hover/inv:opacity-100 transition-all"
+                                className="p-1.5 rounded text-[var(--karya-text-secondary)] hover:bg-karya-blue/10 hover:text-karya-blue opacity-0 group-hover/inv:opacity-100 transition-all"
                                 title="Resend invitation"
                               >
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -867,7 +867,7 @@ function Workspace() {
                                     dispatch(cancelInvite(inv.id));
                                   }
                                 }}
-                                className="p-1.5 rounded text-[var(--asana-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover/inv:opacity-100 transition-all"
+                                className="p-1.5 rounded text-[var(--karya-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover/inv:opacity-100 transition-all"
                                 title="Delete invitation"
                               >
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -888,15 +888,15 @@ function Workspace() {
 
               {/* Danger Zone — owner only */}
               {isOwner && (
-                <div className="bg-[var(--asana-surface)] rounded-xl border border-red-200 dark:border-red-800/50 overflow-hidden">
+                <div className="bg-[var(--karya-surface)] rounded-xl border border-red-200 dark:border-red-800/50 overflow-hidden">
                   <div className="px-6 py-4 border-b border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10">
                     <h3 className="text-sm font-bold text-red-600 dark:text-red-400">Danger Zone</h3>
                     <p className="text-xs text-red-500/80 dark:text-red-400/70 mt-0.5">Actions here are irreversible. Proceed with caution.</p>
                   </div>
                   <div className="px-6 py-4 flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-[var(--asana-text-primary)]">Delete this workspace</p>
-                      <p className="text-xs text-[var(--asana-text-secondary)] mt-0.5">Permanently removes all projects, tasks, and members.</p>
+                      <p className="text-sm font-medium text-[var(--karya-text-primary)]">Delete this workspace</p>
+                      <p className="text-xs text-[var(--karya-text-secondary)] mt-0.5">Permanently removes all projects, tasks, and members.</p>
                     </div>
                     <button
                       onClick={handleDeleteWorkspace}
@@ -913,17 +913,17 @@ function Workspace() {
             </div>
           ) : (
             /* ── Members tab ── */
-            <div className="bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-[var(--asana-border)] flex items-center justify-between">
-                <h2 className="text-sm font-bold text-[var(--asana-text-primary)]">
+            <div className="bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-[var(--karya-border)] flex items-center justify-between">
+                <h2 className="text-sm font-bold text-[var(--karya-text-primary)]">
                   Members & Invites
-                  <span className="ml-2 text-xs font-medium text-[var(--asana-text-secondary)] bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                  <span className="ml-2 text-xs font-medium text-[var(--karya-text-secondary)] bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
                     {members.length + invites.length}
                   </span>
                 </h2>
                 {isAdmin && (
                   <button onClick={() => setShowInviteModal(true)}
-                    className="asana-button-primary flex items-center text-xs px-3 py-1.5">
+                    className="karya-button-primary flex items-center text-xs px-3 py-1.5">
                     <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                     </svg>
@@ -932,7 +932,7 @@ function Workspace() {
                 )}
               </div>
 
-              <div className="divide-y divide-[var(--asana-border)]">
+              <div className="divide-y divide-[var(--karya-border)]">
                 {[...members, ...invites].map((person) => (
                   <div key={person.id}
                     className={`group flex items-center justify-between px-6 py-3.5 transition-colors ${
@@ -944,13 +944,13 @@ function Workspace() {
                         {person.name?.charAt(0).toUpperCase() || '?'}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-[var(--asana-text-primary)]">
+                        <p className="text-sm font-medium text-[var(--karya-text-primary)]">
                           {person.name}
                           {person.id === currentUser?.id && (
-                            <span className="ml-2 text-[10px] bg-asana-blue/10 text-asana-blue px-1.5 py-0.5 rounded-full font-bold">You</span>
+                            <span className="ml-2 text-[10px] bg-karya-blue/10 text-karya-blue px-1.5 py-0.5 rounded-full font-bold">You</span>
                           )}
                         </p>
-                        <p className="text-xs text-[var(--asana-text-secondary)]">
+                        <p className="text-xs text-[var(--karya-text-secondary)]">
                           {person.status === 'pending' ? `Invited${person.invitedBy ? ` by ${person.invitedBy}` : ''}` : person.email}
                         </p>
                       </div>
@@ -963,7 +963,7 @@ function Workspace() {
                             <div className="flex items-center space-x-1">
                               <button
                                 onClick={() => dispatch(resendInvite(person.id))}
-                                className="p-1.5 rounded-md text-[var(--asana-text-secondary)] hover:bg-asana-blue/10 hover:text-asana-blue transition-colors"
+                                className="p-1.5 rounded-md text-[var(--karya-text-secondary)] hover:bg-karya-blue/10 hover:text-karya-blue transition-colors"
                                 title="Resend invitation"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -976,7 +976,7 @@ function Workspace() {
                                     dispatch(cancelInvite(person.id));
                                   }
                                 }}
-                                className="p-1.5 rounded-md text-[var(--asana-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                className="p-1.5 rounded-md text-[var(--karya-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                                 title="Delete invitation"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1061,7 +1061,7 @@ function Workspace() {
                                   }
                                 }
                               }}
-                              className="p-1.5 rounded-md text-[var(--asana-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                              className="p-1.5 rounded-md text-[var(--karya-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                               title="Remove from workspace"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

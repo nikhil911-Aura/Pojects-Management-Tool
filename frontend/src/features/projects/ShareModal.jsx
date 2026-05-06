@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchProject, addProjectMember, updateProjectMemberRole, removeProjectMember } from '../../store/slices/projectSlice';
 import { fetchWorkspace } from '../../store/slices/workspaceSlice';
@@ -40,7 +40,7 @@ function RoleDropdown({ roles, value, onChange, compact = false, canCreateRole =
   return (
     <>
       <button ref={btnRef} onClick={handleOpen}
-        className={`flex items-center justify-between text-xs font-bold rounded-lg px-2.5 py-1.5 transition-colors hover:ring-1 hover:ring-[var(--asana-border)] ${compact ? 'min-w-[110px]' : 'min-w-[120px]'}`}
+        className={`flex items-center justify-between text-xs font-bold rounded-lg px-2.5 py-1.5 transition-colors hover:ring-1 hover:ring-[var(--karya-border)] ${compact ? 'min-w-[110px]' : 'min-w-[120px]'}`}
         style={{ backgroundColor: `${displayColor}20`, color: displayColor }}>
         <span className="truncate">{displayName}</span>
         <svg className={`w-3 h-3 ml-1.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -48,13 +48,13 @@ function RoleDropdown({ roles, value, onChange, compact = false, canCreateRole =
         </svg>
       </button>
       {open && (
-        <div ref={ref} className="fixed z-[200] w-60 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1 animate-fade-in max-h-72 overflow-y-auto"
+        <div ref={ref} className="fixed z-[200] w-60 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl shadow-2xl py-1 animate-fade-in max-h-72 overflow-y-auto"
           style={{ top: pos.top, left: Math.max(8, pos.left) }}>
           {roles.map((role) => {
             const isActive = value === role.id;
             return (
               <button key={role.id} onClick={() => { onChange(role.id); setOpen(false); }}
-                className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${isActive ? 'bg-asana-blue/5' : ''}`}>
+                className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${isActive ? 'bg-karya-blue/5' : ''}`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-xs font-bold inline-block px-2 py-0.5 rounded"
@@ -62,16 +62,16 @@ function RoleDropdown({ roles, value, onChange, compact = false, canCreateRole =
                       {role.name}
                     </span>
                     {role.description && (
-                      <p className="text-[10px] text-[var(--asana-text-secondary)] mt-0.5 ml-0.5">{role.description}</p>
+                      <p className="text-[10px] text-[var(--karya-text-secondary)] mt-0.5 ml-0.5">{role.description}</p>
                     )}
                     {role.isSystem && (
-                      <p className="text-[10px] text-[var(--asana-text-secondary)] mt-0.5 ml-0.5">
+                      <p className="text-[10px] text-[var(--karya-text-secondary)] mt-0.5 ml-0.5">
                         {role.name === 'Editor' ? 'Full edit access' : role.name === 'Commenter' ? 'View + comment only' : 'Read-only'}
                       </p>
                     )}
                   </div>
                   {isActive && (
-                    <svg className="w-4 h-4 text-asana-blue flex-shrink-0 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-4 h-4 text-karya-blue flex-shrink-0 ml-2" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   )}
@@ -81,7 +81,7 @@ function RoleDropdown({ roles, value, onChange, compact = false, canCreateRole =
           })}
           {/* Create custom role option — admins only */}
           {canCreateRole && (
-            <div className="border-t border-[var(--asana-border)] mt-1 pt-1">
+            <div className="border-t border-[var(--karya-border)] mt-1 pt-1">
               <button onClick={() => { onChange('__CREATE_CUSTOM__'); setOpen(false); }}
                 className="w-full flex items-center px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                 <svg className="w-3.5 h-3.5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -265,12 +265,12 @@ function ShareModal({ projectId, onClose, emitInstant }) {
   };
 
   return (
-    <div className="asana-modal-overlay" onClick={onClose}>
-      <div className="asana-modal w-full max-w-lg" onClick={e => e.stopPropagation()}>
+    <div className="karya-modal-overlay" onClick={onClose}>
+      <div className="karya-modal w-full max-w-lg" onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--asana-border)]">
-          <h2 className="text-base font-bold text-[var(--asana-text-primary)]">Share "{currentProject?.name}"</h2>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-[var(--asana-text-secondary)] transition-colors">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--karya-border)]">
+          <h2 className="text-base font-bold text-[var(--karya-text-primary)]">Share "{currentProject?.name}"</h2>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-[var(--karya-text-secondary)] transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -281,7 +281,7 @@ function ShareModal({ projectId, onClose, emitInstant }) {
           {/* Add member — Admin only */}
           {canInvite && rolesLoaded && (
             <div>
-              <label className="block text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider mb-2">
                 Add people
               </label>
               <div className="flex space-x-2">
@@ -291,10 +291,10 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                     placeholder="Search workspace members..."
                     value={search}
                     onChange={e => { setSearch(e.target.value); setSelectedUserId(''); }}
-                    className="asana-input w-full text-sm"
+                    className="karya-input w-full text-sm"
                   />
                   {search && !selectedUserId && filteredAvailable.length > 0 && (
-                    <div className="absolute z-10 mt-1 w-full bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-asana shadow-lg max-h-40 overflow-y-auto">
+                    <div className="absolute z-10 mt-1 w-full bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-karya shadow-lg max-h-40 overflow-y-auto">
                       {filteredAvailable.map(m => {
                         const uid = m.userId || m.user?.id;
                         return (
@@ -303,12 +303,12 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                             onClick={() => { setSelectedUserId(uid); setSearch(m.user?.name || m.user?.email || ''); }}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center space-x-2"
                           >
-                            <div className="w-7 h-7 rounded-full bg-asana-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-karya-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                               {m.user?.name?.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <p className="font-medium text-[var(--asana-text-primary)]">{m.user?.name}</p>
-                              <p className="text-xs text-[var(--asana-text-secondary)]">{m.user?.email}</p>
+                              <p className="font-medium text-[var(--karya-text-primary)]">{m.user?.name}</p>
+                              <p className="text-xs text-[var(--karya-text-secondary)]">{m.user?.email}</p>
                             </div>
                           </button>
                         );
@@ -331,7 +331,7 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                 <button
                   onClick={handleAdd}
                   disabled={!selectedUserId || !selectedRoleId || adding}
-                  className={`asana-button-primary text-sm px-4 transition-opacity ${(!selectedUserId || !selectedRoleId || adding) ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'opacity-100'}`}
+                  className={`karya-button-primary text-sm px-4 transition-opacity ${(!selectedUserId || !selectedRoleId || adding) ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'opacity-100'}`}
                 >
                   {adding ? '...' : 'Invite'}
                 </button>
@@ -342,9 +342,9 @@ function ShareModal({ projectId, onClose, emitInstant }) {
 
           {/* Current members */}
           <div>
-            <p className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider mb-3">
+            <p className="text-xs font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider mb-3">
               Project members
-              <span className="ml-2 normal-case font-medium text-[var(--asana-text-secondary)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">{projectMembers.length}</span>
+              <span className="ml-2 normal-case font-medium text-[var(--karya-text-secondary)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">{projectMembers.length}</span>
             </p>
             <div className="space-y-1 max-h-64 overflow-y-auto">
               {projectMembers.map(m => {
@@ -356,18 +356,18 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                 return (
                   <div key={uid} className="flex items-center justify-between py-2 px-1 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/50 group transition-colors">
                     <div className="flex items-center space-x-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-asana-blue flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-karya-blue flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                         {m.user?.name?.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <p className="text-sm font-medium text-[var(--asana-text-primary)] truncate min-w-0">
+                          <p className="text-sm font-medium text-[var(--karya-text-primary)] truncate min-w-0">
                             {m.user?.name}
                           </p>
-                          {isYou && <span className="text-[10px] bg-asana-blue/10 text-asana-blue px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">You</span>}
+                          {isYou && <span className="text-[10px] bg-karya-blue/10 text-karya-blue px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">You</span>}
                           {uid === currentProject?.createdById && <span className="text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">Creator</span>}
                         </div>
-                        <p className="text-xs text-[var(--asana-text-secondary)] truncate">{m.user?.email}</p>
+                        <p className="text-xs text-[var(--karya-text-secondary)] truncate">{m.user?.email}</p>
                       </div>
                     </div>
 
@@ -376,7 +376,7 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                       <div className="w-6 flex justify-center">
                         {canChangeRoleFor(uid) && rolesLoaded && memberRole && !memberRole.isSystem && (
                           <button onClick={() => handleEditRole(memberRole)}
-                            className="p-1 rounded-md text-[var(--asana-text-secondary)] hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 transition-colors"
+                            className="p-1 rounded-md text-[var(--karya-text-secondary)] hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 transition-colors"
                             title="Edit role permissions">
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -401,7 +401,7 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                         {canRemoveFor(uid) && (
                           <button
                             onClick={() => handleRemove(uid)}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--asana-text-secondary)] hover:text-red-500 rounded transition-all"
+                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--karya-text-secondary)] hover:text-red-500 rounded transition-all"
                             title="Remove from project"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -415,15 +415,15 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                 );
               })}
               {projectMembers.length === 0 && (
-                <p className="text-sm text-[var(--asana-text-secondary)] text-center py-4">No members yet — add someone above.</p>
+                <p className="text-sm text-[var(--karya-text-secondary)] text-center py-4">No members yet — add someone above.</p>
               )}
             </div>
           </div>
 
           {/* Roles management — admins + users with project.invite permission */}
-          {canManageRoles && <div className="pt-2 border-t border-[var(--asana-border)]">
+          {canManageRoles && <div className="pt-2 border-t border-[var(--karya-border)]">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold text-[var(--asana-text-secondary)] uppercase tracking-wider">Project roles</p>
+              <p className="text-xs font-bold text-[var(--karya-text-secondary)] uppercase tracking-wider">Project roles</p>
               {canInvite && (
                 <button
                   onClick={() => setCustomModalTarget({ mode: 'create', memberId: null, memberName: '' })}
@@ -441,14 +441,14 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                       style={{ backgroundColor: `${role.color}20`, color: role.color }}>
                       {role.name}
                     </span>
-                    <span className="text-xs text-[var(--asana-text-secondary)] truncate">
+                    <span className="text-xs text-[var(--karya-text-secondary)] truncate">
                       {role.isSystem
                         ? (role.name === 'Editor' ? 'Full edit access' : role.name === 'Commenter' ? 'View + comment' : 'Read-only')
                         : `${Object.values(role.permissions || {}).filter(Boolean).length} permissions`
                       }
                     </span>
                     {role.isSystem && (
-                      <span className="text-[9px] text-[var(--asana-text-muted)] bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">System</span>
+                      <span className="text-[9px] text-[var(--karya-text-muted)] bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">System</span>
                     )}
                   </div>
 
@@ -457,7 +457,7 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                       {/* Edit permissions */}
                       <button
                         onClick={() => handleEditRole(role)}
-                        className="p-1 rounded text-[var(--asana-text-secondary)] hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-[var(--asana-text-primary)] transition-colors"
+                        className="p-1 rounded text-[var(--karya-text-secondary)] hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-[var(--karya-text-primary)] transition-colors"
                         title={`Edit ${role.name} permissions`}
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -481,7 +481,7 @@ function ShareModal({ projectId, onClose, emitInstant }) {
                               console.error('Failed to delete role:', err);
                             }
                           }}
-                          className="p-1 rounded text-[var(--asana-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
+                          className="p-1 rounded text-[var(--karya-text-secondary)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
                           title={`Delete ${role.name}`}
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

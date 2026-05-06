@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+﻿import { useEffect, useRef } from 'react';
 
 /**
  * A beautiful confirmation modal replacing all native window.confirm() dialogs.
@@ -67,24 +67,24 @@ export default function ConfirmModal({
   const btnColorMap = {
     danger: 'bg-red-600 hover:bg-red-700 focus:ring-red-500',
     warning: 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500',
-    info: 'bg-asana-blue hover:brightness-110 focus:ring-asana-blue',
+    info: 'bg-karya-blue hover:brightness-110 focus:ring-karya-blue',
   };
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 animate-fade-in" onClick={onCancel}>
       <div
-        className="bg-[var(--asana-surface)] rounded-xl shadow-2xl border border-[var(--asana-border)] w-full max-w-sm mx-4 overflow-hidden"
+        className="bg-[var(--karya-surface)] rounded-xl shadow-2xl border border-[var(--karya-border)] w-full max-w-sm mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-6 text-center">
           {iconMap[variant]}
-          <h3 className="text-base font-bold text-[var(--asana-text-primary)] mb-1.5">{title}</h3>
-          {message && <p className="text-sm text-[var(--asana-text-secondary)] leading-relaxed">{message}</p>}
+          <h3 className="text-base font-bold text-[var(--karya-text-primary)] mb-1.5">{title}</h3>
+          {message && <p className="text-sm text-[var(--karya-text-secondary)] leading-relaxed">{message}</p>}
         </div>
-        <div className="flex items-center border-t border-[var(--asana-border)] divide-x divide-[var(--asana-border)]">
+        <div className="flex items-center border-t border-[var(--karya-border)] divide-x divide-[var(--karya-border)]">
           <button
             onClick={onCancel}
-            className="flex-1 px-4 py-3 text-sm font-medium text-[var(--asana-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            className="flex-1 px-4 py-3 text-sm font-medium text-[var(--karya-text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
           >
             {cancelText}
           </button>

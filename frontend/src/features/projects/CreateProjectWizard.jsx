@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { createProject } from '../../store/slices/projectSlice';
@@ -156,28 +156,28 @@ function CreateProjectWizard({ isOpen, onClose }) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && handleClose()}>
       {step === 1 ? (
         /* ── STEP 1: Project details ── */
-        <div className="bg-[var(--asana-surface)] rounded-2xl shadow-2xl w-full max-w-[880px] max-h-[90vh] flex flex-col md:flex-row overflow-hidden animate-fade-in mx-3 sm:mx-0">
+        <div className="bg-[var(--karya-surface)] rounded-2xl shadow-2xl w-full max-w-[880px] max-h-[90vh] flex flex-col md:flex-row overflow-hidden animate-fade-in mx-3 sm:mx-0">
           {/* Left panel — Form */}
           <div className="w-full md:w-[420px] flex-shrink-0 p-5 sm:p-8 flex flex-col overflow-y-auto">
             {/* Back arrow placeholder (for consistency with Asana) */}
-            <button onClick={handleClose} className="self-start mb-6 p-1 -ml-1 text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] transition-colors">
+            <button onClick={handleClose} className="self-start mb-6 p-1 -ml-1 text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)] transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
 
-            <h1 className="text-2xl font-bold text-[var(--asana-text-primary)] mb-8">New project</h1>
+            <h1 className="text-2xl font-bold text-[var(--karya-text-primary)] mb-8">New project</h1>
 
             <div className="space-y-5 flex-1">
               {/* Project name */}
               <div>
-                <label className="block text-xs font-medium text-[var(--asana-text-secondary)] mb-1.5">Project name</label>
+                <label className="block text-xs font-medium text-[var(--karya-text-secondary)] mb-1.5">Project name</label>
                 <input
                   type="text"
                   value={projectData.name}
                   onChange={(e) => setProjectData({ ...projectData, name: e.target.value })}
                   placeholder=""
-                  className="w-full px-3 py-2.5 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg text-sm text-[var(--asana-text-primary)] focus:outline-none focus:border-asana-blue focus:ring-1 focus:ring-asana-blue transition-colors"
+                  className="w-full px-3 py-2.5 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg text-sm text-[var(--karya-text-primary)] focus:outline-none focus:border-karya-blue focus:ring-1 focus:ring-karya-blue transition-colors"
                   autoFocus
                 />
               </div>
@@ -186,7 +186,7 @@ function CreateProjectWizard({ isOpen, onClose }) {
               <div className="flex space-x-3">
                 {/* Workspace selector — dynamic dropdown of all workspaces the user belongs to */}
                 <div className="flex-1">
-                  <label className="block text-xs font-medium text-[var(--asana-text-secondary)] mb-1.5">Workspace</label>
+                  <label className="block text-xs font-medium text-[var(--karya-text-secondary)] mb-1.5">Workspace</label>
                   <button
                     ref={workspaceBtnRef}
                     type="button"
@@ -198,32 +198,32 @@ function CreateProjectWizard({ isOpen, onClose }) {
                       setShowWorkspaceDropdown(!showWorkspaceDropdown);
                       setShowPrivacyDropdown(false);
                     }}
-                    className="w-full flex items-center px-3 py-2.5 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg text-sm text-[var(--asana-text-primary)] hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+                    className="w-full flex items-center px-3 py-2.5 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg text-sm text-[var(--karya-text-primary)] hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
                   >
                     <span className="truncate">{selectedWorkspace?.name || 'Select workspace'}</span>
-                    <svg className="w-4 h-4 ml-auto text-[var(--asana-text-secondary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 ml-auto text-[var(--karya-text-secondary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
                   {showWorkspaceDropdown && (
                     <>
                       <div className="fixed inset-0 z-[300]" onClick={() => setShowWorkspaceDropdown(false)} />
-                      <div className="fixed z-[301] bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1 animate-fade-in max-h-60 overflow-y-auto"
+                      <div className="fixed z-[301] bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl shadow-2xl py-1 animate-fade-in max-h-60 overflow-y-auto"
                         style={{ top: workspacePos.top, left: workspacePos.left, width: workspacePos.width }}>
                         {(workspaces || []).map((ws) => (
                           <button
                             key={ws.id}
                             onClick={() => { setSelectedWorkspaceId(ws.id); setShowWorkspaceDropdown(false); }}
                             className={`w-full flex items-center px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
-                              ws.id === selectedWorkspaceId ? 'bg-asana-blue/5 dark:bg-asana-blue/10' : ''
+                              ws.id === selectedWorkspaceId ? 'bg-karya-blue/5 dark:bg-karya-blue/10' : ''
                             }`}
                           >
-                            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-asana-coral to-[#e04030] flex items-center justify-center text-white text-[10px] font-bold mr-2.5 flex-shrink-0">
+                            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-karya-coral to-[#e04030] flex items-center justify-center text-white text-[10px] font-bold mr-2.5 flex-shrink-0">
                               {ws.name?.charAt(0).toUpperCase()}
                             </div>
-                            <span className="text-sm text-[var(--asana-text-primary)] truncate">{ws.name}</span>
+                            <span className="text-sm text-[var(--karya-text-primary)] truncate">{ws.name}</span>
                             {ws.id === selectedWorkspaceId && (
-                              <svg className="w-4 h-4 text-asana-blue ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                              <svg className="w-4 h-4 text-karya-blue ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
                             )}
@@ -236,7 +236,7 @@ function CreateProjectWizard({ isOpen, onClose }) {
 
                 {/* Privacy dropdown — uses fixed positioning so it doesn't overflow the modal */}
                 <div className="flex-1">
-                  <label className="block text-xs font-medium text-[var(--asana-text-secondary)] mb-1.5">Privacy</label>
+                  <label className="block text-xs font-medium text-[var(--karya-text-secondary)] mb-1.5">Privacy</label>
                   <button
                     ref={privacyBtnRef}
                     type="button"
@@ -255,26 +255,26 @@ function CreateProjectWizard({ isOpen, onClose }) {
                       setShowPrivacyDropdown(!showPrivacyDropdown);
                       setShowWorkspaceDropdown(false);
                     }}
-                    className={`w-full flex items-center px-3 py-2.5 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg text-sm text-[var(--asana-text-primary)] transition-colors ${
+                    className={`w-full flex items-center px-3 py-2.5 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg text-sm text-[var(--karya-text-primary)] transition-colors ${
                       isGuest ? 'opacity-70 cursor-not-allowed' : 'hover:border-gray-400 dark:hover:border-gray-500'
                     }`}
                   >
-                    <span className="text-[var(--asana-text-secondary)] mr-2">{currentPrivacy?.icon}</span>
+                    <span className="text-[var(--karya-text-secondary)] mr-2">{currentPrivacy?.icon}</span>
                     <span className="truncate">{currentPrivacy?.label}</span>
                     {!isGuest && (
-                      <svg className="w-4 h-4 ml-auto text-[var(--asana-text-secondary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 ml-auto text-[var(--karya-text-secondary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     )}
                   </button>
                   {isGuest && (
-                    <p className="text-[10px] text-[var(--asana-text-secondary)] mt-1">Guests can only create private projects</p>
+                    <p className="text-[10px] text-[var(--karya-text-secondary)] mt-1">Guests can only create private projects</p>
                   )}
 
                   {showPrivacyDropdown && !isGuest && (
                     <>
                       <div className="fixed inset-0 z-[300]" onClick={() => setShowPrivacyDropdown(false)} />
-                      <div className="fixed z-[301] bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-2xl py-1 animate-fade-in"
+                      <div className="fixed z-[301] bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl shadow-2xl py-1 animate-fade-in"
                         style={{ top: privacyPos.top ?? 'auto', bottom: privacyPos.bottom ?? 'auto', left: privacyPos.left, width: privacyPos.width }}>
                         {PRIVACY_OPTIONS.map((opt) => (
                           <button
@@ -284,20 +284,20 @@ function CreateProjectWizard({ isOpen, onClose }) {
                               setShowPrivacyDropdown(false);
                             }}
                             className={`w-full flex items-start px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
-                              projectData.visibility === opt.value ? 'bg-asana-blue/5 dark:bg-asana-blue/10' : ''
+                              projectData.visibility === opt.value ? 'bg-karya-blue/5 dark:bg-karya-blue/10' : ''
                             }`}
                           >
-                            <span className="text-[var(--asana-text-secondary)] mt-0.5 mr-3 flex-shrink-0">{opt.icon}</span>
+                            <span className="text-[var(--karya-text-secondary)] mt-0.5 mr-3 flex-shrink-0">{opt.icon}</span>
                             <div className="min-w-0">
                               <div className="flex items-center">
-                                <span className="text-sm font-semibold text-[var(--asana-text-primary)]">{opt.label}</span>
+                                <span className="text-sm font-semibold text-[var(--karya-text-primary)]">{opt.label}</span>
                                 {projectData.visibility === opt.value && (
-                                  <svg className="w-4 h-4 text-asana-blue ml-2" fill="currentColor" viewBox="0 0 20 20">
+                                  <svg className="w-4 h-4 text-karya-blue ml-2" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                   </svg>
                                 )}
                               </div>
-                              <p className="text-xs text-[var(--asana-text-secondary)] mt-0.5 leading-snug">{opt.desc}</p>
+                              <p className="text-xs text-[var(--karya-text-secondary)] mt-0.5 leading-snug">{opt.desc}</p>
                             </div>
                           </button>
                         ))}
@@ -309,14 +309,14 @@ function CreateProjectWizard({ isOpen, onClose }) {
 
               {/* Color picker */}
               <div>
-                <label className="block text-xs font-medium text-[var(--asana-text-secondary)] mb-2">Color</label>
+                <label className="block text-xs font-medium text-[var(--karya-text-secondary)] mb-2">Color</label>
                 <div className="flex flex-wrap gap-2">
                   {PROJECT_COLORS.map((color) => (
                     <button
                       key={color}
                       type="button"
                       onClick={() => setProjectData({ ...projectData, color })}
-                      className={`w-7 h-7 rounded-full transition-all ${projectData.color === color ? 'ring-2 ring-offset-2 ring-offset-[var(--asana-surface)] ring-gray-400 scale-110' : 'hover:scale-105'}`}
+                      className={`w-7 h-7 rounded-full transition-all ${projectData.color === color ? 'ring-2 ring-offset-2 ring-offset-[var(--karya-surface)] ring-gray-400 scale-110' : 'hover:scale-105'}`}
                       style={{ backgroundColor: color }}
                     />
                   ))}
@@ -328,24 +328,24 @@ function CreateProjectWizard({ isOpen, onClose }) {
             <button
               onClick={() => setStep(2)}
               disabled={!projectData.name.trim()}
-              className="w-full mt-6 py-3 text-sm font-semibold asana-button-primary disabled:opacity-40 disabled:cursor-not-allowed rounded-lg"
+              className="w-full mt-6 py-3 text-sm font-semibold karya-button-primary disabled:opacity-40 disabled:cursor-not-allowed rounded-lg"
             >
               Continue
             </button>
           </div>
 
           {/* Right panel — Preview */}
-          <div className="flex-1 bg-gray-900/40 dark:bg-gray-900/60 p-6 hidden md:flex flex-col overflow-hidden border-l border-[var(--asana-border)]">
+          <div className="flex-1 bg-gray-900/40 dark:bg-gray-900/60 p-6 hidden md:flex flex-col overflow-hidden border-l border-[var(--karya-border)]">
             <ProjectPreview name={projectData.name} color={projectData.color} />
           </div>
         </div>
       ) : (
         /* ── STEP 2: Choose views ── */
-        <div className="bg-[var(--asana-surface)] rounded-2xl shadow-2xl w-full max-w-[880px] max-h-[90vh] flex flex-col md:flex-row overflow-hidden animate-fade-in mx-3 sm:mx-0">
+        <div className="bg-[var(--karya-surface)] rounded-2xl shadow-2xl w-full max-w-[880px] max-h-[90vh] flex flex-col md:flex-row overflow-hidden animate-fade-in mx-3 sm:mx-0">
           {/* Left panel — View selection */}
           <div className="w-full md:w-[420px] flex-shrink-0 p-5 sm:p-8 flex flex-col overflow-y-auto">
-            <h2 className="text-xl font-bold text-[var(--asana-text-primary)] mb-1">Choose views for your project</h2>
-            <p className="text-xs text-[var(--asana-text-secondary)] mb-6">Asana recommended</p>
+            <h2 className="text-xl font-bold text-[var(--karya-text-primary)] mb-1">Choose views for your project</h2>
+            <p className="text-xs text-[var(--karya-text-secondary)] mb-6">Recommended</p>
 
             <div className="grid grid-cols-2 gap-3 flex-1">
               {DEFAULT_VIEWS.map((view) => {
@@ -357,13 +357,13 @@ function CreateProjectWizard({ isOpen, onClose }) {
                     onClick={() => toggleView(view.key)}
                     className={`relative flex flex-col items-start p-4 rounded-xl border-2 text-left transition-all ${
                       isSelected
-                        ? 'border-asana-blue bg-asana-blue/5 dark:bg-asana-blue/10'
-                        : 'border-[var(--asana-border)] hover:border-gray-300 dark:hover:border-gray-600'
+                        ? 'border-karya-blue bg-karya-blue/5 dark:bg-karya-blue/10'
+                        : 'border-[var(--karya-border)] hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                   >
                     {/* Checkbox indicator */}
                     <div className={`absolute top-3 right-3 w-5 h-5 rounded flex items-center justify-center transition-colors ${
-                      isSelected ? 'bg-asana-blue text-white' : 'border border-gray-300 dark:border-gray-600'
+                      isSelected ? 'bg-karya-blue text-white' : 'border border-gray-300 dark:border-gray-600'
                     }`}>
                       {isSelected && (
                         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -372,17 +372,17 @@ function CreateProjectWizard({ isOpen, onClose }) {
                       )}
                     </div>
 
-                    <span className={`text-sm font-bold ${isSelected ? 'text-[var(--asana-text-primary)]' : 'text-[var(--asana-text-primary)]'}`}>
+                    <span className={`text-sm font-bold ${isSelected ? 'text-[var(--karya-text-primary)]' : 'text-[var(--karya-text-primary)]'}`}>
                       {view.label}
-                      {view.required && <span className="text-[10px] font-normal text-[var(--asana-text-secondary)] ml-1">(required)</span>}
+                      {view.required && <span className="text-[10px] font-normal text-[var(--karya-text-secondary)] ml-1">(required)</span>}
                     </span>
-                    <span className="text-[11px] text-[var(--asana-text-secondary)] leading-snug mt-1">{view.desc}</span>
+                    <span className="text-[11px] text-[var(--karya-text-secondary)] leading-snug mt-1">{view.desc}</span>
                   </button>
                 );
               })}
             </div>
 
-            <p className="text-xs text-asana-blue cursor-pointer hover:underline mt-4 mb-5">Show more views</p>
+            <p className="text-xs text-karya-blue cursor-pointer hover:underline mt-4 mb-5">Show more views</p>
 
             {/* Error message */}
             {createError && (
@@ -393,14 +393,14 @@ function CreateProjectWizard({ isOpen, onClose }) {
             <div className="flex space-x-3 mt-3">
               <button
                 onClick={() => setStep(1)}
-                className="flex-1 py-3 text-sm font-semibold border border-[var(--asana-border)] rounded-lg text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="flex-1 py-3 text-sm font-semibold border border-[var(--karya-border)] rounded-lg text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Back
               </button>
               <button
                 onClick={handleCreate}
                 disabled={creating}
-                className="flex-1 py-3 text-sm font-semibold asana-button-primary disabled:opacity-50 rounded-lg"
+                className="flex-1 py-3 text-sm font-semibold karya-button-primary disabled:opacity-50 rounded-lg"
               >
                 {creating ? 'Creating...' : 'Create project'}
               </button>
@@ -408,7 +408,7 @@ function CreateProjectWizard({ isOpen, onClose }) {
           </div>
 
           {/* Right panel — Preview */}
-          <div className="flex-1 bg-gray-900/40 dark:bg-gray-900/60 p-6 hidden md:flex flex-col overflow-hidden border-l border-[var(--asana-border)]">
+          <div className="flex-1 bg-gray-900/40 dark:bg-gray-900/60 p-6 hidden md:flex flex-col overflow-hidden border-l border-[var(--karya-border)]">
             <ProjectPreview name={projectData.name} color={projectData.color} views={selectedViews} />
           </div>
         </div>
@@ -423,9 +423,9 @@ function ProjectPreview({ name, color, views }) {
   const viewLabels = viewKeys.map((k) => k.charAt(0).toUpperCase() + k.slice(1));
 
   return (
-    <div className="bg-[var(--asana-surface)] rounded-xl shadow-lg overflow-hidden flex flex-col h-full border border-[var(--asana-border)]">
+    <div className="bg-[var(--karya-surface)] rounded-xl shadow-lg overflow-hidden flex flex-col h-full border border-[var(--karya-border)]">
       {/* Header */}
-      <div className="px-5 pt-4 pb-3 border-b border-[var(--asana-border)]">
+      <div className="px-5 pt-4 pb-3 border-b border-[var(--karya-border)]">
         <div className="flex items-center space-x-3 mb-3">
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
@@ -433,7 +433,7 @@ function ProjectPreview({ name, color, views }) {
           >
             {name ? name.charAt(0).toUpperCase() : 'P'}
           </div>
-          <span className="font-bold text-sm text-[var(--asana-text-primary)]">{name || 'Project name'}</span>
+          <span className="font-bold text-sm text-[var(--karya-text-primary)]">{name || 'Project name'}</span>
         </div>
         {/* View tabs */}
         <div className="flex space-x-4">
@@ -442,8 +442,8 @@ function ProjectPreview({ name, color, views }) {
               key={label}
               className={`text-xs pb-2 ${
                 i === (viewLabels.includes('List') ? viewLabels.indexOf('List') : 0)
-                  ? 'text-[var(--asana-text-primary)] font-semibold border-b-2 border-asana-blue'
-                  : 'text-[var(--asana-text-secondary)]'
+                  ? 'text-[var(--karya-text-primary)] font-semibold border-b-2 border-karya-blue'
+                  : 'text-[var(--karya-text-secondary)]'
               }`}
             >
               {label}
@@ -461,7 +461,7 @@ function ProjectPreview({ name, color, views }) {
 
         {/* Skeleton rows */}
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="flex items-center py-2.5 border-b border-[var(--asana-border)]/30">
+          <div key={i} className="flex items-center py-2.5 border-b border-[var(--karya-border)]/30">
             <div className="w-4 h-4 rounded-full border-2 border-gray-300/40 dark:border-gray-600/40 mr-3 flex-shrink-0" />
             <div className="h-2.5 rounded bg-gray-300/30 dark:bg-gray-600/30 flex-1 max-w-[60%]" />
             <div className="ml-auto flex items-center space-x-4">
@@ -479,7 +479,7 @@ function ProjectPreview({ name, color, views }) {
         </div>
 
         {[...Array(4)].map((_, i) => (
-          <div key={`s2-${i}`} className="flex items-center py-2.5 border-b border-[var(--asana-border)]/30">
+          <div key={`s2-${i}`} className="flex items-center py-2.5 border-b border-[var(--karya-border)]/30">
             <div className={`w-4 h-4 rounded-full border-2 mr-3 flex-shrink-0 ${i < 2 ? 'border-green-500/50 bg-green-500/30' : 'border-gray-300/40 dark:border-gray-600/40'}`} />
             <div className="h-2.5 rounded bg-gray-300/30 dark:bg-gray-600/30 flex-1" style={{ maxWidth: `${40 + i * 8}%` }} />
             <div className="ml-auto flex items-center space-x-4">

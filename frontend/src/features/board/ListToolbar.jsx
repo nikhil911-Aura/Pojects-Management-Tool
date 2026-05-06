@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 
 function useClickOutside(ref, handler) {
   useEffect(() => {
@@ -13,7 +13,7 @@ function Dropdown({ children, onClose }) {
   const ref = useRef(null);
   useClickOutside(ref, onClose);
   return (
-    <div ref={ref} className="absolute top-full right-0 mt-1 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl z-50 animate-fade-in min-w-[220px]">
+    <div ref={ref} className="absolute top-full right-0 mt-1 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg shadow-xl z-50 animate-fade-in min-w-[220px]">
       {children}
     </div>
   );
@@ -27,15 +27,15 @@ function FilterPanel({ filters, onChange, members, onClose }) {
 
   return (
     <Dropdown onClose={onClose}>
-      <div className="px-3 py-2 border-b border-[var(--asana-border)]">
-        <span className="text-xs font-bold text-[var(--asana-text-primary)]">Filter by</span>
+      <div className="px-3 py-2 border-b border-[var(--karya-border)]">
+        <span className="text-xs font-bold text-[var(--karya-text-primary)]">Filter by</span>
       </div>
 
       {/* Status */}
-      <div className="px-3 py-2 border-b border-[var(--asana-border)]">
-        <label className="text-[10px] font-semibold text-[var(--asana-text-secondary)] uppercase tracking-wider">Status</label>
+      <div className="px-3 py-2 border-b border-[var(--karya-border)]">
+        <label className="text-[10px] font-semibold text-[var(--karya-text-secondary)] uppercase tracking-wider">Status</label>
         <select value={filters.status || ''} onChange={(e) => setFilter('status', e.target.value || null)}
-          className="w-full mt-1 text-xs bg-gray-100 dark:bg-gray-800 border-none rounded-md px-2 py-1.5 text-[var(--asana-text-primary)] outline-none focus:ring-1 focus:ring-asana-blue">
+          className="w-full mt-1 text-xs bg-gray-100 dark:bg-gray-800 border-none rounded-md px-2 py-1.5 text-[var(--karya-text-primary)] outline-none focus:ring-1 focus:ring-karya-blue">
           <option value="">All</option>
           <option value="TODO">To do</option>
           <option value="IN_PROGRESS">In progress</option>
@@ -45,10 +45,10 @@ function FilterPanel({ filters, onChange, members, onClose }) {
       </div>
 
       {/* Priority */}
-      <div className="px-3 py-2 border-b border-[var(--asana-border)]">
-        <label className="text-[10px] font-semibold text-[var(--asana-text-secondary)] uppercase tracking-wider">Priority</label>
+      <div className="px-3 py-2 border-b border-[var(--karya-border)]">
+        <label className="text-[10px] font-semibold text-[var(--karya-text-secondary)] uppercase tracking-wider">Priority</label>
         <select value={filters.priority || ''} onChange={(e) => setFilter('priority', e.target.value || null)}
-          className="w-full mt-1 text-xs bg-gray-100 dark:bg-gray-800 border-none rounded-md px-2 py-1.5 text-[var(--asana-text-primary)] outline-none focus:ring-1 focus:ring-asana-blue">
+          className="w-full mt-1 text-xs bg-gray-100 dark:bg-gray-800 border-none rounded-md px-2 py-1.5 text-[var(--karya-text-primary)] outline-none focus:ring-1 focus:ring-karya-blue">
           <option value="">All</option>
           <option value="HIGH">High</option>
           <option value="MEDIUM">Medium</option>
@@ -57,10 +57,10 @@ function FilterPanel({ filters, onChange, members, onClose }) {
       </div>
 
       {/* Assignee */}
-      <div className="px-3 py-2 border-b border-[var(--asana-border)]">
-        <label className="text-[10px] font-semibold text-[var(--asana-text-secondary)] uppercase tracking-wider">Assignee</label>
+      <div className="px-3 py-2 border-b border-[var(--karya-border)]">
+        <label className="text-[10px] font-semibold text-[var(--karya-text-secondary)] uppercase tracking-wider">Assignee</label>
         <select value={filters.assignee || ''} onChange={(e) => setFilter('assignee', e.target.value || null)}
-          className="w-full mt-1 text-xs bg-gray-100 dark:bg-gray-800 border-none rounded-md px-2 py-1.5 text-[var(--asana-text-primary)] outline-none focus:ring-1 focus:ring-asana-blue">
+          className="w-full mt-1 text-xs bg-gray-100 dark:bg-gray-800 border-none rounded-md px-2 py-1.5 text-[var(--karya-text-primary)] outline-none focus:ring-1 focus:ring-karya-blue">
           <option value="">All</option>
           <option value="__unassigned__">Unassigned</option>
           {(members || []).map(m => {
@@ -71,10 +71,10 @@ function FilterPanel({ filters, onChange, members, onClose }) {
       </div>
 
       {/* Due date */}
-      <div className="px-3 py-2 border-b border-[var(--asana-border)]">
-        <label className="text-[10px] font-semibold text-[var(--asana-text-secondary)] uppercase tracking-wider">Due date</label>
+      <div className="px-3 py-2 border-b border-[var(--karya-border)]">
+        <label className="text-[10px] font-semibold text-[var(--karya-text-secondary)] uppercase tracking-wider">Due date</label>
         <select value={filters.dueDate || ''} onChange={(e) => setFilter('dueDate', e.target.value || null)}
-          className="w-full mt-1 text-xs bg-gray-100 dark:bg-gray-800 border-none rounded-md px-2 py-1.5 text-[var(--asana-text-primary)] outline-none focus:ring-1 focus:ring-asana-blue">
+          className="w-full mt-1 text-xs bg-gray-100 dark:bg-gray-800 border-none rounded-md px-2 py-1.5 text-[var(--karya-text-primary)] outline-none focus:ring-1 focus:ring-karya-blue">
           <option value="">Any time</option>
           <option value="overdue">Overdue</option>
           <option value="today">Due today</option>
@@ -86,7 +86,7 @@ function FilterPanel({ filters, onChange, members, onClose }) {
       {/* Clear */}
       <div className="px-3 py-2">
         <button onClick={() => onChange({ status: null, priority: null, assignee: null, dueDate: null })}
-          className="text-xs text-asana-blue hover:underline">Clear all filters</button>
+          className="text-xs text-karya-blue hover:underline">Clear all filters</button>
       </div>
     </Dropdown>
   );
@@ -108,8 +108,8 @@ function SortPanel({ sortBy, sortDir, onChange, onClose }) {
 
   return (
     <Dropdown onClose={onClose}>
-      <div className="px-3 py-2 border-b border-[var(--asana-border)]">
-        <span className="text-xs font-bold text-[var(--asana-text-primary)]">Sort by</span>
+      <div className="px-3 py-2 border-b border-[var(--karya-border)]">
+        <span className="text-xs font-bold text-[var(--karya-text-primary)]">Sort by</span>
       </div>
       {options.map(opt => (
         <button key={opt.value}
@@ -117,7 +117,7 @@ function SortPanel({ sortBy, sortDir, onChange, onClose }) {
             if (sortBy === opt.value) onChange(opt.value, sortDir === 'asc' ? 'desc' : 'asc');
             else onChange(opt.value, 'asc');
           }}
-          className={`w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${sortBy === opt.value ? 'text-asana-blue font-semibold' : 'text-[var(--asana-text-primary)]'}`}>
+          className={`w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${sortBy === opt.value ? 'text-karya-blue font-semibold' : 'text-[var(--karya-text-primary)]'}`}>
           <span>{opt.label}</span>
           {sortBy === opt.value && (
             <svg className={`w-3.5 h-3.5 transition-transform ${sortDir === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -144,16 +144,16 @@ function GroupPanel({ groupBy, onChange, onClose }) {
 
   return (
     <Dropdown onClose={onClose}>
-      <div className="px-3 py-2 border-b border-[var(--asana-border)]">
-        <span className="text-xs font-bold text-[var(--asana-text-primary)]">Group by</span>
+      <div className="px-3 py-2 border-b border-[var(--karya-border)]">
+        <span className="text-xs font-bold text-[var(--karya-text-primary)]">Group by</span>
       </div>
       {options.map(opt => (
         <button key={opt.value}
           onClick={() => { onChange(opt.value === 'none' ? null : opt.value); onClose(); }}
-          className={`w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${groupBy === opt.value || (!groupBy && opt.value === 'none') ? 'text-asana-blue font-semibold' : 'text-[var(--asana-text-primary)]'}`}>
+          className={`w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${groupBy === opt.value || (!groupBy && opt.value === 'none') ? 'text-karya-blue font-semibold' : 'text-[var(--karya-text-primary)]'}`}>
           <span>{opt.label}</span>
           {(groupBy === opt.value || (!groupBy && opt.value === 'none')) && (
-            <svg className="w-3.5 h-3.5 text-asana-blue" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-3.5 h-3.5 text-karya-blue" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
           )}
@@ -181,14 +181,14 @@ function OptionsPanel({ columns, onChange, onClose }) {
 
   return (
     <Dropdown onClose={onClose}>
-      <div className="px-3 py-2 border-b border-[var(--asana-border)]">
-        <span className="text-xs font-bold text-[var(--asana-text-primary)]">Show columns</span>
+      <div className="px-3 py-2 border-b border-[var(--karya-border)]">
+        <span className="text-xs font-bold text-[var(--karya-text-primary)]">Show columns</span>
       </div>
       {allCols.map(col => (
         <button key={col.key} onClick={() => toggle(col.key)}
-          className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-[var(--asana-text-primary)]">
+          className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-[var(--karya-text-primary)]">
           <span>{col.label}</span>
-          <div className={`w-8 h-4 rounded-full transition-colors flex items-center ${columns[col.key] !== false ? 'bg-asana-blue' : 'bg-gray-300 dark:bg-gray-600'}`}>
+          <div className={`w-8 h-4 rounded-full transition-colors flex items-center ${columns[col.key] !== false ? 'bg-karya-blue' : 'bg-gray-300 dark:bg-gray-600'}`}>
             <div className={`w-3 h-3 rounded-full bg-white shadow transition-transform ${columns[col.key] !== false ? 'translate-x-4' : 'translate-x-0.5'}`} />
           </div>
         </button>
@@ -217,8 +217,8 @@ function SaveViewButton({ onSave, hasSaved }) {
         flash
           ? 'border-green-400 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400'
           : hasSaved
-            ? 'border-asana-blue/40 bg-asana-blue/5 text-asana-blue'
-            : 'border-[var(--asana-border)] text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-[var(--asana-text-primary)]'
+            ? 'border-karya-blue/40 bg-karya-blue/5 text-karya-blue'
+            : 'border-[var(--karya-border)] text-[var(--karya-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-[var(--karya-text-primary)]'
       }`}
     >
       {flash ? (
@@ -277,18 +277,18 @@ function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, 
   ];
 
   return (
-    <div className="bg-[var(--asana-surface)] px-6 py-2 border-b border-[var(--asana-border)] flex items-center justify-between">
+    <div className="bg-[var(--karya-surface)] px-6 py-2 border-b border-[var(--karya-border)] flex items-center justify-between">
       <div className="flex items-center space-x-2">
         {canCreateTask && onAddTask && (
           <button
             onClick={onAddTask}
-            className="flex items-center text-sm font-semibold text-[var(--asana-text-primary)] hover:text-asana-blue transition-colors group/add"
+            className="flex items-center text-sm font-semibold text-[var(--karya-text-primary)] hover:text-karya-blue transition-colors group/add"
           >
-            <svg className="w-4 h-4 mr-1.5 text-[var(--asana-text-secondary)] group-hover/add:text-asana-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 mr-1.5 text-[var(--karya-text-secondary)] group-hover/add:text-karya-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Add task
-            <svg className="w-3 h-3 ml-1 text-[var(--asana-text-secondary)] group-hover/add:text-asana-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3 h-3 ml-1 text-[var(--karya-text-secondary)] group-hover/add:text-karya-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
@@ -302,17 +302,17 @@ function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, 
               onClick={() => toggle(key)}
               className={`flex items-center text-[11px] px-2.5 py-1.5 rounded-md transition-colors ${
                 active
-                  ? 'bg-asana-blue/10 text-asana-blue font-semibold'
+                  ? 'bg-karya-blue/10 text-karya-blue font-semibold'
                   : openPanel === key
-                    ? 'bg-gray-100 dark:bg-gray-800 text-[var(--asana-text-primary)]'
-                    : 'text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-[var(--asana-text-primary)]'
+                    ? 'bg-gray-100 dark:bg-gray-800 text-[var(--karya-text-primary)]'
+                    : 'text-[var(--karya-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-[var(--karya-text-primary)]'
               }`}
             >
               <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
               </svg>
               {label}
-              {active && <span className="w-1.5 h-1.5 rounded-full bg-asana-blue ml-1.5" />}
+              {active && <span className="w-1.5 h-1.5 rounded-full bg-karya-blue ml-1.5" />}
             </button>
 
             {openPanel === 'filter' && key === 'filter' && (
@@ -338,7 +338,7 @@ function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, 
         {/* Search toggle / inline input */}
         {openPanel === 'search' ? (
           <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-md px-2 py-1 space-x-1.5 animate-fade-in">
-            <svg className="w-3.5 h-3.5 text-[var(--asana-text-secondary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 text-[var(--karya-text-secondary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -348,7 +348,7 @@ function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, 
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Search in project..."
               autoFocus
-              className="bg-transparent border-none outline-none text-xs text-[var(--asana-text-primary)] placeholder-gray-400 w-36 py-0"
+              className="bg-transparent border-none outline-none text-xs text-[var(--karya-text-primary)] placeholder-gray-400 w-36 py-0"
               onKeyDown={(e) => {
                 if (e.key === 'Escape') { onSearchChange(''); setOpenPanel(null); }
               }}
@@ -360,7 +360,7 @@ function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, 
                 </svg>
               </button>
             )}
-            <button onClick={() => { onSearchChange(''); setOpenPanel(null); }} className="text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] flex-shrink-0">
+            <button onClick={() => { onSearchChange(''); setOpenPanel(null); }} className="text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)] flex-shrink-0">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -370,13 +370,13 @@ function ListToolbar({ filters, onFiltersChange, sortBy, sortDir, onSortChange, 
           <button
             onClick={() => setOpenPanel('search')}
             className={`flex items-center text-[11px] px-2 py-1.5 rounded-md transition-colors ${
-              searchQuery ? 'bg-asana-blue/10 text-asana-blue' : 'text-[var(--asana-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-800'
+              searchQuery ? 'bg-karya-blue/10 text-karya-blue' : 'text-[var(--karya-text-secondary)] hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            {searchQuery && <span className="w-1.5 h-1.5 rounded-full bg-asana-blue ml-1" />}
+            {searchQuery && <span className="w-1.5 h-1.5 rounded-full bg-karya-blue ml-1" />}
           </button>
         )}
       </div>

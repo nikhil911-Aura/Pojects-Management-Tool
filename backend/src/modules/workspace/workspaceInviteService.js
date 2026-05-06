@@ -364,9 +364,14 @@ export const workspaceInviteService = {
   },
 
   /**
-   * Get pending invites for a workspace
+   * Get pending invites for a workspace — OWNER/ADMIN only
    */
-  async getWorkspaceInvites(workspaceId) {
+  async getWorkspaceInvites(workspaceId, requesterId) {
+    const membership = await prisma.workspaceMember.findFirst({
+      where: { workspaceId, userId: requesterId, role: { in: ['OWNER', 'ADMIN'] } },
+    });
+    if (!membership) throw ApiError.forbidden('Only workspace admins can view pending invitations');
+
     // Fetch pending invites
     const invites = await prisma.workspaceInvite.findMany({
       where: {

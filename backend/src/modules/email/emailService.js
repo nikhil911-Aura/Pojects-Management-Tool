@@ -23,7 +23,7 @@ export const emailService = {
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
         <h2 style="color: #4573D2; text-align: center;">You've Been Invited!</h2>
         <p>Hello,</p>
-        <p><strong>${inviterName}</strong> has invited you to join the <strong>${workspaceName}</strong> workspace on Asana Clone.</p>
+        <p><strong>${inviterName}</strong> has invited you to join the <strong>${workspaceName}</strong> workspace on Karya.</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="${inviteLink}" style="background-color: #4573D2; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Accept Invitation</a>
         </div>
@@ -36,9 +36,9 @@ export const emailService = {
 
     try {
       const info = await transporter.sendMail({
-        from: `"Asana Clone" <${config.smtp.user}>`,
+        from: `"Karya" <${config.smtp.user}>`,
         to,
-        subject: `Join ${workspaceName} on Asana Clone`,
+        subject: `Join ${workspaceName} on Karya`,
         html,
       });
       console.log(`[EmailService] Invitation sent to ${to}. Message ID: ${info.messageId}`);
@@ -57,7 +57,7 @@ export const emailService = {
   async sendReportEmail(to, subject, html) {
     try {
       const info = await transporter.sendMail({
-        from: `"Asana Clone Reports" <${config.smtp.user}>`,
+        from: `"Karya Reports" <${config.smtp.user}>`,
         to,
         subject,
         html,

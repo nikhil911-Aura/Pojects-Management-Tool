@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
- * useAutoSave — Asana-style auto-saving hook
+ * useAutoSave — karya-style auto-saving hook
  * Saves to DB on every keystroke (debounced), flushes on unmount/navigation/page close.
  */
 export function useAutoSave({
@@ -119,7 +119,7 @@ export function SaveIndicator({ status }) {
   if (status === 'idle') return null;
   return (
     <span className={`text-[10px] font-medium whitespace-nowrap transition-opacity duration-300 ${
-      status === 'saving' ? 'text-[var(--asana-text-secondary)] animate-pulse' :
+      status === 'saving' ? 'text-[var(--karya-text-secondary)] animate-pulse' :
       status === 'saved' ? 'text-green-500' :
       status === 'error' ? 'text-red-500' : ''
     }`}>

@@ -93,12 +93,12 @@ export const customFieldService = {
     });
   },
 
-  // Update a custom field
+  // Update a custom field (rename / change options) — requires field.create (schema change)
   async update(fieldId, userId, data) {
     const { workspaceMember, projectRole, customPermissions } = await getFieldContext(fieldId, userId);
 
-    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'field.edit')) {
-      throw ApiError.forbidden('You do not have permission to edit custom fields');
+    if (!hasPermission(workspaceMember.role, projectRole, customPermissions, 'field.create')) {
+      throw ApiError.forbidden('You do not have permission to modify custom field definitions');
     }
 
     return prisma.customField.update({
@@ -138,8 +138,9 @@ export const customFieldService = {
     });
   },
 
-  // Get all field values for tasks in a project (batch) — read-only, no special permission needed
-  async getValuesForProject(projectId) {
+  // Get all field values for tasks in a project (batch) — requires project access
+  async getValuesForProject(projectId, userId) {
+    await getProjectContext(projectId, userId); // access check
     return prisma.customFieldValue.findMany({
       where: { field: { projectId } },
       select: { fieldId: true, taskId: true, value: true }

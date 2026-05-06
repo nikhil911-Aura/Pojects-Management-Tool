@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+﻿import { useEffect, useState, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -48,12 +48,12 @@ function MemberPopover({ member, color, onClose, position }) {
       className="absolute z-[60] animate-fade-in"
       style={{ top: position.top, right: position.right }}
     >
-      <div className="bg-[var(--asana-surface)] rounded-xl shadow-2xl border border-[var(--asana-border)] w-64 overflow-hidden">
+      <div className="bg-[var(--karya-surface)] rounded-xl shadow-2xl border border-[var(--karya-border)] w-64 overflow-hidden">
         {/* Color banner */}
         <div className="h-14 relative" style={{ backgroundColor: color }}>
           <div className="absolute -bottom-5 left-4">
             <div
-              className="w-12 h-12 rounded-full border-3 border-[var(--asana-surface)] flex items-center justify-center text-white text-lg font-bold shadow-lg"
+              className="w-12 h-12 rounded-full border-3 border-[var(--karya-surface)] flex items-center justify-center text-white text-lg font-bold shadow-lg"
               style={{ backgroundColor: color, borderWidth: '3px' }}
             >
               {member.user?.name?.charAt(0).toUpperCase() || '?'}
@@ -64,19 +64,19 @@ function MemberPopover({ member, color, onClose, position }) {
         <div className="pt-8 pb-4 px-4">
           {/* Name + role */}
           <div className="flex items-start justify-between mb-1">
-            <h4 className="text-sm font-bold text-[var(--asana-text-primary)] leading-tight">{member.user?.name}</h4>
+            <h4 className="text-sm font-bold text-[var(--karya-text-primary)] leading-tight">{member.user?.name}</h4>
             <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-md ${role.cls}`}>
               {role.label}
             </span>
           </div>
 
           {/* Email */}
-          <p className="text-xs text-[var(--asana-text-secondary)] mb-3">{member.user?.email}</p>
+          <p className="text-xs text-[var(--karya-text-secondary)] mb-3">{member.user?.email}</p>
 
           {/* Divider */}
-          <div className="border-t border-[var(--asana-border)] pt-3 space-y-2">
+          <div className="border-t border-[var(--karya-border)] pt-3 space-y-2">
             {/* Joined info */}
-            <div className="flex items-center text-xs text-[var(--asana-text-secondary)]">
+            <div className="flex items-center text-xs text-[var(--karya-text-secondary)]">
               <svg className="w-3.5 h-3.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
@@ -84,7 +84,7 @@ function MemberPopover({ member, color, onClose, position }) {
             </div>
 
             {/* Role description */}
-            <div className="flex items-center text-xs text-[var(--asana-text-secondary)]">
+            <div className="flex items-center text-xs text-[var(--karya-text-secondary)]">
               <svg className="w-3.5 h-3.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
@@ -338,7 +338,7 @@ function ProjectBoard() {
     const isForbidden = projectFetchError.type === 'forbidden';
     const isNotFound  = projectFetchError.type === 'not_found';
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-[var(--asana-bg)] px-6 text-center">
+      <div className="h-full flex flex-col items-center justify-center bg-[var(--karya-bg)] px-6 text-center">
         <div className="w-16 h-16 rounded-full flex items-center justify-center mb-5 bg-gray-100 dark:bg-gray-800">
           {isForbidden ? (
             <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -354,12 +354,12 @@ function ProjectBoard() {
             </svg>
           )}
         </div>
-        <h2 className="text-[15px] font-semibold text-[var(--asana-text-primary)] mb-2">
+        <h2 className="text-[15px] font-semibold text-[var(--karya-text-primary)] mb-2">
           {isForbidden ? "You don't have access to this project"
             : isNotFound ? 'Project not found'
             : 'Something went wrong'}
         </h2>
-        <p className="text-[13px] text-[var(--asana-text-secondary)] max-w-sm mb-6">
+        <p className="text-[13px] text-[var(--karya-text-secondary)] max-w-sm mb-6">
           {isForbidden
             ? "This is a private project. Ask the project owner to add you as a member, or request access from your workspace admin."
             : isNotFound
@@ -368,12 +368,12 @@ function ProjectBoard() {
         </p>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)}
-            className="px-4 py-2 text-[13px] font-medium rounded-md border border-[var(--asana-border)] text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            className="px-4 py-2 text-[13px] font-medium rounded-md border border-[var(--karya-border)] text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
             Go back
           </button>
           {!isForbidden && (
             <button onClick={() => { setProjectFetchError(null); setInitialLoaded(false); dispatch(fetchProject(projectId)); }}
-              className="px-4 py-2 text-[13px] font-medium rounded-md bg-asana-blue text-white hover:bg-asana-blue/90 transition-colors">
+              className="px-4 py-2 text-[13px] font-medium rounded-md bg-karya-blue text-white hover:bg-karya-blue/90 transition-colors">
               Try again
             </button>
           )}
@@ -386,7 +386,7 @@ function ProjectBoard() {
     return (
       <div className="h-full flex flex-col overflow-hidden animate-pulse">
         {/* Skeleton header */}
-        <div className="bg-[var(--asana-surface)] px-6 pt-5 pb-3 border-b border-[var(--asana-border)]">
+        <div className="bg-[var(--karya-surface)] px-6 pt-5 pb-3 border-b border-[var(--karya-border)]">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
               <div className="w-9 h-9 rounded-lg bg-gray-200 dark:bg-gray-700" />
@@ -408,32 +408,32 @@ function ProjectBoard() {
           </div>
         </div>
         {/* Skeleton content */}
-        <div className="flex-1 p-6 bg-[var(--asana-bg)] space-y-3">
-          <div className="bg-[var(--asana-surface)] rounded-lg border border-[var(--asana-border)] p-1">
+        <div className="flex-1 p-6 bg-[var(--karya-bg)] space-y-3">
+          <div className="bg-[var(--karya-surface)] rounded-lg border border-[var(--karya-border)] p-1">
             {/* Skeleton column header */}
-            <div className="flex items-center border-b border-[var(--asana-border)] px-4 py-2.5">
+            <div className="flex items-center border-b border-[var(--karya-border)] px-4 py-2.5">
               <div className="h-2.5 w-12 bg-gray-200 dark:bg-gray-700 rounded flex-1" />
               <div className="h-2.5 w-16 bg-gray-200 dark:bg-gray-700 rounded ml-6" />
               <div className="h-2.5 w-14 bg-gray-200 dark:bg-gray-700 rounded ml-6" />
               <div className="h-2.5 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-6" />
             </div>
             {/* Skeleton section */}
-            <div className="px-4 py-2.5 border-b border-[var(--asana-border)]">
+            <div className="px-4 py-2.5 border-b border-[var(--karya-border)]">
               <div className="h-3.5 w-24 bg-gray-300 dark:bg-gray-600 rounded" />
             </div>
             {/* Skeleton rows */}
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="flex items-center px-4 py-3 border-b border-[var(--asana-border)]">
+              <div key={i} className="flex items-center px-4 py-3 border-b border-[var(--karya-border)]">
                 <div className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 mr-3" />
                 <div className={`h-3 bg-gray-200 dark:bg-gray-700 rounded`} style={{ width: `${35 + i * 10}%` }} />
               </div>
             ))}
             {/* Skeleton second section */}
-            <div className="px-4 py-2.5 border-b border-[var(--asana-border)]">
+            <div className="px-4 py-2.5 border-b border-[var(--karya-border)]">
               <div className="h-3.5 w-16 bg-gray-300 dark:bg-gray-600 rounded" />
             </div>
             {[...Array(2)].map((_, i) => (
-              <div key={`s2-${i}`} className="flex items-center px-4 py-3 border-b border-[var(--asana-border)]">
+              <div key={`s2-${i}`} className="flex items-center px-4 py-3 border-b border-[var(--karya-border)]">
                 <div className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 mr-3" />
                 <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded" style={{ width: `${25 + i * 15}%` }} />
               </div>
@@ -456,11 +456,11 @@ function ProjectBoard() {
   return (
     <div className="h-full flex flex-col relative overflow-hidden">
       {/* ── Project header ── */}
-      <div className="bg-[var(--asana-surface)] px-3 sm:px-6 pt-4 sm:pt-5 border-b border-[var(--asana-border)]">
+      <div className="bg-[var(--karya-surface)] px-3 sm:px-6 pt-4 sm:pt-5 border-b border-[var(--karya-border)]">
         <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
           <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
             <div
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-asana flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-sm flex-shrink-0"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-karya flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-sm flex-shrink-0"
               style={{ backgroundColor: currentProject.color || '#4573D2' }}
             >
               {currentProject.name?.charAt(0).toUpperCase()}
@@ -469,11 +469,11 @@ function ProjectBoard() {
               <div className="flex items-center space-x-2">
                 {editingProjectName ? (
                   <input type="text" value={projectNameInput} onChange={(e) => setProjectNameInput(e.target.value)}
-                    autoFocus className="text-base font-bold bg-transparent border-b-2 border-asana-blue outline-none text-[var(--asana-text-primary)] py-0 px-0"
+                    autoFocus className="text-base font-bold bg-transparent border-b-2 border-karya-blue outline-none text-[var(--karya-text-primary)] py-0 px-0"
                     onBlur={handleRenameProject}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleRenameProject(); if (e.key === 'Escape') setEditingProjectName(false); }} />
                 ) : (
-                  <h1 className={`text-base font-bold text-[var(--asana-text-primary)] ${canEditProject ? 'cursor-pointer hover:text-asana-blue transition-colors' : ''}`}
+                  <h1 className={`text-base font-bold text-[var(--karya-text-primary)] ${canEditProject ? 'cursor-pointer hover:text-karya-blue transition-colors' : ''}`}
                     onClick={() => { if (canEditProject) { setProjectNameInput(currentProject.name); setEditingProjectName(true); } }}>
                     {currentProject.name}
                   </h1>
@@ -486,7 +486,7 @@ function ProjectBoard() {
                   {currentProject.visibility === 'PRIVATE' ? 'Private' : 'Public'}
                 </span>
                 {currentProject.createdBy?.name && (
-                  <span className="text-[10px] text-[var(--asana-text-tertiary)] font-medium hidden sm:inline-flex items-center gap-1">
+                  <span className="text-[10px] text-[var(--karya-text-tertiary)] font-medium hidden sm:inline-flex items-center gap-1">
                     <span className="opacity-50">by</span> {currentProject.createdBy.name}
                   </span>
                 )}
@@ -495,16 +495,16 @@ function ProjectBoard() {
                 {(canEditProject || canDeleteProject) && (
                   <div className="relative" ref={projectMenuRef}>
                     <button onClick={() => setShowProjectMenu(!showProjectMenu)}
-                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] transition-colors">
+                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)] transition-colors">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
                       </svg>
                     </button>
                     {showProjectMenu && (
-                      <div className="absolute top-full left-0 mt-1 w-52 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-lg shadow-xl z-50 py-1 animate-fade-in">
+                      <div className="absolute top-full left-0 mt-1 w-52 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-lg shadow-xl z-50 py-1 animate-fade-in">
                         <button onClick={() => { setProjectNameInput(currentProject.name); setEditingProjectName(true); setShowProjectMenu(false); }}
-                          className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                          <svg className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          className="w-full flex items-center px-3 py-2 text-xs text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                          <svg className="w-4 h-4 mr-2.5 text-[var(--karya-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
                           Rename project
@@ -530,21 +530,21 @@ function ProjectBoard() {
                               done();
                             }
                           }}
-                          className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                          className="w-full flex items-center px-3 py-2 text-xs text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                           {linkCopied ? (
                             <svg className="w-4 h-4 mr-2.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : (
-                            <svg className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 mr-2.5 text-[var(--karya-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                             </svg>
                           )}
                           {linkCopied ? <span className="text-green-500 font-medium">Link copied!</span> : 'Copy project link'}
                         </button>
                         <button onClick={handleToggleVisibility}
-                          className="w-full flex items-center px-3 py-2 text-xs text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                          <svg className="w-4 h-4 mr-2.5 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          className="w-full flex items-center px-3 py-2 text-xs text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                          <svg className="w-4 h-4 mr-2.5 text-[var(--karya-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             {currentProject.visibility === 'PRIVATE' ? (
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             ) : (
@@ -553,7 +553,7 @@ function ProjectBoard() {
                           </svg>
                           {currentProject.visibility === 'PRIVATE' ? 'Make public' : 'Make private'}
                         </button>
-                        <div className="border-t border-[var(--asana-border)] my-1" />
+                        <div className="border-t border-[var(--karya-border)] my-1" />
                         <button onClick={() => { setShowProjectMenu(false); handleDeleteProject(); }}
                           className="w-full flex items-center px-3 py-2 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                           <svg className="w-4 h-4 mr-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -576,9 +576,9 @@ function ProjectBoard() {
                 {members.slice(0, 5).map((m, i) => (
                   <div
                     key={m.userId || m.id}
-                    className={`w-8 h-8 rounded-full border-2 border-[var(--asana-surface)] flex items-center justify-center text-white text-xs font-bold transition-all relative ${
-                      isWorkspaceAdmin ? 'cursor-pointer hover:scale-110 hover:ring-2 hover:ring-asana-blue/40' : ''
-                    } ${activeMemberPopover?.member?.userId === m.userId ? 'ring-2 ring-asana-blue scale-110' : ''}`}
+                    className={`w-8 h-8 rounded-full border-2 border-[var(--karya-surface)] flex items-center justify-center text-white text-xs font-bold transition-all relative ${
+                      isWorkspaceAdmin ? 'cursor-pointer hover:scale-110 hover:ring-2 hover:ring-karya-blue/40' : ''
+                    } ${activeMemberPopover?.member?.userId === m.userId ? 'ring-2 ring-karya-blue scale-110' : ''}`}
                     style={{ backgroundColor: MEMBER_COLORS[i % MEMBER_COLORS.length], zIndex: activeMemberPopover?.member?.userId === m.userId ? 20 : members.length - i }}
                     onClick={() => handleAvatarClick(m, i)}
                   >
@@ -587,7 +587,7 @@ function ProjectBoard() {
                 ))}
                 {members.length > 5 && (
                   <div
-                    className="w-8 h-8 rounded-full border-2 border-[var(--asana-surface)] bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] font-bold text-[var(--asana-text-secondary)] cursor-pointer hover:scale-110 transition-transform"
+                    className="w-8 h-8 rounded-full border-2 border-[var(--karya-surface)] bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] font-bold text-[var(--karya-text-secondary)] cursor-pointer hover:scale-110 transition-transform"
                     onClick={() => isWorkspaceAdmin && setShowShare(true)}
                   >
                     +{members.length - 5}
@@ -599,7 +599,7 @@ function ProjectBoard() {
               {canInvite && (
                 <button
                   onClick={() => setShowShare(true)}
-                  className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-[var(--asana-text-secondary)] hover:border-asana-blue hover:text-asana-blue transition-colors ml-1"
+                  className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-[var(--karya-text-secondary)] hover:border-karya-blue hover:text-karya-blue transition-colors ml-1"
                   title="Add member"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -619,16 +619,18 @@ function ProjectBoard() {
               )}
             </div>
 
-            {/* Share button */}
+            {/* Share button — only visible to users who can invite */}
+            {canInvite && (
             <button
               onClick={() => setShowShare(true)}
-              className="flex items-center text-xs px-2 sm:px-3 py-1.5 rounded-asana bg-green-500 hover:bg-green-600 text-white font-semibold transition-colors"
+              className="flex items-center text-xs px-2 sm:px-3 py-1.5 rounded-karya bg-green-500 hover:bg-green-600 text-white font-semibold transition-colors"
             >
               <svg className="w-3.5 h-3.5 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
               <span className="hidden sm:inline">Share</span>
             </button>
+            )}
 
 
             {can('section.create') && (
@@ -640,7 +642,7 @@ function ProjectBoard() {
                     setShowCreateList(true);
                   }
                 }}
-                className="asana-button-primary flex items-center text-xs px-3 py-1.5"
+                className="karya-button-primary flex items-center text-xs px-3 py-1.5"
               >
                 <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -659,13 +661,13 @@ function ProjectBoard() {
               onClick={() => setView(view.toLowerCase())}
               className={`px-4 py-2 text-sm font-medium transition-all relative rounded-t-md ${
                 activeView === view.toLowerCase()
-                  ? 'text-asana-blue'
-                  : 'text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)]'
+                  ? 'text-karya-blue'
+                  : 'text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)]'
               }`}
             >
               {view}
               {activeView === view.toLowerCase() && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-asana-blue rounded-t-full" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-karya-blue rounded-t-full" />
               )}
             </button>
           ))}
@@ -700,7 +702,7 @@ function ProjectBoard() {
           List view manages its own internal scroll container; other views (overview,
           timeline, dashboard, gantt, workload) rely on this wrapper to scroll. We toggle
           overflow on activeView so @hello-pangea/dnd never sees nested scroll parents. */}
-      <div className={`flex-1 ${activeView === 'list' ? 'overflow-hidden' : 'overflow-auto'} p-3 sm:p-6 bg-[var(--asana-bg)]`}>
+      <div className={`flex-1 ${activeView === 'list' ? 'overflow-hidden' : 'overflow-auto'} p-3 sm:p-6 bg-[var(--karya-bg)]`}>
         {activeView === 'board' ? (
           <div className="h-full overflow-x-auto pb-4">
             <DragDropContext onDragEnd={handleDragEnd}>
@@ -709,17 +711,17 @@ function ProjectBoard() {
                   <div key={list.id} className="w-72 flex-shrink-0 flex flex-col max-h-full">
                     <div className="px-2 pb-2 flex items-center justify-between group">
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[var(--asana-text-secondary)]">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[var(--karya-text-secondary)]">
                           {list.name}
                         </span>
-                        <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-[var(--asana-text-secondary)] rounded-full px-1.5 py-0.5 font-medium">
+                        <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-[var(--karya-text-secondary)] rounded-full px-1.5 py-0.5 font-medium">
                           {list.tasks?.length || 0}
                         </span>
                       </div>
                       {canEdit && (
                         <button
                           onClick={() => dispatch(deleteList(list.id))}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-[var(--asana-text-secondary)] hover:text-red-500 transition-all"
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-[var(--karya-text-secondary)] hover:text-red-500 transition-all"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -734,8 +736,8 @@ function ProjectBoard() {
                         <div
                           ref={provided.innerRef}
                           {...provided.droppableProps}
-                          className={`flex-1 overflow-y-auto space-y-2 min-h-[80px] rounded-asana p-1 transition-colors ${
-                            snapshot.isDraggingOver ? 'bg-asana-blue/5 dark:bg-asana-blue/10' : ''
+                          className={`flex-1 overflow-y-auto space-y-2 min-h-[80px] rounded-karya p-1 transition-colors ${
+                            snapshot.isDraggingOver ? 'bg-karya-blue/5 dark:bg-karya-blue/10' : ''
                           }`}
                         >
                           {list.tasks?.map((task, index) => (
@@ -746,12 +748,12 @@ function ProjectBoard() {
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
                                   onClick={() => openTask(task.id)}
-                                  className={`asana-card p-3.5 group cursor-pointer ${
-                                    snapshot.isDragging ? 'rotate-2 scale-105 shadow-xl ring-2 ring-asana-blue/30 z-50' : 'hover:-translate-y-0.5'
+                                  className={`karya-card p-3.5 group cursor-pointer ${
+                                    snapshot.isDragging ? 'rotate-2 scale-105 shadow-xl ring-2 ring-karya-blue/30 z-50' : 'hover:-translate-y-0.5'
                                   }`}
                                 >
                                   <div className="flex items-start justify-between gap-2">
-                                    <p className="text-sm font-medium text-[var(--asana-text-primary)] group-hover:text-asana-blue transition-colors line-clamp-2 flex-1">
+                                    <p className="text-sm font-medium text-[var(--karya-text-primary)] group-hover:text-karya-blue transition-colors line-clamp-2 flex-1">
                                       {task.title}
                                     </p>
                                     <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${PRIORITY_DOT[task.priority] || PRIORITY_DOT.LOW}`} />
@@ -777,7 +779,7 @@ function ProjectBoard() {
                                         <span className={`text-[10px] font-medium flex items-center px-1.5 py-0.5 rounded ${
                                           new Date(task.dueDate) < new Date()
                                             ? 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400'
-                                            : 'text-[var(--asana-text-secondary)] bg-gray-100 dark:bg-gray-700'
+                                            : 'text-[var(--karya-text-secondary)] bg-gray-100 dark:bg-gray-700'
                                         }`}>
                                           <svg className="w-2.5 h-2.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -787,7 +789,7 @@ function ProjectBoard() {
                                       )}
                                     </div>
                                     {task.subtasks?.length > 0 && (
-                                      <span className="text-[10px] text-[var(--asana-text-secondary)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
+                                      <span className="text-[10px] text-[var(--karya-text-secondary)] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
                                         {task.subtasks.filter(s => s.status === 'DONE').length}/{task.subtasks.length}
                                       </span>
                                     )}
@@ -805,12 +807,12 @@ function ProjectBoard() {
                     {canEdit && (
                       <div className="mt-2">
                         {showCreateTask === list.id ? (
-                          <form onSubmit={(e) => handleCreateTask(e, list.id)} className="asana-card p-3 animate-fade-in">
+                          <form onSubmit={(e) => handleCreateTask(e, list.id)} className="karya-card p-3 animate-fade-in">
                             <textarea
                               placeholder="Task name"
                               value={newTaskTitle}
                               onChange={(e) => setNewTaskTitle(e.target.value)}
-                              className="w-full bg-transparent border-none p-0 text-sm focus:ring-0 resize-none text-[var(--asana-text-primary)] placeholder-gray-400"
+                              className="w-full bg-transparent border-none p-0 text-sm focus:ring-0 resize-none text-[var(--karya-text-primary)] placeholder-gray-400"
                               autoFocus
                               rows={2}
                               onKeyDown={(e) => {
@@ -818,15 +820,15 @@ function ProjectBoard() {
                                 if (e.key === 'Escape') setShowCreateTask(null);
                               }}
                             />
-                            <div className="flex justify-end space-x-2 mt-2 pt-2 border-t border-[var(--asana-border)]">
-                              <button type="button" onClick={() => setShowCreateTask(null)} className="text-xs font-medium text-[var(--asana-text-secondary)] px-2 py-1 hover:text-[var(--asana-text-primary)] transition-colors">Cancel</button>
-                              <button type="submit" className="asana-button-primary text-xs py-1 px-3">Add Task</button>
+                            <div className="flex justify-end space-x-2 mt-2 pt-2 border-t border-[var(--karya-border)]">
+                              <button type="button" onClick={() => setShowCreateTask(null)} className="text-xs font-medium text-[var(--karya-text-secondary)] px-2 py-1 hover:text-[var(--karya-text-primary)] transition-colors">Cancel</button>
+                              <button type="submit" className="karya-button-primary text-xs py-1 px-3">Add Task</button>
                             </div>
                           </form>
                         ) : (
                           <button
                             onClick={() => setShowCreateTask(list.id)}
-                            className="flex items-center text-[var(--asana-text-secondary)] hover:text-asana-blue text-xs font-medium transition-colors p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 w-full"
+                            className="flex items-center text-[var(--karya-text-secondary)] hover:text-karya-blue text-xs font-medium transition-colors p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 w-full"
                           >
                             <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -843,25 +845,25 @@ function ProjectBoard() {
                 {canEdit && (
                   <div className="w-72 flex-shrink-0">
                     {showCreateList ? (
-                      <form onSubmit={handleCreateList} className="asana-card p-4 animate-fade-in">
+                      <form onSubmit={handleCreateList} className="karya-card p-4 animate-fade-in">
                         <input
                           type="text"
                           placeholder="Section name"
                           value={newListName}
                           onChange={(e) => setNewListName(e.target.value)}
-                          className="asana-input w-full text-sm mb-3"
+                          className="karya-input w-full text-sm mb-3"
                           autoFocus
                           onKeyDown={(e) => e.key === 'Escape' && setShowCreateList(false)}
                         />
                         <div className="flex justify-end space-x-2">
-                          <button type="button" onClick={() => setShowCreateList(false)} className="text-xs text-[var(--asana-text-secondary)] px-3 py-1 hover:text-[var(--asana-text-primary)]">Cancel</button>
-                          <button type="submit" className="asana-button-primary text-xs py-1 px-4">Add Section</button>
+                          <button type="button" onClick={() => setShowCreateList(false)} className="text-xs text-[var(--karya-text-secondary)] px-3 py-1 hover:text-[var(--karya-text-primary)]">Cancel</button>
+                          <button type="submit" className="karya-button-primary text-xs py-1 px-4">Add Section</button>
                         </div>
                       </form>
                     ) : (
                       <button
                         onClick={() => setShowCreateList(true)}
-                        className="w-full flex items-center justify-center p-3 text-[var(--asana-text-secondary)] hover:text-asana-blue border-2 border-dashed border-[var(--asana-border)] hover:border-asana-blue/30 rounded-asana group transition-all"
+                        className="w-full flex items-center justify-center p-3 text-[var(--karya-text-secondary)] hover:text-karya-blue border-2 border-dashed border-[var(--karya-border)] hover:border-karya-blue/30 rounded-karya group transition-all"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -943,7 +945,7 @@ function ProjectBoard() {
         return (
           <div className="absolute inset-0 z-50 flex justify-end">
             <div className="absolute inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm animate-fade-in" onClick={closeTask} />
-            <div className="w-full max-w-full sm:max-w-2xl bg-[var(--asana-surface)] shadow-2xl relative animate-slide-in-right h-full overflow-y-auto border-l border-[var(--asana-border)]">
+            <div className="w-full max-w-full sm:max-w-2xl bg-[var(--karya-surface)] shadow-2xl relative animate-slide-in-right h-full overflow-y-auto border-l border-[var(--karya-border)]">
               <TaskDetail taskId={selectedTaskId} isEmbedded={true} onClose={closeTask} previewTask={previewTask} emitInstant={emitInstant} />
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logout } from '../store/slices/authSlice';
@@ -174,13 +174,13 @@ function Layout() {
     if (location.pathname.includes('/profile')) return 'Profile';
     if (location.pathname.includes('/settings')) return 'Settings';
     if (location.pathname.includes('/workspace')) return 'Workspace Settings';
-    return 'Asana';
+    return 'Karya';
   };
 
   const avatarColor = user?.name ? `hsl(${user.name.charCodeAt(0) * 15}, 65%, 50%)` : '#4573D2';
 
   return (
-    <div className="h-screen flex overflow-hidden font-sans bg-[var(--asana-bg)]">
+    <div className="h-screen flex overflow-hidden font-sans bg-[var(--karya-bg)]">
       {/* Mobile sidebar overlay */}
       {isSidebarOpen && (
         <div className="md:hidden sidebar-mobile-overlay" onClick={() => setIsSidebarOpen(false)} />
@@ -195,19 +195,19 @@ function Layout() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* ── Header ── */}
-        <header className="h-14 bg-[var(--asana-surface)] border-b border-[var(--asana-border)] px-2 sm:px-4 flex items-center justify-between sticky top-0 z-40">
+        <header className="h-14 bg-[var(--karya-surface)] border-b border-[var(--karya-border)] px-2 sm:px-4 flex items-center justify-between sticky top-0 z-40">
           <div className="flex items-center space-x-2 sm:space-x-3">
             {/* Sidebar toggle */}
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-[var(--asana-text-secondary)]"
+              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-[var(--karya-text-secondary)]"
               aria-label="Toggle sidebar"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <span className="text-sm font-semibold text-[var(--asana-text-primary)] hidden sm:block truncate max-w-[150px] lg:max-w-none">
+            <span className="text-sm font-semibold text-[var(--karya-text-primary)] hidden sm:block truncate max-w-[150px] lg:max-w-none">
               {getPageTitle()}
             </span>
           </div>
@@ -215,7 +215,7 @@ function Layout() {
           {/* ── Search ── */}
           <div className="flex-1 max-w-lg mx-2 sm:mx-6 relative hidden sm:block" ref={searchRef}>
             <div className="relative">
-              <span className="absolute inset-y-0 left-3 flex items-center text-[var(--asana-text-secondary)] pointer-events-none">
+              <span className="absolute inset-y-0 left-3 flex items-center text-[var(--karya-text-secondary)] pointer-events-none">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -226,7 +226,7 @@ function Layout() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
                 placeholder="Search tasks..."
-                className="w-full bg-gray-100 dark:bg-[#313338] border-transparent focus:bg-[var(--asana-surface)] focus:ring-2 focus:ring-asana-blue/20 focus:border-asana-blue/30 rounded-full pl-10 pr-4 py-1.5 text-sm transition-all outline-none text-[var(--asana-text-primary)] placeholder-gray-400 dark:placeholder-gray-500"
+                className="w-full bg-gray-100 dark:bg-[#313338] border-transparent focus:bg-[var(--karya-surface)] focus:ring-2 focus:ring-karya-blue/20 focus:border-karya-blue/30 rounded-full pl-10 pr-4 py-1.5 text-sm transition-all outline-none text-[var(--karya-text-primary)] placeholder-gray-400 dark:placeholder-gray-500"
               />
               {searchQuery && (
                 <button
@@ -242,10 +242,10 @@ function Layout() {
 
             {/* Search dropdown */}
             {showSearchResults && searchQuery.trim() && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-asana shadow-xl z-50 max-h-80 overflow-y-auto">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-karya shadow-xl z-50 max-h-80 overflow-y-auto">
                 {searchResults.length > 0 ? (
                   <>
-                    <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)]">
+                    <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--karya-text-secondary)]">
                       Tasks
                     </p>
                     {searchResults.map((task) => {
@@ -275,10 +275,10 @@ function Layout() {
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className={`text-sm font-medium truncate ${task.status === 'DONE' ? 'text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'}`}>{task.title}</p>
+                            <p className={`text-sm font-medium truncate ${task.status === 'DONE' ? 'text-[var(--karya-text-secondary)]' : 'text-[var(--karya-text-primary)]'}`}>{task.title}</p>
                             <div className="flex items-center space-x-1.5 mt-0.5">
                               <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: projectColor }} />
-                              <p className="text-[11px] text-[var(--asana-text-secondary)] truncate">{projectName} &middot; {task.list?.name}</p>
+                              <p className="text-[11px] text-[var(--karya-text-secondary)] truncate">{projectName} &middot; {task.list?.name}</p>
                             </div>
                           </div>
                           {task.assignees?.length > 0 && (
@@ -296,10 +296,10 @@ function Layout() {
                   </>
                 ) : (
                   <div className="px-4 py-6 text-center">
-                    <svg className="w-8 h-8 mx-auto text-[var(--asana-text-secondary)] mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-8 h-8 mx-auto text-[var(--karya-text-secondary)] mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <p className="text-sm text-[var(--asana-text-secondary)]">No tasks found for "{searchQuery}"</p>
+                    <p className="text-sm text-[var(--karya-text-secondary)]">No tasks found for "{searchQuery}"</p>
                   </div>
                 )}
               </div>
@@ -310,7 +310,7 @@ function Layout() {
             {/* Dark mode toggle */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-[var(--asana-text-secondary)]"
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-[var(--karya-text-secondary)]"
               aria-label="Toggle dark mode"
             >
               {theme === 'dark' ? (
@@ -329,7 +329,7 @@ function Layout() {
               <div className="relative" ref={quickAddRef}>
                 <button
                   onClick={() => isWorkspaceAdmin ? setShowQuickAdd(!showQuickAdd) : setShowCreateWizard(true)}
-                  className="bg-asana-coral hover:opacity-90 text-white rounded-full w-7 h-7 flex items-center justify-center shadow transition-all"
+                  className="bg-karya-coral hover:opacity-90 text-white rounded-full w-7 h-7 flex items-center justify-center shadow transition-all"
                   aria-label="Quick add"
                 >
                   <svg
@@ -342,13 +342,13 @@ function Layout() {
                 </button>
 
                 {showQuickAdd && (
-                  <div className="absolute top-full right-0 mt-2 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-asana shadow-xl z-50 min-w-[200px] py-1 animate-fade-in">
+                  <div className="absolute top-full right-0 mt-2 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-karya shadow-xl z-50 min-w-[200px] py-1 animate-fade-in">
                     {isWorkspaceAdmin && (
                       <button
                         onClick={() => { setShowQuickAdd(false); setShowInviteModal(true); }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center transition-colors"
+                        className="w-full text-left px-4 py-2.5 text-sm text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center transition-colors"
                       >
-                        <svg className="w-4 h-4 mr-3 text-asana-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 mr-3 text-karya-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                         </svg>
                         Invite Member
@@ -356,9 +356,9 @@ function Layout() {
                     )}
                     <button
                       onClick={() => { setShowQuickAdd(false); setShowCreateWizard(true); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center transition-colors ${isWorkspaceAdmin ? 'border-t border-gray-50 dark:border-gray-700' : ''}`}
+                      className={`w-full text-left px-4 py-2.5 text-sm text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center transition-colors ${isWorkspaceAdmin ? 'border-t border-gray-50 dark:border-gray-700' : ''}`}
                     >
-                      <svg className="w-4 h-4 mr-3 text-asana-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 mr-3 text-karya-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       Create Project
@@ -372,7 +372,7 @@ function Layout() {
             <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center p-0.5 rounded-full hover:ring-2 hover:ring-asana-blue/30 transition-all"
+                className="flex items-center p-0.5 rounded-full hover:ring-2 hover:ring-karya-blue/30 transition-all"
               >
                 <div
                   className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
@@ -383,36 +383,36 @@ function Layout() {
               </button>
 
               {showUserMenu && (
-                <div className="absolute top-full right-0 mt-2 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-asana shadow-xl z-50 min-w-[220px] py-1 animate-fade-in">
-                  <div className="px-4 py-3 border-b border-[var(--asana-border)]">
-                    <p className="font-semibold text-[var(--asana-text-primary)] text-sm">{user?.name}</p>
-                    <p className="text-xs text-[var(--asana-text-secondary)] mt-0.5">{user?.email}</p>
+                <div className="absolute top-full right-0 mt-2 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-karya shadow-xl z-50 min-w-[220px] py-1 animate-fade-in">
+                  <div className="px-4 py-3 border-b border-[var(--karya-border)]">
+                    <p className="font-semibold text-[var(--karya-text-primary)] text-sm">{user?.name}</p>
+                    <p className="text-xs text-[var(--karya-text-secondary)] mt-0.5">{user?.email}</p>
                   </div>
                   <div className="py-1">
                     <button
                       onClick={() => { setShowUserMenu(false); navigate('/profile'); }}
-                      className="w-full text-left px-4 py-2 text-sm text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2"
+                      className="w-full text-left px-4 py-2 text-sm text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2"
                     >
-                      <svg className="w-4 h-4 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-[var(--karya-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                       <span>My Profile</span>
                     </button>
                     <button
                       onClick={() => { setShowUserMenu(false); navigate('/settings'); }}
-                      className="w-full text-left px-4 py-2 text-sm text-[var(--asana-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2"
+                      className="w-full text-left px-4 py-2 text-sm text-[var(--karya-text-primary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2"
                     >
-                      <svg className="w-4 h-4 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-[var(--karya-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                       <span>Settings</span>
                     </button>
                   </div>
-                  <div className="border-t border-[var(--asana-border)] pt-1">
+                  <div className="border-t border-[var(--karya-border)] pt-1">
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm text-asana-red hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center space-x-2"
+                      className="w-full text-left px-4 py-2 text-sm text-karya-red hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center space-x-2"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -427,7 +427,7 @@ function Layout() {
         </header>
 
         {/* ── Page content ── */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[var(--asana-bg)]">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[var(--karya-bg)]">
           <Outlet />
         </main>
       </div>
@@ -446,26 +446,26 @@ function Layout() {
         {toasts.map(toast => (
           <div
             key={toast.id}
-            className="pointer-events-auto flex items-start gap-3 bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl shadow-xl px-4 py-3 w-80 animate-slide-in-right"
+            className="pointer-events-auto flex items-start gap-3 bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl shadow-xl px-4 py-3 w-80 animate-slide-in-right"
           >
-            <div className="w-8 h-8 rounded-full bg-asana-blue/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <svg className="w-4 h-4 text-asana-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-8 h-8 rounded-full bg-karya-blue/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg className="w-4 h-4 text-karya-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-asana-blue">Task assigned to you</p>
-              <p className="text-sm font-medium text-[var(--asana-text-primary)] truncate mt-0.5">{toast.taskTitle}</p>
+              <p className="text-xs font-semibold text-karya-blue">Task assigned to you</p>
+              <p className="text-sm font-medium text-[var(--karya-text-primary)] truncate mt-0.5">{toast.taskTitle}</p>
               <button
                 onClick={() => { dismissToast(toast.id); navigate('/inbox'); }}
-                className="mt-1.5 text-xs text-asana-blue hover:underline font-medium"
+                className="mt-1.5 text-xs text-karya-blue hover:underline font-medium"
               >
                 View Inbox →
               </button>
             </div>
             <button
               onClick={() => dismissToast(toast.id)}
-              className="text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)] transition-colors flex-shrink-0 mt-0.5"
+              className="text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)] transition-colors flex-shrink-0 mt-0.5"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />

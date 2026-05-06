@@ -78,9 +78,14 @@ export const reportController = {
     return successResponse(res, result);
   },
 
-  // ── Saved report recipients ─────────────────────────────────────────────
+  // ── Saved report recipients — OWNER/ADMIN only ──────────────────────────
   async getRecipients(req, res) {
     const { workspaceId } = req.params;
+    const membership = await prisma.workspaceMember.findFirst({
+      where: { workspaceId, userId: req.user.id, role: { in: ['OWNER', 'ADMIN'] } },
+    });
+    if (!membership) throw ApiError.forbidden('Only workspace admins can manage report recipients');
+
     const recipients = await prisma.reportRecipient.findMany({
       where: { workspaceId },
       orderBy: { createdAt: 'desc' },
@@ -91,6 +96,11 @@ export const reportController = {
 
   async addRecipient(req, res) {
     const { workspaceId } = req.params;
+    const membership = await prisma.workspaceMember.findFirst({
+      where: { workspaceId, userId: req.user.id, role: { in: ['OWNER', 'ADMIN'] } },
+    });
+    if (!membership) throw ApiError.forbidden('Only workspace admins can manage report recipients');
+
     const { email, name } = req.body;
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -119,6 +129,12 @@ export const reportController = {
     const { recipientId } = req.params;
     const recipient = await prisma.reportRecipient.findUnique({ where: { id: recipientId } });
     if (!recipient) throw ApiError.notFound('Recipient not found');
+
+    const membership = await prisma.workspaceMember.findFirst({
+      where: { workspaceId: recipient.workspaceId, userId: req.user.id, role: { in: ['OWNER', 'ADMIN'] } },
+    });
+    if (!membership) throw ApiError.forbidden('Only workspace admins can manage report recipients');
+
     await prisma.reportRecipient.delete({ where: { id: recipientId } });
     return successResponse(res, null, 'Recipient removed');
   },

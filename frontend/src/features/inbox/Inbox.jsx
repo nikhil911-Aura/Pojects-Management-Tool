@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+﻿import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppSelector } from '../../store/hooks';
 import api from '../../services/api';
@@ -122,18 +122,18 @@ function Inbox() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--asana-text-primary)]">Inbox</h1>
-          <p className="text-sm text-[var(--asana-text-secondary)] mt-1">Tasks assigned to you</p>
+          <h1 className="text-2xl font-bold text-[var(--karya-text-primary)]">Inbox</h1>
+          <p className="text-sm text-[var(--karya-text-secondary)] mt-1">Tasks assigned to you</p>
         </div>
         {items.length > 0 && (
-          <span className="text-[10px] font-bold text-[var(--asana-text-secondary)] bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-full">
+          <span className="text-[10px] font-bold text-[var(--karya-text-secondary)] bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-full">
             {counts.pending} pending
           </span>
         )}
       </div>
 
       {/* Filter tabs */}
-      <div className="flex space-x-1 border-b border-[var(--asana-border)] mb-6">
+      <div className="flex space-x-1 border-b border-[var(--karya-border)] mb-6">
         {[
           { key: 'all', label: 'All Tasks' },
           { key: 'pending', label: 'Pending' },
@@ -144,19 +144,19 @@ function Inbox() {
             onClick={() => setFilter(tab.key)}
             className={`px-4 py-2 text-sm font-medium transition-all relative ${
               filter === tab.key
-                ? 'text-asana-blue'
-                : 'text-[var(--asana-text-secondary)] hover:text-[var(--asana-text-primary)]'
+                ? 'text-karya-blue'
+                : 'text-[var(--karya-text-secondary)] hover:text-[var(--karya-text-primary)]'
             }`}
           >
             {tab.label}
             {counts[tab.key] > 0 && (
               <span className={`ml-1.5 text-[10px] rounded-full px-1.5 py-0.5 font-bold ${
-                filter === tab.key ? 'bg-asana-blue/10 text-asana-blue' : 'bg-gray-100 dark:bg-gray-700 text-[var(--asana-text-secondary)]'
+                filter === tab.key ? 'bg-karya-blue/10 text-karya-blue' : 'bg-gray-100 dark:bg-gray-700 text-[var(--karya-text-secondary)]'
               }`}>
                 {counts[tab.key]}
               </span>
             )}
-            {filter === tab.key && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-asana-blue rounded-t-full" />}
+            {filter === tab.key && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-karya-blue rounded-t-full" />}
           </button>
         ))}
       </div>
@@ -172,14 +172,14 @@ function Inbox() {
 
       {/* Empty state */}
       {!loading && filtered.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 text-center bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl">
+        <div className="flex flex-col items-center justify-center py-20 text-center bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl">
           <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-            <svg className="w-8 h-8 text-[var(--asana-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-8 h-8 text-[var(--karya-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
             </svg>
           </div>
-          <p className="font-semibold text-[var(--asana-text-primary)]">No tasks here</p>
-          <p className="text-sm text-[var(--asana-text-secondary)] mt-1.5 max-w-xs">
+          <p className="font-semibold text-[var(--karya-text-primary)]">No tasks here</p>
+          <p className="text-sm text-[var(--karya-text-secondary)] mt-1.5 max-w-xs">
             {filter === 'completed' ? 'No completed tasks yet.' : filter === 'pending' ? 'No pending tasks — you\'re all caught up!' : 'Tasks assigned to you will appear here.'}
           </p>
         </div>
@@ -190,10 +190,10 @@ function Inbox() {
         <div className="space-y-6">
           {grouped.map(([dateLabel, dateItems]) => (
             <div key={dateLabel}>
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-[var(--asana-text-secondary)] mb-2 px-1">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-[var(--karya-text-secondary)] mb-2 px-1">
                 {dateLabel}
               </h3>
-              <div className="bg-[var(--asana-surface)] border border-[var(--asana-border)] rounded-xl overflow-hidden divide-y divide-[var(--asana-border)]">
+              <div className="bg-[var(--karya-surface)] border border-[var(--karya-border)] rounded-xl overflow-hidden divide-y divide-[var(--karya-border)]">
                 {dateItems.map(item => {
                   const task = item.task;
                   if (!task) return null;
@@ -211,7 +211,7 @@ function Inbox() {
                     >
                       {/* Status circle */}
                       <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-3 ${
-                        task.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 group-hover:border-asana-blue'
+                        task.status === 'DONE' ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 group-hover:border-karya-blue'
                       }`}>
                         {task.status === 'DONE' && (
                           <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -222,12 +222,12 @@ function Inbox() {
 
                       {/* Task info */}
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate ${task.status === 'DONE' ? 'text-[var(--asana-text-secondary)]' : 'text-[var(--asana-text-primary)]'} group-hover:text-asana-blue transition-colors`}>
+                        <p className={`text-sm font-medium truncate ${task.status === 'DONE' ? 'text-[var(--karya-text-secondary)]' : 'text-[var(--karya-text-primary)]'} group-hover:text-karya-blue transition-colors`}>
                           {task.title}
                         </p>
                         <div className="flex items-center space-x-1.5 mt-0.5">
                           <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: projectColor }} />
-                          <p className="text-[11px] text-[var(--asana-text-secondary)] truncate">
+                          <p className="text-[11px] text-[var(--karya-text-secondary)] truncate">
                             {projectName}{task.list?.name ? ` · ${task.list.name}` : ''}
                           </p>
                         </div>
@@ -236,7 +236,7 @@ function Inbox() {
                       {/* Right side */}
                       <div className="flex items-center space-x-3 ml-4 flex-shrink-0">
                         {task.dueDate && (
-                          <span className={`text-[11px] font-medium ${isOverdue ? 'text-red-500' : 'text-[var(--asana-text-secondary)]'}`}>
+                          <span className={`text-[11px] font-medium ${isOverdue ? 'text-red-500' : 'text-[var(--karya-text-secondary)]'}`}>
                             {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
                         )}
@@ -244,7 +244,7 @@ function Inbox() {
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${status.cls}`}>
                           {status.label}
                         </span>
-                        <span className="text-[10px] text-[var(--asana-text-muted)]">
+                        <span className="text-[10px] text-[var(--karya-text-muted)]">
                           {formatTimeAgo(item.createdAt)}
                         </span>
                       </div>
@@ -261,7 +261,7 @@ function Inbox() {
               <button
                 onClick={() => fetchInbox(nextCursor)}
                 disabled={loadingMore}
-                className="px-4 py-2 text-xs font-semibold text-asana-blue hover:bg-asana-blue/5 rounded-md transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-xs font-semibold text-karya-blue hover:bg-karya-blue/5 rounded-md transition-colors disabled:opacity-50"
               >
                 {loadingMore ? 'Loading...' : 'Load more'}
               </button>
@@ -274,7 +274,7 @@ function Inbox() {
       {selectedTaskId && createPortal(
         <div className="fixed inset-0 z-[100] flex justify-end">
           <div className="absolute inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedTaskId(null)} />
-          <div className="w-full max-w-2xl bg-[var(--asana-surface)] shadow-2xl relative animate-slide-in-right h-full overflow-y-auto border-l border-[var(--asana-border)]">
+          <div className="w-full max-w-2xl bg-[var(--karya-surface)] shadow-2xl relative animate-slide-in-right h-full overflow-y-auto border-l border-[var(--karya-border)]">
             <TaskDetail taskId={selectedTaskId} isEmbedded onClose={() => setSelectedTaskId(null)} />
           </div>
         </div>,

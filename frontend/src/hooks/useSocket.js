@@ -66,7 +66,7 @@ export const useSocket = (projectId, boardId) => {
   useEffect(() => {
     if (!projectId) return;
 
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+    const socket = io(import.meta.env.VITE_API_URL || window.location.origin, {
       withCredentials: true, reconnection: true, reconnectionAttempts: 5,
       reconnectionDelay: 2000, timeout: 5000,
       transports: ['polling', 'websocket'], upgrade: true,

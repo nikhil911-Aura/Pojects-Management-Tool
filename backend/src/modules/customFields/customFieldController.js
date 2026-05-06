@@ -28,7 +28,7 @@ const customFieldController = {
   },
 
   async getValues(req, res) {
-    const values = await customFieldService.getValuesForProject(req.params.projectId);
+    const values = await customFieldService.getValuesForProject(req.params.projectId, req.user.id);
     return successResponse(res, values);
   }
 };
