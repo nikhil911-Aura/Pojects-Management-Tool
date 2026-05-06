@@ -185,8 +185,17 @@ function Sidebar({ isOpen }) {
       >
         {/* ── Logo / Workspace ── (h-14 to match the main header height exactly) */}
         <div className="h-14 px-4 flex items-center space-x-3 border-b border-white/5 flex-shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-karya-coral to-[#e04030] flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-lg">
-            A
+          <div className="w-8 h-8 rounded-lg flex-shrink-0 shadow-lg overflow-hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="w-full h-full">
+              <defs>
+                <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#4573D2"/>
+                  <stop offset="100%" stopColor="#6366f1"/>
+                </linearGradient>
+              </defs>
+              <rect width="32" height="32" rx="7" fill="url(#sg)"/>
+              <polyline points="7,16 13,22 25,10" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-white truncate leading-tight">
